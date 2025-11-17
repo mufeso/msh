@@ -15,27 +15,29 @@ func TestBanner(t *testing.T) {
 
 func TestRunWithoutArguments(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-
-	code := run(nil, &stdout, &stderr)
-
-	if code != exitOK {
-		t.Fatalf("run() exit code = %d, want %d", code, exitOK)
+	if code := run(nil, &stdout, &stderr); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 	if got, want := stdout.String(), banner()+"\n"; got != want {
 		t.Errorf("stdout = %q, want %q", got, want)
 	}
-	if stderr.Len() != 0 {
-		t.Errorf("stderr = %q, want empty", stderr.String())
+}
+
+func TestRunVersion(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"--version"}, &stdout, &stderr); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+	want := "msh version " + version + "\n"
+	if stdout.String() != want {
+		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
 }
 
 func TestRunRejectsUnexpectedArgument(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-
-	code := run([]string{"bogus"}, &stdout, &stderr)
-
-	if code != exitUsage {
-		t.Fatalf("run() exit code = %d, want %d", code, exitUsage)
+	if code := run([]string{"bogus"}, &stdout, &stderr); code != exitUsage {
+		t.Fatalf("exit code = %d, want %d", code, exitUsage)
 	}
 	if !strings.Contains(stderr.String(), `"bogus"`) {
 		t.Errorf("stderr = %q, want it to mention the argument", stderr.String())

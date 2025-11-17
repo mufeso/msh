@@ -14,7 +14,11 @@ const (
 	appLongName = "My Parallel SSH"
 )
 
-// Exit codes. They become a package of their own in a later step.
+// version is a variable rather than a constant because a later step sets it
+// at build time with: go build -ldflags "-X ...=1.2.3".
+var version = "0.1.0-dev"
+
+// Exit codes.
 const (
 	exitOK    = 0
 	exitUsage = 2
@@ -25,23 +29,28 @@ func banner() string {
 	return appName + " — " + appLongName
 }
 
-// run is the real entry point of the program.
-//
-// It receives everything it needs as parameters instead of reading global
-// state: the command-line arguments (without the program name) and the
-// writers for normal output and diagnostics. It returns the process exit
-// code instead of calling os.Exit. This makes run easy to test: a test can
-// pass a bytes.Buffer and inspect what was written.
+// versionLine returns the text printed by --version.
+func versionLine() string {
+	return fmt.Sprintf("%s version %s", appName, version)
+}
+
+// run is the testable entry point. It returns the process exit code.
 func run(args []string, stdout, stderr io.Writer) int {
-	if len(args) > 0 {
+	if len(args) == 0 {
+		fmt.Fprintln(stdout, banner())
+		return exitOK
+	}
+
+	switch args[0] {
+	case "--version":
+		fmt.Fprintln(stdout, versionLine())
+		return exitOK
+	default:
 		fmt.Fprintf(stderr, "%s: unexpected argument %q\n", appName, args[0])
 		return exitUsage
 	}
-	fmt.Fprintln(stdout, banner())
-	return exitOK
 }
 
 func main() {
-	// os.Args[0] is the program path; the arguments start at index 1.
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
