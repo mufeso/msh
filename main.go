@@ -14,8 +14,7 @@ const (
 	appLongName = "My Parallel SSH"
 )
 
-// version is a variable rather than a constant because a later step sets it
-// at build time with: go build -ldflags "-X ...=1.2.3".
+// version can be overridden at build time.
 var version = "0.1.0-dev"
 
 // Exit codes.
@@ -23,6 +22,18 @@ const (
 	exitOK    = 0
 	exitUsage = 2
 )
+
+// usage is a raw string literal: everything between the backquotes is taken
+// literally, including newlines. No escape sequences are processed.
+const usage = `msh — My Parallel SSH
+
+Usage:
+  msh [--help] [--version]
+
+Options:
+  -h, --help     Show this help and exit.
+      --version  Print the version and exit.
+`
 
 // banner returns the application's display name.
 func banner() string {
@@ -42,11 +53,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	switch args[0] {
+	case "-h", "--help":
+		fmt.Fprint(stdout, usage)
+		return exitOK
 	case "--version":
 		fmt.Fprintln(stdout, versionLine())
 		return exitOK
 	default:
-		fmt.Fprintf(stderr, "%s: unexpected argument %q\n", appName, args[0])
+		fmt.Fprintf(stderr, "%s: unknown argument %q\n", appName, args[0])
+		fmt.Fprintf(stderr, "Run '%s --help' for usage.\n", appName)
 		return exitUsage
 	}
 }
