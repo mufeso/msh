@@ -1,22 +1,12 @@
 // Package app implements the msh command-line interface.
-//
-// Packages under internal/ can only be imported by code inside this module.
-// That lets us change them freely without breaking anyone else.
 package app
 
 import (
 	"fmt"
 	"io"
-)
 
-// Application identity.
-const (
-	appName     = "msh"
-	appLongName = "My Parallel SSH"
+	"example.com/msh/internal/buildinfo"
 )
-
-// version can be overridden at build time.
-var version = "0.1.0-dev"
 
 // Exit codes.
 const (
@@ -34,21 +24,11 @@ Options:
       --version  Print the version and exit.
 `
 
-// Banner returns the application's display name. It is exported (starts
-// with an upper-case letter) so other packages could use it.
-func Banner() string {
-	return appName + " — " + appLongName
-}
-
-func versionLine() string {
-	return fmt.Sprintf("%s version %s", appName, version)
-}
-
 // Run executes msh with the given arguments (without the program name)
 // and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stdout, Banner())
+		fmt.Fprintln(stdout, buildinfo.Banner())
 		return exitOK
 	}
 
@@ -57,11 +37,11 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, usage)
 		return exitOK
 	case "--version":
-		fmt.Fprintln(stdout, versionLine())
+		fmt.Fprintln(stdout, buildinfo.String())
 		return exitOK
 	default:
-		fmt.Fprintf(stderr, "%s: unknown argument %q\n", appName, args[0])
-		fmt.Fprintf(stderr, "Run '%s --help' for usage.\n", appName)
+		fmt.Fprintf(stderr, "%s: unknown argument %q\n", buildinfo.Name, args[0])
+		fmt.Fprintf(stderr, "Run '%s --help' for usage.\n", buildinfo.Name)
 		return exitUsage
 	}
 }

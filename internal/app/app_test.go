@@ -4,21 +4,16 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-)
 
-func TestBanner(t *testing.T) {
-	want := "msh — My Parallel SSH"
-	if got := Banner(); got != want {
-		t.Errorf("Banner() = %q, want %q", got, want)
-	}
-}
+	"example.com/msh/internal/buildinfo"
+)
 
 func TestRunVersion(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := Run([]string{"--version"}, &stdout, &stderr); code != exitOK {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
-	if want := "msh version " + version + "\n"; stdout.String() != want {
+	if want := buildinfo.String() + "\n"; stdout.String() != want {
 		t.Errorf("stdout = %q, want %q", stdout.String(), want)
 	}
 }
