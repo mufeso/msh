@@ -14,34 +14,62 @@ const (
 	exitUsage = 2
 )
 
-const usage = `msh — My Parallel SSH
-
-Usage:
-  msh [--help] [--version]
-
-Options:
-  -h, --help     Show this help and exit.
-      --version  Print the version and exit.
-`
+// cli carries everything a command needs. Commands are methods-like
+// functions that receive a *cli, so adding a new shared dependency later
+// (for example an environment lookup) only means adding a field here.
+type cli struct {
+	stdout io.Writer
+	stderr io.Writer
+}
 
 // Run executes msh with the given arguments (without the program name)
 // and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
+	c := &cli{stdout: stdout, stderr: stderr}
+	return c.run(args)
+}
+
+func (c *cli) run(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stdout, buildinfo.Banner())
+		c.printUsage(c.stdout)
 		return exitOK
 	}
 
 	switch args[0] {
 	case "-h", "--help":
-		fmt.Fprint(stdout, usage)
+		c.printUsage(c.stdout)
 		return exitOK
 	case "--version":
-		fmt.Fprintln(stdout, buildinfo.String())
+		fmt.Fprintln(c.stdout, buildinfo.String())
 		return exitOK
-	default:
-		fmt.Fprintf(stderr, "%s: unknown argument %q\n", buildinfo.Name, args[0])
-		fmt.Fprintf(stderr, "Run '%s --help' for usage.\n", buildinfo.Name)
+	}
+
+	cmd, ok := lookup(args[0])
+	if !ok {
+		c.errorf("unknown command %q", args[0])
+		fmt.Fprintln(c.stderr, "Run 'msh --help' for usage.")
 		return exitUsage
 	}
+	return cmd.run(c, args[1:])
+}
+
+// errorf prints a diagnostic prefixed with the program name to stderr.
+func (c *cli) errorf(format string, a ...any) {
+	fmt.Fprintf(c.stderr, buildinfo.Name+": "+format+"\n", a...)
+}
+
+// printUsage writes the top-level help, generated from the command table.
+func (c *cli) printUsage(w io.Writer) {
+	fmt.Fprintf(w, "%s\n\n", buildinfo.Banner())
+	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  msh <command> [flags]")
+	fmt.Fprintln(w, "  msh --help")
+	fmt.Fprintln(w, "  msh --version")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Commands:")
+	for _, cmd := range commands() {
+		fmt.Fprintf(w, "  %-10s %s\n", cmd.name, cmd.summary)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Run 'msh help <command>' for details about a command.")
 }

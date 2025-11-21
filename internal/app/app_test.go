@@ -16,20 +16,21 @@ func TestRun(t *testing.T) {
 		wantStdout string // substring expected on stdout ("" = must be empty)
 		wantStderr string // substring expected on stderr ("" = must be empty)
 	}{
-		{name: "no arguments", args: nil, wantCode: exitOK, wantStdout: buildinfo.Banner()},
-		{name: "short help", args: []string{"-h"}, wantCode: exitOK, wantStdout: "Usage:"},
-		{name: "long help", args: []string{"--help"}, wantCode: exitOK, wantStdout: "Usage:"},
-		{name: "version", args: []string{"--version"}, wantCode: exitOK, wantStdout: buildinfo.Version},
-		{name: "unknown argument", args: []string{"bogus"}, wantCode: exitUsage, wantStderr: `unknown argument "bogus"`},
-		{name: "unknown flag", args: []string{"--bogus"}, wantCode: exitUsage, wantStderr: "--help"},
+		{name: "no arguments", args: nil, wantCode: exitOK, wantStdout: "Commands:"},
+		{name: "long help", args: []string{"--help"}, wantCode: exitOK, wantStdout: "version"},
+		{name: "version flag", args: []string{"--version"}, wantCode: exitOK, wantStdout: buildinfo.Version},
+		{name: "version command", args: []string{"version"}, wantCode: exitOK, wantStdout: buildinfo.Version},
+		{name: "version extra arg", args: []string{"version", "x"}, wantCode: exitUsage, wantStderr: "no arguments"},
+		{name: "help command", args: []string{"help"}, wantCode: exitOK, wantStdout: "Commands:"},
+		{name: "help for version", args: []string{"help", "version"}, wantCode: exitOK, wantStdout: "Usage: msh version"},
+		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitUsage, wantStderr: `unknown command "nope"`},
+		{name: "unknown command", args: []string{"bogus"}, wantCode: exitUsage, wantStderr: `unknown command "bogus"`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-
 			code := Run(tt.args, &stdout, &stderr)
-
 			if code != tt.wantCode {
 				t.Errorf("exit code = %d, want %d", code, tt.wantCode)
 			}
@@ -39,8 +40,16 @@ func TestRun(t *testing.T) {
 	}
 }
 
-// checkOutput is a test helper. t.Helper makes failures point at the
-// caller's line instead of this function.
+func TestUsageListsEveryCommand(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	Run([]string{"--help"}, &stdout, &stderr)
+	for _, cmd := range commands() {
+		if !strings.Contains(stdout.String(), cmd.name) {
+			t.Errorf("usage does not mention command %q", cmd.name)
+		}
+	}
+}
+
 func checkOutput(t *testing.T, stream, got, want string) {
 	t.Helper()
 	if want == "" {
