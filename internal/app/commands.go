@@ -18,6 +18,7 @@ type command struct {
 func commands() []*command {
 	return []*command{
 		helpCommand(),
+		hostsCommand(),
 		versionCommand(),
 	}
 }

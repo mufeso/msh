@@ -24,6 +24,11 @@ func TestRun(t *testing.T) {
 		{name: "help command", args: []string{"help"}, wantCode: exitOK, wantStdout: "Commands:"},
 		{name: "help for version", args: []string{"help", "version"}, wantCode: exitOK, wantStdout: "Usage: msh version"},
 		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitUsage, wantStderr: `unknown command "nope"`},
+		{name: "hosts without subcommand", args: []string{"hosts"}, wantCode: exitUsage, wantStderr: "Subcommands:"},
+		{name: "hosts list", args: []string{"hosts", "list"}, wantCode: exitOK, wantStdout: "No inventory"},
+		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitOK, wantStdout: "nothing to check"},
+		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitOK, wantStdout: "Subcommands:"},
+		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitUsage, wantStderr: `unknown hosts subcommand "nope"`},
 		{name: "unknown command", args: []string{"bogus"}, wantCode: exitUsage, wantStderr: `unknown command "bogus"`},
 	}
 
