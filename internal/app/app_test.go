@@ -33,6 +33,7 @@ func TestRun(t *testing.T) {
 		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitOK, wantStdout: "nothing to check"},
 		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitOK, wantStdout: "Subcommands:"},
 		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitUsage, wantStderr: `unknown hosts subcommand "nope"`},
+		{name: "typo suggestion", args: []string{"verison"}, wantCode: exitUsage, wantStderr: `Did you mean "version"?`},
 		{name: "unknown command", args: []string{"bogus"}, wantCode: exitUsage, wantStderr: `unknown command "bogus"`},
 	}
 

@@ -47,6 +47,9 @@ func (c *cli) run(args []string) int {
 	cmd, ok := lookup(args[0])
 	if !ok {
 		c.errorf("unknown command %q", args[0])
+		if s, ok := suggest(args[0], commandNames()); ok {
+			fmt.Fprintf(c.stderr, "Did you mean %q?\n", s)
+		}
 		fmt.Fprintln(c.stderr, "Run 'msh --help' for usage.")
 		return exitUsage
 	}
