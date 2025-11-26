@@ -6,12 +6,7 @@ import (
 	"io"
 
 	"example.com/msh/internal/buildinfo"
-)
-
-// Exit codes.
-const (
-	exitOK    = 0
-	exitUsage = 2
+	"example.com/msh/internal/exitcode"
 )
 
 // cli carries everything a command needs. Commands are methods-like
@@ -26,22 +21,22 @@ type cli struct {
 // and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
 	c := &cli{stdout: stdout, stderr: stderr}
-	return c.run(args)
+	return int(c.run(args))
 }
 
-func (c *cli) run(args []string) int {
+func (c *cli) run(args []string) exitcode.Code {
 	if len(args) == 0 {
 		c.printUsage(c.stdout)
-		return exitOK
+		return exitcode.OK
 	}
 
 	switch args[0] {
 	case "-h", "--help":
 		c.printUsage(c.stdout)
-		return exitOK
+		return exitcode.OK
 	case "--version":
 		fmt.Fprintln(c.stdout, buildinfo.String())
-		return exitOK
+		return exitcode.OK
 	}
 
 	cmd, ok := lookup(args[0])
@@ -51,7 +46,7 @@ func (c *cli) run(args []string) int {
 			fmt.Fprintf(c.stderr, "Did you mean %q?\n", s)
 		}
 		fmt.Fprintln(c.stderr, "Run 'msh --help' for usage.")
-		return exitUsage
+		return exitcode.Usage
 	}
 	return cmd.run(c, args[1:])
 }

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+
+	"example.com/msh/internal/exitcode"
 )
 
 // newFlagSet creates a flag set for one command.
@@ -34,12 +36,12 @@ func printFlagUsage(w io.Writer, fs *flag.FlagSet, usage string) {
 // parseFlags parses args. When ok is false the command must return code
 // immediately: either help was requested (exit 0) or the flags were
 // invalid (exit 2). The flag package has already printed the message.
-func parseFlags(fs *flag.FlagSet, args []string) (code int, ok bool) {
+func parseFlags(fs *flag.FlagSet, args []string) (code exitcode.Code, ok bool) {
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return exitOK, false
+			return exitcode.OK, false
 		}
-		return exitUsage, false
+		return exitcode.Usage, false
 	}
-	return exitOK, true
+	return exitcode.OK, true
 }

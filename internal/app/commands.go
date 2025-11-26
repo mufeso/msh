@@ -1,5 +1,7 @@
 package app
 
+import "example.com/msh/internal/exitcode"
+
 // command describes one msh subcommand.
 type command struct {
 	name    string
@@ -8,7 +10,7 @@ type command struct {
 
 	// run is a function value: each command stores the function that
 	// implements it. It receives the arguments after the command name.
-	run func(c *cli, args []string) int
+	run func(c *cli, args []string) exitcode.Code
 }
 
 // commands returns every command in the order shown by --help.

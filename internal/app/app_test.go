@@ -6,42 +6,43 @@ import (
 	"testing"
 
 	"example.com/msh/internal/buildinfo"
+	"example.com/msh/internal/exitcode"
 )
 
 func TestRun(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       []string
-		wantCode   int
+		wantCode   exitcode.Code
 		wantStdout string // substring expected on stdout ("" = must be empty)
 		wantStderr string // substring expected on stderr ("" = must be empty)
 	}{
-		{name: "no arguments", args: nil, wantCode: exitOK, wantStdout: "Commands:"},
-		{name: "long help", args: []string{"--help"}, wantCode: exitOK, wantStdout: "version"},
-		{name: "version flag", args: []string{"--version"}, wantCode: exitOK, wantStdout: buildinfo.Version},
-		{name: "version command", args: []string{"version"}, wantCode: exitOK, wantStdout: buildinfo.Version},
-		{name: "version extra arg", args: []string{"version", "x"}, wantCode: exitUsage, wantStderr: "no arguments"},
-		{name: "version short", args: []string{"version", "--short"}, wantCode: exitOK, wantStdout: buildinfo.Version + "\n"},
-		{name: "version help", args: []string{"version", "--help"}, wantCode: exitOK, wantStderr: "-short"},
-		{name: "version bad flag", args: []string{"version", "--nope"}, wantCode: exitUsage, wantStderr: "flag provided but not defined"},
-		{name: "hosts list help", args: []string{"hosts", "list", "-h"}, wantCode: exitOK, wantStderr: "Usage: msh hosts list"},
-		{name: "help command", args: []string{"help"}, wantCode: exitOK, wantStdout: "Commands:"},
-		{name: "help for version", args: []string{"help", "version"}, wantCode: exitOK, wantStdout: "Usage: msh version"},
-		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitUsage, wantStderr: `unknown command "nope"`},
-		{name: "hosts without subcommand", args: []string{"hosts"}, wantCode: exitUsage, wantStderr: "Subcommands:"},
-		{name: "hosts list", args: []string{"hosts", "list"}, wantCode: exitOK, wantStdout: "No inventory"},
-		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitOK, wantStdout: "nothing to check"},
-		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitOK, wantStdout: "Subcommands:"},
-		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitUsage, wantStderr: `unknown hosts subcommand "nope"`},
-		{name: "typo suggestion", args: []string{"verison"}, wantCode: exitUsage, wantStderr: `Did you mean "version"?`},
-		{name: "unknown command", args: []string{"bogus"}, wantCode: exitUsage, wantStderr: `unknown command "bogus"`},
+		{name: "no arguments", args: nil, wantCode: exitcode.OK, wantStdout: "Commands:"},
+		{name: "long help", args: []string{"--help"}, wantCode: exitcode.OK, wantStdout: "version"},
+		{name: "version flag", args: []string{"--version"}, wantCode: exitcode.OK, wantStdout: buildinfo.Version},
+		{name: "version command", args: []string{"version"}, wantCode: exitcode.OK, wantStdout: buildinfo.Version},
+		{name: "version extra arg", args: []string{"version", "x"}, wantCode: exitcode.Usage, wantStderr: "no arguments"},
+		{name: "version short", args: []string{"version", "--short"}, wantCode: exitcode.OK, wantStdout: buildinfo.Version + "\n"},
+		{name: "version help", args: []string{"version", "--help"}, wantCode: exitcode.OK, wantStderr: "-short"},
+		{name: "version bad flag", args: []string{"version", "--nope"}, wantCode: exitcode.Usage, wantStderr: "flag provided but not defined"},
+		{name: "hosts list help", args: []string{"hosts", "list", "-h"}, wantCode: exitcode.OK, wantStderr: "Usage: msh hosts list"},
+		{name: "help command", args: []string{"help"}, wantCode: exitcode.OK, wantStdout: "Commands:"},
+		{name: "help for version", args: []string{"help", "version"}, wantCode: exitcode.OK, wantStdout: "Usage: msh version"},
+		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown command "nope"`},
+		{name: "hosts without subcommand", args: []string{"hosts"}, wantCode: exitcode.Usage, wantStderr: "Subcommands:"},
+		{name: "hosts list", args: []string{"hosts", "list"}, wantCode: exitcode.OK, wantStdout: "No inventory"},
+		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitcode.OK, wantStdout: "nothing to check"},
+		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitcode.OK, wantStdout: "Subcommands:"},
+		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown hosts subcommand "nope"`},
+		{name: "typo suggestion", args: []string{"verison"}, wantCode: exitcode.Usage, wantStderr: `Did you mean "version"?`},
+		{name: "unknown command", args: []string{"bogus"}, wantCode: exitcode.Usage, wantStderr: `unknown command "bogus"`},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			code := Run(tt.args, &stdout, &stderr)
-			if code != tt.wantCode {
+			if exitcode.Code(code) != tt.wantCode {
 				t.Errorf("exit code = %d, want %d", code, tt.wantCode)
 			}
 			checkOutput(t, "stdout", stdout.String(), tt.wantStdout)

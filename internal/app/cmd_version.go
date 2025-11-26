@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"example.com/msh/internal/buildinfo"
+	"example.com/msh/internal/exitcode"
 )
 
 const versionUsage = `Usage: msh version [--short]
@@ -20,7 +21,7 @@ func versionCommand() *command {
 	}
 }
 
-func runVersion(c *cli, args []string) int {
+func runVersion(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("version", versionUsage)
 	short := fs.Bool("short", false, "print only the version number")
 	if code, ok := parseFlags(fs, args); !ok {
@@ -28,13 +29,13 @@ func runVersion(c *cli, args []string) int {
 	}
 	if fs.NArg() > 0 {
 		c.errorf("version takes no arguments")
-		return exitUsage
+		return exitcode.Usage
 	}
 
 	if *short {
 		fmt.Fprintln(c.stdout, buildinfo.Version)
-		return exitOK
+		return exitcode.OK
 	}
 	fmt.Fprintln(c.stdout, buildinfo.String())
-	return exitOK
+	return exitcode.OK
 }

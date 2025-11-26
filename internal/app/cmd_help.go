@@ -1,6 +1,10 @@
 package app
 
-import "fmt"
+import (
+	"fmt"
+
+	"example.com/msh/internal/exitcode"
+)
 
 func helpCommand() *command {
 	return &command{
@@ -15,21 +19,21 @@ usage of that command.
 	}
 }
 
-func runHelp(c *cli, args []string) int {
+func runHelp(c *cli, args []string) exitcode.Code {
 	switch len(args) {
 	case 0:
 		c.printUsage(c.stdout)
-		return exitOK
+		return exitcode.OK
 	case 1:
 		cmd, ok := lookup(args[0])
 		if !ok {
 			c.errorf("unknown command %q", args[0])
-			return exitUsage
+			return exitcode.Usage
 		}
 		fmt.Fprint(c.stdout, cmd.usage)
-		return exitOK
+		return exitcode.OK
 	default:
 		c.errorf("help accepts at most one command name")
-		return exitUsage
+		return exitcode.Usage
 	}
 }

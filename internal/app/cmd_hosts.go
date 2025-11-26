@@ -1,6 +1,10 @@
 package app
 
-import "fmt"
+import (
+	"fmt"
+
+	"example.com/msh/internal/exitcode"
+)
 
 const hostsUsage = `Usage: msh hosts <subcommand> [flags]
 
@@ -28,10 +32,10 @@ func hostsCommand() *command {
 	}
 }
 
-func runHosts(c *cli, args []string) int {
+func runHosts(c *cli, args []string) exitcode.Code {
 	if len(args) == 0 {
 		fmt.Fprint(c.stderr, hostsUsage)
-		return exitUsage
+		return exitcode.Usage
 	}
 
 	switch args[0] {
@@ -41,28 +45,28 @@ func runHosts(c *cli, args []string) int {
 		return runHostsCheck(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, hostsUsage)
-		return exitOK
+		return exitcode.OK
 	default:
 		c.errorf("unknown hosts subcommand %q", args[0])
 		fmt.Fprint(c.stderr, hostsUsage)
-		return exitUsage
+		return exitcode.Usage
 	}
 }
 
-func runHostsList(c *cli, args []string) int {
+func runHostsList(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("hosts list", hostsListUsage)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
 	fmt.Fprintln(c.stdout, "No inventory configured yet.")
-	return exitOK
+	return exitcode.OK
 }
 
-func runHostsCheck(c *cli, args []string) int {
+func runHostsCheck(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("hosts check", hostsCheckUsage)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
 	fmt.Fprintln(c.stdout, "No inventory configured yet; nothing to check.")
-	return exitOK
+	return exitcode.OK
 }
