@@ -35,6 +35,17 @@ func TestVerboseGoesToStderr(t *testing.T) {
 	}
 }
 
+func TestAllWithHostIsUsageError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := Run([]string{"hosts", "list", "--all", "--host", "web01"}, &stdout, &stderr)
+	if exitcode.Code(code) != exitcode.Usage {
+		t.Fatalf("exit code = %d, want %d", code, exitcode.Usage)
+	}
+	if !strings.Contains(stderr.String(), "--all cannot be combined") {
+		t.Errorf("stderr = %q", stderr.String())
+	}
+}
+
 func TestInvalidOutputIsUsageError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	code := Run([]string{"hosts", "list", "--output", "xml"}, &stdout, &stderr)

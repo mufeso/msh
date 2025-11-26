@@ -55,8 +55,10 @@ func runHosts(c *cli, args []string) exitcode.Code {
 
 func runHostsList(c *cli, args []string) exitcode.Code {
 	var opts commonOptions
+	var sel selectionOptions
 	fs := c.newFlagSet("hosts list", hostsListUsage)
 	opts.register(fs)
+	sel.register(fs)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -64,6 +66,11 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
+	if err := sel.validate(); err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
 	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
 	fmt.Fprintln(c.stdout, "No inventory configured yet.")
 	return exitcode.OK
@@ -71,8 +78,10 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 
 func runHostsCheck(c *cli, args []string) exitcode.Code {
 	var opts commonOptions
+	var sel selectionOptions
 	fs := c.newFlagSet("hosts check", hostsCheckUsage)
 	opts.register(fs)
+	sel.register(fs)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -80,6 +89,11 @@ func runHostsCheck(c *cli, args []string) exitcode.Code {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
+	if err := sel.validate(); err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
 	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
 	fmt.Fprintln(c.stdout, "No inventory configured yet; nothing to check.")
 	return exitcode.OK
