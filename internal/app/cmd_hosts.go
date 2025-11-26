@@ -54,19 +54,33 @@ func runHosts(c *cli, args []string) exitcode.Code {
 }
 
 func runHostsList(c *cli, args []string) exitcode.Code {
+	var opts commonOptions
 	fs := c.newFlagSet("hosts list", hostsListUsage)
+	opts.register(fs)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
+	if err := opts.validate(); err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
 	fmt.Fprintln(c.stdout, "No inventory configured yet.")
 	return exitcode.OK
 }
 
 func runHostsCheck(c *cli, args []string) exitcode.Code {
+	var opts commonOptions
 	fs := c.newFlagSet("hosts check", hostsCheckUsage)
+	opts.register(fs)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
+	if err := opts.validate(); err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
 	fmt.Fprintln(c.stdout, "No inventory configured yet; nothing to check.")
 	return exitcode.OK
 }
