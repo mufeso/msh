@@ -8,7 +8,7 @@ import (
 	"example.com/msh/internal/output"
 )
 
-const versionUsage = `Usage: msh version [--short]
+const versionUsage = `Usage: msh version [--short] [--output text|json]
 
 Prints the msh version, source commit, build date, Go version and platform.
 `
@@ -25,6 +25,7 @@ func versionCommand() *command {
 func runVersion(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("version", versionUsage)
 	short := fs.Bool("short", false, "print only the version number")
+	outputName := fs.String("output", "text", "output `format`: text or json")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -32,20 +33,28 @@ func runVersion(c *cli, args []string) exitcode.Code {
 		c.errorf("version takes no arguments")
 		return exitcode.Usage
 	}
+	format, err := output.ParseFormat(*outputName)
+	if err != nil {
+		c.errorf("--output: %v", err)
+		return exitcode.Usage
+	}
 
 	info := buildinfo.Get()
-	if *short {
+	switch {
+	case *short:
 		fmt.Fprintln(c.stdout, info.Version)
-		return exitcode.OK
+	case format == output.JSON:
+		err = output.WriteJSON(c.stdout, info)
+	default:
+		err = output.KeyValues(c.stdout, []output.Pair{
+			{Key: "Name", Value: info.Name},
+			{Key: "Version", Value: info.Version},
+			{Key: "Commit", Value: info.Commit},
+			{Key: "Built", Value: info.Date},
+			{Key: "Go", Value: info.GoVersion},
+			{Key: "Platform", Value: info.Platform},
+		})
 	}
-	err := output.KeyValues(c.stdout, []output.Pair{
-		{Key: "Name", Value: info.Name},
-		{Key: "Version", Value: info.Version},
-		{Key: "Commit", Value: info.Commit},
-		{Key: "Built", Value: info.Date},
-		{Key: "Go", Value: info.GoVersion},
-		{Key: "Platform", Value: info.Platform},
-	})
 	if err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO

@@ -26,6 +26,8 @@ func TestRun(t *testing.T) {
 		{name: "version help", args: []string{"version", "--help"}, wantCode: exitcode.OK, wantStderr: "-short"},
 		{name: "version bad flag", args: []string{"version", "--nope"}, wantCode: exitcode.Usage, wantStderr: "flag provided but not defined"},
 		{name: "hosts list help", args: []string{"hosts", "list", "-h"}, wantCode: exitcode.OK, wantStderr: "Usage: msh hosts list"},
+		{name: "version json", args: []string{"version", "--output", "json"}, wantCode: exitcode.OK, wantStdout: `"go_version":`},
+		{name: "version bad output", args: []string{"version", "--output", "xml"}, wantCode: exitcode.Usage, wantStderr: "invalid output format"},
 		{name: "help command", args: []string{"help"}, wantCode: exitcode.OK, wantStdout: "Commands:"},
 		{name: "help for version", args: []string{"help", "version"}, wantCode: exitcode.OK, wantStdout: "Usage: msh version"},
 		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown command "nope"`},

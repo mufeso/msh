@@ -10,12 +10,12 @@ import (
 
 func TestCommonOptionsValidate(t *testing.T) {
 	for _, out := range []string{"text", "json"} {
-		o := commonOptions{output: out}
+		o := commonOptions{outputName: out}
 		if err := o.validate(); err != nil {
 			t.Errorf("validate(%q) = %v, want nil", out, err)
 		}
 	}
-	o := commonOptions{output: "xml"}
+	o := commonOptions{outputName: "xml"}
 	if err := o.validate(); err == nil {
 		t.Error("validate(xml) = nil, want error")
 	}

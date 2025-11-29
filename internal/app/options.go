@@ -3,34 +3,38 @@ package app
 import (
 	"flag"
 	"fmt"
+
+	"example.com/msh/internal/output"
 )
 
-// commonOptions are flags accepted by most commands. They are kept in one
-// struct so every command registers and interprets them the same way.
+// commonOptions are flags accepted by most commands.
 type commonOptions struct {
 	configPath    string
 	inventoryPath string
-	output        string
+	outputName    string
 	verbose       bool
+
+	// format is set by validate from outputName.
+	format output.Format
 }
 
-// register adds the common flags to fs. The flag package stores parsed
-// values directly into the struct fields through the pointers we pass.
+// register adds the common flags to fs.
 func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.StringVar(&o.configPath, "config", "", "configuration `file`")
 	fs.StringVar(&o.inventoryPath, "inventory", "", "inventory `file`")
-	fs.StringVar(&o.output, "output", "text", "output `format`: text or json")
+	fs.StringVar(&o.outputName, "output", "text", "output `format`: text or json")
 	fs.BoolVar(&o.verbose, "verbose", false, "print diagnostics to stderr")
 }
 
-// validate checks the values after parsing.
+// validate checks the values after parsing and converts them to typed
+// values.
 func (o *commonOptions) validate() error {
-	switch o.output {
-	case "text", "json":
-		return nil
-	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", o.output)
+	f, err := output.ParseFormat(o.outputName)
+	if err != nil {
+		return fmt.Errorf("--output: %w", err)
 	}
+	o.format = f
+	return nil
 }
 
 // verbosef prints a diagnostic to stderr when verbose is enabled.

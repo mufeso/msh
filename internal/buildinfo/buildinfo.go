@@ -26,13 +26,16 @@ var (
 )
 
 // Info is a snapshot of the build information.
+//
+// The struct tags control the JSON field names. They are part of the
+// machine-readable contract, so they use stable snake_case names.
 type Info struct {
-	Name      string
-	Version   string
-	Commit    string
-	Date      string
-	GoVersion string
-	Platform  string
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	Commit    string `json:"commit"`
+	Date      string `json:"date"`
+	GoVersion string `json:"go_version"`
+	Platform  string `json:"platform"`
 }
 
 // Get returns the build information of the running binary.
