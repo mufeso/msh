@@ -7,7 +7,10 @@
 //	go build -ldflags "-X example.com/msh/internal/buildinfo.Version=1.0.0" ./cmd/msh
 package buildinfo
 
-import "fmt"
+import (
+	"fmt"
+	"runtime"
+)
 
 // Name is the executable name; LongName is what the name stands for.
 const (
@@ -21,6 +24,28 @@ var (
 	Commit  = "unknown"
 	Date    = "unknown"
 )
+
+// Info is a snapshot of the build information.
+type Info struct {
+	Name      string
+	Version   string
+	Commit    string
+	Date      string
+	GoVersion string
+	Platform  string
+}
+
+// Get returns the build information of the running binary.
+func Get() Info {
+	return Info{
+		Name:      Name,
+		Version:   Version,
+		Commit:    Commit,
+		Date:      Date,
+		GoVersion: runtime.Version(),
+		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
+	}
+}
 
 // Banner returns "msh — My Parallel SSH".
 func Banner() string {
