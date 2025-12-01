@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "user": "admin",
+    "port": 22
+  },
+  "servers": [
+    {
+      "name": "web01",
+      "address": "192.0.2.10",
+      "groups": ["web", "production"],
+      "tags": {"environment": "production"}
+    },
+    {
+      "name": "web02",
+      "address": "192.0.2.11",
+      "port": 2222,
+      "groups": ["web", "staging"],
+      "tags": {"environment": "staging"}
+    },
+    {
+      "name": "db01",
+      "address": "db01.example.com",
+      "user": "dbadmin",
+      "groups": ["database", "production"],
+      "tags": {"environment": "production"}
+    }
+  ]
+}

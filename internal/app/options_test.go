@@ -23,14 +23,14 @@ func TestCommonOptionsValidate(t *testing.T) {
 
 func TestVerboseGoesToStderr(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := Run([]string{"hosts", "list", "--verbose", "--inventory", "inv.yaml"}, &stdout, &stderr)
+	code := Run([]string{"hosts", "list", "--verbose", "--inventory", "testdata/inventory.json"}, &stdout, &stderr)
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("exit code = %d", code)
 	}
-	if !strings.Contains(stderr.String(), `inventory file: "inv.yaml"`) {
+	if !strings.Contains(stderr.String(), "loading inventory testdata/inventory.json") {
 		t.Errorf("stderr = %q, want verbose diagnostic", stderr.String())
 	}
-	if strings.Contains(stdout.String(), "inventory file") {
+	if strings.Contains(stdout.String(), "loading inventory") {
 		t.Errorf("diagnostic leaked to stdout: %q", stdout.String())
 	}
 }

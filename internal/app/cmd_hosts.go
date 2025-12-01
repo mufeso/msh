@@ -71,8 +71,13 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
-	fmt.Fprintln(c.stdout, "No inventory configured yet.")
+	inv, code := c.loadInventory(&opts)
+	if inv == nil {
+		return code
+	}
+	for _, s := range inv.Servers {
+		fmt.Fprintln(c.stdout, s.Name)
+	}
 	return exitcode.OK
 }
 
