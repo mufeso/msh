@@ -1,0 +1,13 @@
+msh — My Parallel SSH
+
+Usage:
+  msh <command> [flags]
+  msh --help
+  msh --version
+
+Commands:
+  help       Show help for msh or for one command
+  hosts      List and check inventory servers
+  version    Print version information
+
+Run 'msh help <command>' for details about a command.
