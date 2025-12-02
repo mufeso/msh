@@ -2,8 +2,12 @@ package app
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/inventory"
+	"example.com/msh/internal/output"
 )
 
 const hostsUsage = `Usage: msh hosts <subcommand> [flags]
@@ -75,10 +79,29 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 	if inv == nil {
 		return code
 	}
-	for _, s := range inv.Servers {
-		fmt.Fprintln(c.stdout, s.Name)
+	if err := c.writeServers(opts.format, inv.Servers); err != nil {
+		c.errorf("writing output: %v", err)
+		return exitcode.IO
 	}
 	return exitcode.OK
+}
+
+// writeServers prints servers as a table or as JSON.
+func (c *cli) writeServers(format output.Format, servers []inventory.Server) error {
+	if format == output.JSON {
+		// Encode an empty slice as [] rather than null.
+		if servers == nil {
+			servers = []inventory.Server{}
+		}
+		return output.WriteJSON(c.stdout, servers)
+	}
+	rows := make([][]string, 0, len(servers))
+	for _, s := range servers {
+		rows = append(rows, []string{
+			s.Name, s.Address, strconv.Itoa(s.Port), s.User, strings.Join(s.Groups, ","),
+		})
+	}
+	return output.Table(c.stdout, []string{"NAME", "ADDRESS", "PORT", "USER", "GROUPS"}, rows)
 }
 
 func runHostsCheck(c *cli, args []string) exitcode.Code {
