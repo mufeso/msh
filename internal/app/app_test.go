@@ -35,6 +35,7 @@ func TestRun(t *testing.T) {
 		{name: "hosts list without inventory", args: []string{"hosts", "list"}, wantCode: exitcode.Config, wantStderr: "no inventory file"},
 		{name: "hosts list", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json"}, wantCode: exitcode.OK, wantStdout: "web01\nweb02\ndb01\n"},
 		{name: "hosts list missing file", args: []string{"hosts", "list", "--inventory", "testdata/nope.json"}, wantCode: exitcode.IO, wantStderr: "no such file"},
+		{name: "hosts list invalid inventory", args: []string{"hosts", "list", "--inventory", "testdata/invalid.json"}, wantCode: exitcode.Config, wantStderr: "duplicate name"},
 		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitcode.OK, wantStdout: "nothing to check"},
 		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitcode.OK, wantStdout: "Subcommands:"},
 		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown hosts subcommand "nope"`},

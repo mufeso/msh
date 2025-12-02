@@ -37,5 +37,8 @@ func LoadFile(path string) (*Inventory, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	if err := inv.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return inv, nil
 }

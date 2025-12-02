@@ -1,0 +1,6 @@
+{
+  "servers": [
+    {"name": "web01", "address": ""},
+    {"name": "web01", "address": "192.0.2.10", "port": 99999}
+  ]
+}
