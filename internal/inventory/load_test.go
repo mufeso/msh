@@ -18,6 +18,10 @@ func TestLoadFile(t *testing.T) {
 	if inv.Defaults.User != "admin" {
 		t.Errorf("Defaults.User = %q", inv.Defaults.User)
 	}
+	web01, _ := inv.Find("web01")
+	if web01.Port != 22 {
+		t.Errorf("web01.Port = %d, want default 22", web01.Port)
+	}
 	web02, _ := inv.Find("web02")
 	if web02.Port != 2222 || !web02.InGroup("staging") {
 		t.Errorf("web02 = %+v", web02)
