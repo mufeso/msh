@@ -35,6 +35,8 @@ func TestRun(t *testing.T) {
 		{name: "hosts list without inventory", args: []string{"hosts", "list"}, wantCode: exitcode.Config, wantStderr: "no inventory file"},
 		{name: "hosts list", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json"}, wantCode: exitcode.OK, wantStdout: "web02  192.0.2.11        2222  admin    web,staging"},
 		{name: "hosts list json", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json", "--output", "json"}, wantCode: exitcode.OK, wantStdout: `"name": "db01"`},
+		{name: "hosts list one host", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json", "--host", "db01", "--output", "json"}, wantCode: exitcode.OK, wantStdout: `"name": "db01"`},
+		{name: "hosts list unknown host", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json", "--host", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown host: "nope"`},
 		{name: "hosts list missing file", args: []string{"hosts", "list", "--inventory", "testdata/nope.json"}, wantCode: exitcode.IO, wantStderr: "no such file"},
 		{name: "hosts list invalid inventory", args: []string{"hosts", "list", "--inventory", "testdata/invalid.json"}, wantCode: exitcode.Config, wantStderr: "duplicate name"},
 		{name: "hosts check", args: []string{"hosts", "check"}, wantCode: exitcode.OK, wantStdout: "nothing to check"},

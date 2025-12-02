@@ -79,7 +79,16 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 	if inv == nil {
 		return code
 	}
-	if err := c.writeServers(opts.format, inv.Servers); err != nil {
+	servers := inv.Servers
+	if !sel.isEmpty() {
+		var err error
+		servers, err = inv.Select(sel.selector())
+		if err != nil {
+			c.errorf("%v", err)
+			return exitcode.Usage
+		}
+	}
+	if err := c.writeServers(opts.format, servers); err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO
 	}

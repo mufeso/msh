@@ -5,6 +5,7 @@ import (
 	"flag"
 
 	"example.com/msh/internal/cliflag"
+	"example.com/msh/internal/inventory"
 )
 
 // selectionOptions describe which servers a command acts on.
@@ -33,4 +34,9 @@ func (s *selectionOptions) validate() error {
 		return errors.New("--all cannot be combined with --host, --group or --tag")
 	}
 	return nil
+}
+
+// selector converts the flags into the inventory's domain type.
+func (s *selectionOptions) selector() inventory.Selector {
+	return inventory.Selector{Hosts: s.hosts}
 }
