@@ -22,8 +22,9 @@ func Parse(r io.Reader) (*Inventory, error) {
 	return &inv, nil
 }
 
-// LoadFile opens and parses the inventory file at path.
-func LoadFile(path string) (*Inventory, error) {
+// LoadFile opens, parses, validates and completes the inventory file at
+// path. fallbackUser is used for servers without a user.
+func LoadFile(path, fallbackUser string) (*Inventory, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		// os.Open already returns a *fs.PathError that names the file.
@@ -40,6 +41,6 @@ func LoadFile(path string) (*Inventory, error) {
 	if err := inv.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	inv.ApplyDefaults()
+	inv.ApplyDefaults(fallbackUser)
 	return inv, nil
 }

@@ -3,6 +3,8 @@ package app
 import (
 	"errors"
 	"io/fs"
+	"os"
+	"os/user"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
@@ -16,7 +18,7 @@ func (c *cli) loadInventory(opts *commonOptions) (*inventory.Inventory, exitcode
 		return nil, exitcode.Config
 	}
 	c.verbosef(opts, "loading inventory %s", opts.inventoryPath)
-	inv, err := inventory.LoadFile(opts.inventoryPath)
+	inv, err := inventory.LoadFile(opts.inventoryPath, currentUser())
 	if err != nil {
 		c.errorf("%v", err)
 		// A *fs.PathError means the file itself could not be read; anything
@@ -28,4 +30,13 @@ func (c *cli) loadInventory(opts *commonOptions) (*inventory.Inventory, exitcode
 		return nil, exitcode.Config
 	}
 	return inv, exitcode.OK
+}
+
+// currentUser returns the local login name, used as the last-resort SSH
+// user. os/user can fail in minimal containers, so $USER is a fallback.
+func currentUser() string {
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return u.Username
+	}
+	return os.Getenv("USER")
 }

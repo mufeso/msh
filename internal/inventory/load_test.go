@@ -8,7 +8,7 @@ import (
 )
 
 func TestLoadFile(t *testing.T) {
-	inv, err := LoadFile("testdata/inventory.json")
+	inv, err := LoadFile("testdata/inventory.json", "local")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,6 +22,13 @@ func TestLoadFile(t *testing.T) {
 	if web01.Port != 22 {
 		t.Errorf("web01.Port = %d, want default 22", web01.Port)
 	}
+	if web01.User != "admin" {
+		t.Errorf("web01.User = %q, want inventory default admin", web01.User)
+	}
+	db01, _ := inv.Find("db01")
+	if db01.User != "dbadmin" {
+		t.Errorf("db01.User = %q, want dbadmin", db01.User)
+	}
 	web02, _ := inv.Find("web02")
 	if web02.Port != 2222 || !web02.InGroup("staging") {
 		t.Errorf("web02 = %+v", web02)
@@ -29,7 +36,7 @@ func TestLoadFile(t *testing.T) {
 }
 
 func TestLoadFileMissing(t *testing.T) {
-	_, err := LoadFile("testdata/does-not-exist.json")
+	_, err := LoadFile("testdata/does-not-exist.json", "local")
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("err = %v, want fs.ErrNotExist", err)
 	}
