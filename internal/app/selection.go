@@ -38,5 +38,5 @@ func (s *selectionOptions) validate() error {
 
 // selector converts the flags into the inventory's domain type.
 func (s *selectionOptions) selector() inventory.Selector {
-	return inventory.Selector{Hosts: s.hosts}
+	return inventory.Selector{All: s.all, Hosts: s.hosts, Groups: s.groups, Tags: s.tags}
 }
