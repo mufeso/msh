@@ -1,0 +1,4 @@
+NAME   ADDRESS           PORT  USER     GROUPS
+web01  192.0.2.10        22    admin    web,production
+web02  192.0.2.11        2222  admin    web,staging
+db01   db01.example.com  22    dbadmin  database,production
