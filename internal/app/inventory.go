@@ -1,33 +1,30 @@
 package app
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"os/user"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
 )
 
-// loadInventory loads the inventory named by the options. On failure it
+// loadInventory loads the inventory named by the settings. On failure it
 // prints the error and returns a nil inventory and the exit code to use.
-func (c *cli) loadInventory(opts *commonOptions) (*inventory.Inventory, exitcode.Code) {
-	if opts.inventoryPath == "" {
-		c.errorf("no inventory file: use --inventory FILE")
+func (c *cli) loadInventory(opts *commonOptions, s config.Settings) (*inventory.Inventory, exitcode.Code) {
+	if s.Inventory == "" {
+		c.errorf("no inventory file: use --inventory FILE or set \"inventory\" in the configuration")
 		return nil, exitcode.Config
 	}
-	c.verbosef(opts, "loading inventory %s", opts.inventoryPath)
-	inv, err := inventory.LoadFile(opts.inventoryPath, currentUser())
+	fallbackUser := s.User
+	if fallbackUser == "" {
+		fallbackUser = currentUser()
+	}
+	c.verbosef(opts, "loading inventory %s", s.Inventory)
+	inv, err := inventory.LoadFile(s.Inventory, fallbackUser)
 	if err != nil {
 		c.errorf("%v", err)
-		// A *fs.PathError means the file itself could not be read; anything
-		// else means its content is invalid.
-		var pathErr *fs.PathError
-		if errors.As(err, &pathErr) {
-			return nil, exitcode.IO
-		}
-		return nil, exitcode.Config
+		return nil, fileErrorCode(err)
 	}
 	return inv, exitcode.OK
 }

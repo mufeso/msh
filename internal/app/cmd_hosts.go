@@ -75,7 +75,11 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	inv, code := c.loadInventory(&opts)
+	settings, code, ok := c.loadSettings(&opts)
+	if !ok {
+		return code
+	}
+	inv, code := c.loadInventory(&opts, settings)
 	if inv == nil {
 		return code
 	}

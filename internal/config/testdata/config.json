@@ -1,0 +1,5 @@
+{
+  "inventory": "inventory.json",
+  "user": "ops",
+  "port": 2222
+}
