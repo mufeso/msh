@@ -93,3 +93,13 @@ func TestHostsListGeneratedInventory(t *testing.T) {
 		t.Errorf("servers = %+v", servers)
 	}
 }
+
+func TestHostsListYAMLInventory(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "hosts", "list", "--inventory", "testdata/inventory.yaml", "--group", "database")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "db01") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}

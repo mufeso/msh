@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"example.com/msh/internal/decode"
 )
 
 func TestApplyOnlyOverridesSetFields(t *testing.T) {
@@ -41,8 +43,18 @@ func TestLoadFile(t *testing.T) {
 }
 
 func TestParseRejectsUnknownField(t *testing.T) {
-	_, err := Parse(strings.NewReader(`{"usr": "x"}`))
+	_, err := Parse(strings.NewReader(`{"usr": "x"}`), decode.JSON)
 	if err == nil || !strings.Contains(err.Error(), "usr") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestLoadYAMLFile(t *testing.T) {
+	l, err := LoadFile("testdata/config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.User == nil || *l.User != "ops" || l.Output == nil || *l.Output != "json" {
+		t.Errorf("layer = %+v", l)
 	}
 }

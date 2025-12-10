@@ -1,0 +1,4 @@
+# Example msh configuration (YAML).
+inventory: inventory.yaml
+user: ops
+output: json

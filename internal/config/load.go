@@ -1,34 +1,26 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+
+	"example.com/msh/internal/decode"
 )
 
-// Parse reads a configuration layer in JSON format.
-func Parse(r io.Reader) (Layer, error) {
-	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
+// Parse reads a configuration layer in the given format.
+func Parse(r io.Reader, format decode.Format) (Layer, error) {
 	var l Layer
-	if err := dec.Decode(&l); err != nil {
+	if err := decode.Reader(r, format, &l); err != nil {
 		return Layer{}, fmt.Errorf("parsing configuration: %w", err)
 	}
 	return l, nil
 }
 
-// LoadFile reads the configuration file at path.
+// LoadFile reads the configuration file at path (.yaml, .yml or .json).
 func LoadFile(path string) (Layer, error) {
-	f, err := os.Open(path)
-	if err != nil {
+	var l Layer
+	if err := decode.File(path, &l); err != nil {
 		return Layer{}, err
-	}
-	defer f.Close()
-
-	l, err := Parse(f)
-	if err != nil {
-		return Layer{}, fmt.Errorf("%s: %w", path, err)
 	}
 	return l, nil
 }

@@ -27,12 +27,12 @@ func Defaults() Settings {
 // file. A nil pointer means "this layer does not set the value", which is
 // different from setting it to "" or 0.
 type Layer struct {
-	Inventory      *string `json:"inventory,omitempty"`
-	User           *string `json:"user,omitempty"`
-	Port           *int    `json:"port,omitempty"`
-	IdentityFile   *string `json:"identity_file,omitempty"`
-	KnownHostsFile *string `json:"known_hosts_file,omitempty"`
-	Output         *string `json:"output,omitempty"`
+	Inventory      *string `json:"inventory,omitempty" yaml:"inventory,omitempty"`
+	User           *string `json:"user,omitempty" yaml:"user,omitempty"`
+	Port           *int    `json:"port,omitempty" yaml:"port,omitempty"`
+	IdentityFile   *string `json:"identity_file,omitempty" yaml:"identity_file,omitempty"`
+	KnownHostsFile *string `json:"known_hosts_file,omitempty" yaml:"known_hosts_file,omitempty"`
+	Output         *string `json:"output,omitempty" yaml:"output,omitempty"`
 }
 
 // Apply overrides s with every value that l sets.

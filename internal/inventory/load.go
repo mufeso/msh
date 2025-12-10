@@ -1,46 +1,38 @@
 package inventory
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+
+	"example.com/msh/internal/decode"
 )
 
 // Parse reads an inventory in JSON format from r.
-//
-// Unknown fields are rejected: a typo such as "adress" should be an error,
-// not a silently ignored field.
 func Parse(r io.Reader) (*Inventory, error) {
-	dec := json.NewDecoder(r)
-	dec.DisallowUnknownFields()
+	return ParseFormat(r, decode.JSON)
+}
 
+// ParseFormat reads an inventory in the given format from r. Unknown
+// fields are rejected: a typo such as "adress" must be an error.
+func ParseFormat(r io.Reader, format decode.Format) (*Inventory, error) {
 	var inv Inventory
-	if err := dec.Decode(&inv); err != nil {
+	if err := decode.Reader(r, format, &inv); err != nil {
 		return nil, fmt.Errorf("parsing inventory: %w", err)
 	}
 	return &inv, nil
 }
 
 // LoadFile opens, parses, validates and completes the inventory file at
-// path. fallbackUser is used for servers without a user.
+// path (.yaml, .yml or .json). fallbackUser is used for servers without a
+// user.
 func LoadFile(path, fallbackUser string) (*Inventory, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		// os.Open already returns a *fs.PathError that names the file.
+	var inv Inventory
+	if err := decode.File(path, &inv); err != nil {
 		return nil, err
-	}
-	// defer runs when LoadFile returns, on every path, so the file is
-	// always closed. Close errors do not matter for a read-only file.
-	defer f.Close()
-
-	inv, err := Parse(f)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if err := inv.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	inv.ApplyDefaults(fallbackUser)
-	return inv, nil
+	return &inv, nil
 }

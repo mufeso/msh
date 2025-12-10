@@ -15,12 +15,12 @@ import (
 // The struct tags name the fields in inventory files. "omitempty" leaves
 // empty values out when the server is written back as JSON.
 type Server struct {
-	Name    string            `json:"name"`             // unique, used on the command line
-	Address string            `json:"address"`          // DNS name or IP address
-	User    string            `json:"user,omitempty"`   // remote login user
-	Port    int               `json:"port,omitempty"`   // SSH port; 0 means "use the default"
-	Groups  []string          `json:"groups,omitempty"` // e.g. web, production
-	Tags    map[string]string `json:"tags,omitempty"`   // e.g. environment=production
+	Name    string            `json:"name" yaml:"name"`                         // unique, used on the command line
+	Address string            `json:"address" yaml:"address"`                   // DNS name or IP address
+	User    string            `json:"user,omitempty" yaml:"user,omitempty"`     // remote login user
+	Port    int               `json:"port,omitempty" yaml:"port,omitempty"`     // SSH port; 0 means "use the default"
+	Groups  []string          `json:"groups,omitempty" yaml:"groups,omitempty"` // e.g. web, production
+	Tags    map[string]string `json:"tags,omitempty" yaml:"tags,omitempty"`     // e.g. environment=production
 }
 
 // HostPort returns "address:port", bracketing IPv6 addresses as required
@@ -49,14 +49,14 @@ func (s Server) HasTags(want map[string]string) bool {
 
 // Defaults are values applied to servers that do not set them.
 type Defaults struct {
-	User string `json:"user,omitempty"`
-	Port int    `json:"port,omitempty"`
+	User string `json:"user,omitempty" yaml:"user,omitempty"`
+	Port int    `json:"port,omitempty" yaml:"port,omitempty"`
 }
 
 // Inventory is the complete set of servers.
 type Inventory struct {
-	Defaults Defaults `json:"defaults"`
-	Servers  []Server `json:"servers"`
+	Defaults Defaults `json:"defaults" yaml:"defaults"`
+	Servers  []Server `json:"servers" yaml:"servers"`
 }
 
 // Find returns the server with the given name.

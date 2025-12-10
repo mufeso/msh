@@ -3,6 +3,7 @@ package inventory
 import (
 	"errors"
 	"io/fs"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -52,5 +53,19 @@ func TestParseRejectsUnknownFields(t *testing.T) {
 func TestParseRejectsInvalidJSON(t *testing.T) {
 	if _, err := Parse(strings.NewReader(`{"servers": [`)); err == nil {
 		t.Error("Parse(truncated) = nil error")
+	}
+}
+
+func TestLoadYAMLMatchesJSON(t *testing.T) {
+	fromJSON, err := LoadFile("testdata/inventory.json", "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromYAML, err := LoadFile("testdata/inventory.yaml", "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(fromJSON, fromYAML) {
+		t.Errorf("YAML and JSON inventories differ:\n%+v\n%+v", fromJSON, fromYAML)
 	}
 }
