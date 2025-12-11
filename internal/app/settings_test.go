@@ -34,3 +34,13 @@ func TestMissingConfigFileIsIOError(t *testing.T) {
 func contains(s, sub string) bool {
 	return strings.Contains(s, sub)
 }
+
+func TestInvalidConfigIsConfigError(t *testing.T) {
+	_, stderr, code := runCLI(t, "hosts", "list", "--inventory", "testdata/inventory.yaml", "--config", "testdata/bad-config.yaml")
+	if code != exitcode.Config {
+		t.Errorf("code = %v, want %v", code, exitcode.Config)
+	}
+	if !contains(stderr, "port: 70000 is out of range") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}

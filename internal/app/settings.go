@@ -25,6 +25,10 @@ func (c *cli) loadSettings(opts *commonOptions) (s config.Settings, code exitcod
 	if opts.inventoryPath != "" {
 		s.Inventory = opts.inventoryPath
 	}
+	if err := s.Validate(); err != nil {
+		c.errorf("%v", err)
+		return s, exitcode.Config, false
+	}
 	return s, exitcode.OK, true
 }
 
