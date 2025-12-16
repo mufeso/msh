@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
@@ -51,22 +50,20 @@ func TestRun(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
-			code := Run(tt.args, &stdout, &stderr)
-			if exitcode.Code(code) != tt.wantCode {
+			stdout, stderr, code := runCLI(t, tt.args...)
+			if code != tt.wantCode {
 				t.Errorf("exit code = %d, want %d", code, tt.wantCode)
 			}
-			checkOutput(t, "stdout", stdout.String(), tt.wantStdout)
-			checkOutput(t, "stderr", stderr.String(), tt.wantStderr)
+			checkOutput(t, "stdout", stdout, tt.wantStdout)
+			checkOutput(t, "stderr", stderr, tt.wantStderr)
 		})
 	}
 }
 
 func TestUsageListsEveryCommand(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	Run([]string{"--help"}, &stdout, &stderr)
+	stdout, _, _ := runCLI(t, "--help")
 	for _, cmd := range commands() {
-		if !strings.Contains(stdout.String(), cmd.name) {
+		if !strings.Contains(stdout, cmd.name) {
 			t.Errorf("usage does not mention command %q", cmd.name)
 		}
 	}

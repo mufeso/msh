@@ -17,12 +17,33 @@ import (
 //	go test ./internal/app -run Golden -update
 var update = flag.Bool("update", false, "rewrite golden files")
 
-// runCLI runs msh with args and returns everything it produced.
+// runCLI runs msh with args in an isolated environment that only
+// contains HOME (a fresh temporary directory).
 func runCLI(t *testing.T, args ...string) (stdout, stderr string, code exitcode.Code) {
 	t.Helper()
+	return runCLIEnv(t, nil, args...)
+}
+
+// runCLIEnv runs msh with the given environment variables plus an
+// isolated HOME. The real environment is never consulted, so a developer's
+// own ~/.config/msh/config.yaml cannot change test results.
+func runCLIEnv(t *testing.T, env map[string]string, args ...string) (stdout, stderr string, code exitcode.Code) {
+	t.Helper()
+	vars := map[string]string{"HOME": t.TempDir()}
+	for k, v := range env {
+		vars[k] = v
+	}
 	var out, errOut bytes.Buffer
-	c := Run(args, &out, &errOut)
-	return out.String(), errOut.String(), exitcode.Code(c)
+	c := &cli{
+		stdout: &out,
+		stderr: &errOut,
+		lookupEnv: func(k string) (string, bool) {
+			v, ok := vars[k]
+			return v, ok
+		},
+	}
+	result := c.run(args)
+	return out.String(), errOut.String(), result
 }
 
 // golden compares got with testdata/<name>.golden.

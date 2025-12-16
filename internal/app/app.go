@@ -4,8 +4,10 @@ package app
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"example.com/msh/internal/buildinfo"
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/exitcode"
 )
 
@@ -15,12 +17,16 @@ import (
 type cli struct {
 	stdout io.Writer
 	stderr io.Writer
+
+	// lookupEnv reads environment variables. Run uses os.LookupEnv;
+	// tests pass a fake so they never depend on the real environment.
+	lookupEnv config.LookupFunc
 }
 
 // Run executes msh with the given arguments (without the program name)
 // and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
-	c := &cli{stdout: stdout, stderr: stderr}
+	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv}
 	return int(c.run(args))
 }
 
