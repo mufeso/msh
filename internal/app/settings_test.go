@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -42,5 +44,33 @@ func TestInvalidConfigIsConfigError(t *testing.T) {
 	}
 	if !contains(stderr, "port: 70000 is out of range") {
 		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestFlagOverridesConfigFile(t *testing.T) {
+	// testdata/config.json sets user "fromconfig"; web01 has no user of its
+	// own but the inventory default "admin" applies to it, so use a
+	// generated inventory without defaults.
+	dir := t.TempDir()
+	inv := filepath.Join(dir, "inv.yaml")
+	if err := os.WriteFile(inv, []byte("servers:\n  - name: a\n    address: 192.0.2.1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfg, []byte("user: fromconfig\nport: 2222\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, stderr, code := runCLI(t, "hosts", "list", "--config", cfg, "--inventory", inv, "--user", "fromflag")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "fromflag") {
+		t.Errorf("flag did not win: %q", stdout)
+	}
+
+	stdout, _, _ = runCLI(t, "hosts", "list", "--config", cfg, "--inventory", inv)
+	if !contains(stdout, "fromconfig") {
+		t.Errorf("config file value missing: %q", stdout)
 	}
 }

@@ -66,10 +66,6 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if err := opts.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
 	if err := sel.validate(); err != nil {
 		c.errorf("%v", err)
 		return exitcode.Usage
@@ -126,16 +122,14 @@ func runHostsCheck(c *cli, args []string) exitcode.Code {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if err := opts.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
 	if err := sel.validate(); err != nil {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
 	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	c.verbosef(&opts, "inventory file: %q", opts.inventoryPath)
-	fmt.Fprintln(c.stdout, "No inventory configured yet; nothing to check.")
+	if _, code, ok := c.loadSettings(&opts); !ok {
+		return code
+	}
+	fmt.Fprintln(c.stdout, "Connectivity checks are added together with SSH support.")
 	return exitcode.OK
 }

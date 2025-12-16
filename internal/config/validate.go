@@ -32,12 +32,12 @@ func (e *ValidationError) add(key, format string, a ...any) {
 func (s Settings) Validate() error {
 	verr := &ValidationError{}
 	if s.Port < 1 || s.Port > 65535 {
-		verr.add("port", "%d is out of range 1-65535", s.Port)
+		verr.add(KeyPort, "%d is out of range 1-65535", s.Port)
 	}
 	switch s.Output {
 	case "text", "json":
 	default:
-		verr.add("output", "%q is not one of text, json", s.Output)
+		verr.add(KeyOutput, "%q is not one of text, json", s.Output)
 	}
 	if len(verr.Problems) > 0 {
 		return verr

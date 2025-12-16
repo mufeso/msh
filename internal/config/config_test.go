@@ -7,25 +7,29 @@ import (
 	"example.com/msh/internal/decode"
 )
 
-func TestApplyOnlyOverridesSetFields(t *testing.T) {
-	s := Defaults()
-	user := "ops"
-	s.Apply(Layer{User: &user})
-	if s.User != "ops" {
-		t.Errorf("User = %q, want ops", s.User)
+func ptr[T any](v T) *T { return &v }
+
+func TestResolvePrecedence(t *testing.T) {
+	file := Layer{User: ptr("fileuser"), Port: ptr(2222)}
+	flags := Layer{User: ptr("flaguser")}
+
+	s := Resolve(Source{SourceFile, file}, Source{SourceFlag, flags})
+
+	if s.User != "flaguser" || s.Sources[KeyUser] != SourceFlag {
+		t.Errorf("user = %q from %q, want flaguser from flag", s.User, s.Sources[KeyUser])
 	}
-	if s.Port != 22 || s.Output != "text" {
-		t.Errorf("unset fields changed: %+v", s)
+	if s.Port != 2222 || s.Sources[KeyPort] != SourceFile {
+		t.Errorf("port = %d from %q, want 2222 from config file", s.Port, s.Sources[KeyPort])
+	}
+	if s.Output != "text" || s.Sources[KeyOutput] != SourceDefault {
+		t.Errorf("output = %q from %q, want text from default", s.Output, s.Sources[KeyOutput])
 	}
 }
 
 func TestApplyCanSetZeroValue(t *testing.T) {
-	// A pointer to "" is different from nil: it explicitly clears the value.
-	s := Defaults()
-	empty := ""
-	s.Apply(Layer{Output: &empty})
-	if s.Output != "" {
-		t.Errorf("Output = %q, want empty", s.Output)
+	s := Resolve(Source{SourceFlag, Layer{User: ptr("")}})
+	if s.User != "" || s.Sources[KeyUser] != SourceFlag {
+		t.Errorf("explicit empty value not applied: %+v", s)
 	}
 }
 

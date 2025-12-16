@@ -1,55 +1,60 @@
 package app
 
 import (
-	"bytes"
+	"flag"
+	"io"
 	"strings"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
 )
 
-func TestCommonOptionsValidate(t *testing.T) {
-	for _, out := range []string{"text", "json"} {
-		o := commonOptions{outputName: out}
-		if err := o.validate(); err != nil {
-			t.Errorf("validate(%q) = %v, want nil", out, err)
-		}
+func TestSettingsLayerOnlyContainsSetFlags(t *testing.T) {
+	var opts commonOptions
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	opts.register(fs)
+	if err := fs.Parse([]string{"--user", "ops", "--port", "2200"}); err != nil {
+		t.Fatal(err)
 	}
-	o := commonOptions{outputName: "xml"}
-	if err := o.validate(); err == nil {
-		t.Error("validate(xml) = nil, want error")
+	l := opts.settingsLayer()
+	if l.User == nil || *l.User != "ops" {
+		t.Errorf("User = %v", l.User)
+	}
+	if l.Port == nil || *l.Port != 2200 {
+		t.Errorf("Port = %v", l.Port)
+	}
+	if l.Output != nil || l.Inventory != nil {
+		t.Errorf("unset flags leaked into layer: %+v", l)
 	}
 }
 
 func TestVerboseGoesToStderr(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := Run([]string{"hosts", "list", "--verbose", "--inventory", "testdata/inventory.json"}, &stdout, &stderr)
-	if exitcode.Code(code) != exitcode.OK {
-		t.Fatalf("exit code = %d", code)
+	stdout, stderr, code := runCLI(t, "hosts", "list", "--verbose", "--inventory", "testdata/inventory.json")
+	if code != exitcode.OK {
+		t.Fatalf("exit code = %v", code)
 	}
-	if !strings.Contains(stderr.String(), "loading inventory testdata/inventory.json") {
-		t.Errorf("stderr = %q, want verbose diagnostic", stderr.String())
+	if !strings.Contains(stderr, "loading inventory testdata/inventory.json") {
+		t.Errorf("stderr = %q, want verbose diagnostic", stderr)
 	}
-	if strings.Contains(stdout.String(), "loading inventory") {
-		t.Errorf("diagnostic leaked to stdout: %q", stdout.String())
+	if strings.Contains(stdout, "loading inventory") {
+		t.Errorf("diagnostic leaked to stdout: %q", stdout)
 	}
 }
 
 func TestAllWithHostIsUsageError(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := Run([]string{"hosts", "list", "--all", "--host", "web01"}, &stdout, &stderr)
-	if exitcode.Code(code) != exitcode.Usage {
-		t.Fatalf("exit code = %d, want %d", code, exitcode.Usage)
+	_, stderr, code := runCLI(t, "hosts", "list", "--all", "--host", "web01")
+	if code != exitcode.Usage {
+		t.Fatalf("exit code = %v, want %v", code, exitcode.Usage)
 	}
-	if !strings.Contains(stderr.String(), "--all cannot be combined") {
-		t.Errorf("stderr = %q", stderr.String())
+	if !strings.Contains(stderr, "--all cannot be combined") {
+		t.Errorf("stderr = %q", stderr)
 	}
 }
 
-func TestInvalidOutputIsUsageError(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	code := Run([]string{"hosts", "list", "--output", "xml"}, &stdout, &stderr)
-	if exitcode.Code(code) != exitcode.Usage {
-		t.Fatalf("exit code = %d, want %d", code, exitcode.Usage)
+func TestInvalidOutputFlagIsUsageError(t *testing.T) {
+	_, _, code := runCLI(t, "hosts", "list", "--inventory", "testdata/inventory.json", "--output", "xml")
+	if code != exitcode.Usage {
+		t.Fatalf("exit code = %v, want %v", code, exitcode.Usage)
 	}
 }

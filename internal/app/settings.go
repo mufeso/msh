@@ -6,12 +6,13 @@ import (
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/output"
 )
 
-// loadSettings resolves the settings for this run. On failure it prints
-// the error and returns ok=false with the exit code to use.
+// loadSettings resolves the settings for this run from all layers. On
+// failure it prints the error and returns ok=false with the exit code.
 func (c *cli) loadSettings(opts *commonOptions) (s config.Settings, code exitcode.Code, ok bool) {
-	s = config.Defaults()
+	var sources []config.Source
 	if opts.configPath != "" {
 		c.verbosef(opts, "loading configuration %s", opts.configPath)
 		layer, err := config.LoadFile(opts.configPath)
@@ -19,17 +20,31 @@ func (c *cli) loadSettings(opts *commonOptions) (s config.Settings, code exitcod
 			c.errorf("%v", err)
 			return s, fileErrorCode(err), false
 		}
-		s.Apply(layer)
+		sources = append(sources, config.Source{Name: config.SourceFile, Layer: layer})
 	}
-	// The --inventory flag overrides the configuration file.
-	if opts.inventoryPath != "" {
-		s.Inventory = opts.inventoryPath
-	}
+	sources = append(sources, config.Source{Name: config.SourceFlag, Layer: opts.settingsLayer()})
+
+	s = config.Resolve(sources...)
 	if err := s.Validate(); err != nil {
 		c.errorf("%v", err)
-		return s, exitcode.Config, false
+		return s, validationExitCode(s, err), false
 	}
+	opts.format = output.Format(s.Output)
 	return s, exitcode.OK, true
+}
+
+// validationExitCode returns Usage when a bad value came from a flag (the
+// user typed it just now) and Config when it came from a file.
+func validationExitCode(s config.Settings, err error) exitcode.Code {
+	var verr *config.ValidationError
+	if errors.As(err, &verr) {
+		for _, p := range verr.Problems {
+			if s.Sources[p.Key] == config.SourceFlag {
+				return exitcode.Usage
+			}
+		}
+	}
+	return exitcode.Config
 }
 
 // fileErrorCode maps a load error to an exit code: a *fs.PathError means
