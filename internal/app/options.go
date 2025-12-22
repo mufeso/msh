@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/output"
@@ -22,19 +23,19 @@ type commonOptions struct {
 
 // settingsFlags maps settings flags to configuration keys.
 var settingsFlags = map[string]string{
-	"inventory":   config.KeyInventory,
-	"user":        config.KeyUser,
-	"port":        config.KeyPort,
-	"identity":    config.KeyIdentityFile,
-	"known-hosts": config.KeyKnownHostsFile,
-	"output":      config.KeyOutput,
+	"inventory":       config.KeyInventory,
+	"user":            config.KeyUser,
+	"port":            config.KeyPort,
+	"identity":        config.KeyIdentityFile,
+	"known-hosts":     config.KeyKnownHostsFile,
+	"output":          config.KeyOutput,
+	"connect-timeout": config.KeyConnectTimeout,
+	"command-timeout": config.KeyCommandTimeout,
+	"timeout":         config.KeyTimeout,
 }
 
-// register adds the common flags to fs.
-//
-// The settings flags are registered without destination variables we read
-// directly: their defaults are only shown in help. settingsLayer later
-// reads the values of the flags the user actually typed.
+// register adds the common flags to fs. The defaults shown in help come
+// from config.Defaults, the single source of truth.
 func (o *commonOptions) register(fs *flag.FlagSet) {
 	o.fs = fs
 	d := config.Defaults()
@@ -46,26 +47,27 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.String("identity", "", "private key `file`")
 	fs.String("known-hosts", "", "known_hosts `file`")
 	fs.String("output", d.Output, "output `format`: text or json")
+	fs.Duration("connect-timeout", d.ConnectTimeout, "TCP connect and SSH handshake `timeout` per server")
+	fs.Duration("command-timeout", d.CommandTimeout, "remote command `timeout` per server (0 = none)")
+	fs.Duration("timeout", d.Timeout, "global `timeout` for the whole run (0 = none)")
 }
 
 // settingsLayer builds a configuration layer from the flags that were set
-// on the command line. Flags left at their defaults are not included, so
-// they cannot override a configuration file.
+// on the command line.
 func (o *commonOptions) settingsLayer() config.Layer {
 	var l config.Layer
 	o.fs.Visit(func(f *flag.Flag) {
-		// v is a new variable on every call, so each pointer below points
-		// at its own value.
 		v := f.Value.String()
+		// Only standard flag types implement flag.Getter, so the type
+		// assertion happens lazily, inside the cases that need it.
+		get := func() any { return f.Value.(flag.Getter).Get() }
 		switch settingsFlags[f.Name] {
 		case config.KeyInventory:
 			l.Inventory = &v
 		case config.KeyUser:
 			l.User = &v
 		case config.KeyPort:
-			// flag.Getter exposes the typed value; the type assertions
-			// recover the int stored by fs.Int.
-			p := f.Value.(flag.Getter).Get().(int)
+			p := get().(int)
 			l.Port = &p
 		case config.KeyIdentityFile:
 			l.IdentityFile = &v
@@ -73,9 +75,20 @@ func (o *commonOptions) settingsLayer() config.Layer {
 			l.KnownHostsFile = &v
 		case config.KeyOutput:
 			l.Output = &v
+		case config.KeyConnectTimeout:
+			l.ConnectTimeout = durationPtr(get().(time.Duration))
+		case config.KeyCommandTimeout:
+			l.CommandTimeout = durationPtr(get().(time.Duration))
+		case config.KeyTimeout:
+			l.Timeout = durationPtr(get().(time.Duration))
 		}
 	})
 	return l
+}
+
+func durationPtr(d time.Duration) *config.Duration {
+	v := config.Duration(d)
+	return &v
 }
 
 // verbosef prints a diagnostic to stderr when verbose is enabled.

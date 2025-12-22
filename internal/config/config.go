@@ -1,9 +1,11 @@
 // Package config holds msh settings and resolves them from several layers.
 //
-// Precedence, from highest to lowest (completed over the next steps):
+// Precedence, from highest to lowest:
 //
 //	command-line flag > environment variable > configuration file > built-in default
 package config
+
+import "time"
 
 // Setting keys, as written in configuration files. They also name the
 // entries in Settings.Sources.
@@ -14,6 +16,9 @@ const (
 	KeyIdentityFile   = "identity_file"
 	KeyKnownHostsFile = "known_hosts_file"
 	KeyOutput         = "output"
+	KeyConnectTimeout = "connect_timeout"
+	KeyCommandTimeout = "command_timeout"
+	KeyTimeout        = "timeout"
 )
 
 // Source names used in Settings.Sources.
@@ -32,6 +37,10 @@ type Settings struct {
 	KnownHostsFile string
 	Output         string
 
+	ConnectTimeout time.Duration // TCP connect + SSH handshake, per server
+	CommandTimeout time.Duration // remote command, per server (0 = none)
+	Timeout        time.Duration // whole run, all servers (0 = none)
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string
 }
@@ -39,8 +48,10 @@ type Settings struct {
 // Defaults returns the built-in defaults, the lowest layer.
 func Defaults() Settings {
 	s := Settings{
-		Port:   22,
-		Output: "text",
+		Port:           22,
+		Output:         "text",
+		ConnectTimeout: 10 * time.Second,
+		CommandTimeout: 60 * time.Second,
 	}
 	s.Sources = map[string]string{}
 	for _, k := range Keys() {
@@ -51,17 +62,23 @@ func Defaults() Settings {
 
 // Keys returns every setting key in display order.
 func Keys() []string {
-	return []string{KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput}
+	return []string{
+		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
+		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
+	}
 }
 
 // Layer is a partial configuration. A nil pointer means "not set here".
 type Layer struct {
-	Inventory      *string `json:"inventory,omitempty" yaml:"inventory,omitempty"`
-	User           *string `json:"user,omitempty" yaml:"user,omitempty"`
-	Port           *int    `json:"port,omitempty" yaml:"port,omitempty"`
-	IdentityFile   *string `json:"identity_file,omitempty" yaml:"identity_file,omitempty"`
-	KnownHostsFile *string `json:"known_hosts_file,omitempty" yaml:"known_hosts_file,omitempty"`
-	Output         *string `json:"output,omitempty" yaml:"output,omitempty"`
+	Inventory      *string   `json:"inventory,omitempty" yaml:"inventory,omitempty"`
+	User           *string   `json:"user,omitempty" yaml:"user,omitempty"`
+	Port           *int      `json:"port,omitempty" yaml:"port,omitempty"`
+	IdentityFile   *string   `json:"identity_file,omitempty" yaml:"identity_file,omitempty"`
+	KnownHostsFile *string   `json:"known_hosts_file,omitempty" yaml:"known_hosts_file,omitempty"`
+	Output         *string   `json:"output,omitempty" yaml:"output,omitempty"`
+	ConnectTimeout *Duration `json:"connect_timeout,omitempty" yaml:"connect_timeout,omitempty"`
+	CommandTimeout *Duration `json:"command_timeout,omitempty" yaml:"command_timeout,omitempty"`
+	Timeout        *Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 // Source is a named layer.
@@ -92,6 +109,9 @@ func (s *Settings) Apply(name string, l Layer) {
 	set(s, name, KeyIdentityFile, &s.IdentityFile, l.IdentityFile)
 	set(s, name, KeyKnownHostsFile, &s.KnownHostsFile, l.KnownHostsFile)
 	set(s, name, KeyOutput, &s.Output, l.Output)
+	setDuration(s, name, KeyConnectTimeout, &s.ConnectTimeout, l.ConnectTimeout)
+	setDuration(s, name, KeyCommandTimeout, &s.CommandTimeout, l.CommandTimeout)
+	setDuration(s, name, KeyTimeout, &s.Timeout, l.Timeout)
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -99,5 +119,13 @@ func set[T any](s *Settings, source, key string, dst *T, src *T) {
 	if src != nil {
 		*dst = *src
 		s.Sources[key] = source
+	}
+}
+
+// setDuration is set for Duration values, which convert to time.Duration.
+func setDuration(s *Settings, source, key string, dst *time.Duration, src *Duration) {
+	if src != nil {
+		v := time.Duration(*src)
+		set(s, source, key, dst, &v)
 	}
 }

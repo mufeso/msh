@@ -39,6 +39,15 @@ func (s Settings) Validate() error {
 	default:
 		verr.add(KeyOutput, "%q is not one of text, json", s.Output)
 	}
+	if s.ConnectTimeout <= 0 {
+		verr.add(KeyConnectTimeout, "must be greater than 0")
+	}
+	if s.CommandTimeout < 0 {
+		verr.add(KeyCommandTimeout, "must not be negative (0 means no limit)")
+	}
+	if s.Timeout < 0 {
+		verr.add(KeyTimeout, "must not be negative (0 means no limit)")
+	}
 	if len(verr.Problems) > 0 {
 		return verr
 	}

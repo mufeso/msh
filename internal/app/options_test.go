@@ -58,3 +58,30 @@ func TestInvalidOutputFlagIsUsageError(t *testing.T) {
 		t.Fatalf("exit code = %v, want %v", code, exitcode.Usage)
 	}
 }
+
+func TestTimeoutFlagsBecomeLayer(t *testing.T) {
+	var opts commonOptions
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	opts.register(fs)
+	if err := fs.Parse([]string{"--connect-timeout", "3s", "--timeout", "1m"}); err != nil {
+		t.Fatal(err)
+	}
+	l := opts.settingsLayer()
+	if l.ConnectTimeout == nil || l.ConnectTimeout.String() != "3s" {
+		t.Errorf("ConnectTimeout = %v", l.ConnectTimeout)
+	}
+	if l.Timeout == nil || l.Timeout.String() != "1m0s" {
+		t.Errorf("Timeout = %v", l.Timeout)
+	}
+	if l.CommandTimeout != nil {
+		t.Error("unset --command-timeout leaked into the layer")
+	}
+}
+
+func TestBadTimeoutFlagIsUsageError(t *testing.T) {
+	_, _, code := runCLI(t, "hosts", "list", "--inventory", "testdata/inventory.json", "--connect-timeout", "0s")
+	if code != exitcode.Usage {
+		t.Errorf("code = %v, want usage", code)
+	}
+}

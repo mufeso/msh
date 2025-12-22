@@ -28,3 +28,14 @@ func TestValidateProblems(t *testing.T) {
 		t.Errorf("problems = %+v", verr.Problems)
 	}
 }
+
+func TestValidateTimeouts(t *testing.T) {
+	s := Defaults()
+	s.ConnectTimeout = 0
+	s.CommandTimeout = -1
+	err := s.Validate()
+	var verr *ValidationError
+	if !errors.As(err, &verr) || len(verr.Problems) != 2 {
+		t.Fatalf("err = %v, want two problems", err)
+	}
+}

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strconv"
+	"time"
 )
 
 // SourceEnv names the environment layer in Settings.Sources.
@@ -17,11 +18,12 @@ const (
 	EnvIdentityFile   = "MSH_IDENTITY_FILE"
 	EnvKnownHostsFile = "MSH_KNOWN_HOSTS_FILE"
 	EnvOutput         = "MSH_OUTPUT"
+	EnvConnectTimeout = "MSH_CONNECT_TIMEOUT"
+	EnvCommandTimeout = "MSH_COMMAND_TIMEOUT"
+	EnvTimeout        = "MSH_TIMEOUT"
 )
 
-// LookupFunc has the same signature as os.LookupEnv. Accepting a function
-// instead of calling os.LookupEnv directly lets tests pass a fake
-// environment.
+// LookupFunc has the same signature as os.LookupEnv.
 type LookupFunc func(key string) (string, bool)
 
 // EnvLayer builds a layer from environment variables. A variable that is
@@ -40,12 +42,43 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	l.KnownHostsFile = str(EnvKnownHostsFile)
 	l.Output = str(EnvOutput)
 
-	if v := str(EnvPort); v != nil {
-		p, err := strconv.Atoi(*v)
-		if err != nil {
-			return Layer{}, fmt.Errorf("%s=%q: not a number", EnvPort, *v)
-		}
-		l.Port = &p
+	var err error
+	if l.Port, err = envInt(str, EnvPort); err != nil {
+		return Layer{}, err
+	}
+	if l.ConnectTimeout, err = envDuration(str, EnvConnectTimeout); err != nil {
+		return Layer{}, err
+	}
+	if l.CommandTimeout, err = envDuration(str, EnvCommandTimeout); err != nil {
+		return Layer{}, err
+	}
+	if l.Timeout, err = envDuration(str, EnvTimeout); err != nil {
+		return Layer{}, err
 	}
 	return l, nil
+}
+
+func envInt(str func(string) *string, name string) (*int, error) {
+	v := str(name)
+	if v == nil {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(*v)
+	if err != nil {
+		return nil, fmt.Errorf("%s=%q: not a number", name, *v)
+	}
+	return &n, nil
+}
+
+func envDuration(str func(string) *string, name string) (*Duration, error) {
+	v := str(name)
+	if v == nil {
+		return nil, nil
+	}
+	d, err := time.ParseDuration(*v)
+	if err != nil {
+		return nil, fmt.Errorf("%s=%q: not a duration (use for example 30s)", name, *v)
+	}
+	dd := Duration(d)
+	return &dd, nil
 }
