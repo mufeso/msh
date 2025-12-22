@@ -21,6 +21,9 @@ const (
 	EnvConnectTimeout = "MSH_CONNECT_TIMEOUT"
 	EnvCommandTimeout = "MSH_COMMAND_TIMEOUT"
 	EnvTimeout        = "MSH_TIMEOUT"
+	EnvMode           = "MSH_MODE"
+	EnvWorkers        = "MSH_WORKERS"
+	EnvOrdered        = "MSH_ORDERED"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -41,6 +44,7 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	l.IdentityFile = str(EnvIdentityFile)
 	l.KnownHostsFile = str(EnvKnownHostsFile)
 	l.Output = str(EnvOutput)
+	l.Mode = str(EnvMode)
 
 	var err error
 	if l.Port, err = envInt(str, EnvPort); err != nil {
@@ -54,6 +58,16 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	}
 	if l.Timeout, err = envDuration(str, EnvTimeout); err != nil {
 		return Layer{}, err
+	}
+	if l.Workers, err = envInt(str, EnvWorkers); err != nil {
+		return Layer{}, err
+	}
+	if v := str(EnvOrdered); v != nil {
+		b, perr := strconv.ParseBool(*v)
+		if perr != nil {
+			return Layer{}, fmt.Errorf("%s=%q: not a boolean (use true or false)", EnvOrdered, *v)
+		}
+		l.Ordered = &b
 	}
 	return l, nil
 }

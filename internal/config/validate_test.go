@@ -39,3 +39,14 @@ func TestValidateTimeouts(t *testing.T) {
 		t.Fatalf("err = %v, want two problems", err)
 	}
 }
+
+func TestValidateExecutionSettings(t *testing.T) {
+	s := Defaults()
+	s.Mode = "fast"
+	s.Workers = 0
+	err := s.Validate()
+	var verr *ValidationError
+	if !errors.As(err, &verr) || len(verr.Problems) != 2 {
+		t.Fatalf("err = %v, want two problems", err)
+	}
+}

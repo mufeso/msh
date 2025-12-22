@@ -67,3 +67,17 @@ func TestDefaultConfigPath(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestEnvExecutionSettings(t *testing.T) {
+	l, err := EnvLayer(fakeEnv(map[string]string{EnvMode: "sequential", EnvWorkers: "3", EnvOrdered: "true"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := Resolve(Source{SourceEnv, l})
+	if s.Mode != ModeSequential || s.Workers != 3 || !s.Ordered {
+		t.Errorf("settings = %+v", s)
+	}
+	if _, err := EnvLayer(fakeEnv(map[string]string{EnvOrdered: "maybe"})); err == nil {
+		t.Error("MSH_ORDERED=maybe accepted")
+	}
+}

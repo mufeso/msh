@@ -19,6 +19,15 @@ const (
 	KeyConnectTimeout = "connect_timeout"
 	KeyCommandTimeout = "command_timeout"
 	KeyTimeout        = "timeout"
+	KeyMode           = "mode"
+	KeyWorkers        = "workers"
+	KeyOrdered        = "ordered"
+)
+
+// Execution modes.
+const (
+	ModeSequential = "sequential"
+	ModeParallel   = "parallel"
 )
 
 // Source names used in Settings.Sources.
@@ -41,6 +50,10 @@ type Settings struct {
 	CommandTimeout time.Duration // remote command, per server (0 = none)
 	Timeout        time.Duration // whole run, all servers (0 = none)
 
+	Mode    string // "sequential" or "parallel"
+	Workers int    // maximum concurrent servers in parallel mode
+	Ordered bool   // print results in selection order instead of completion order
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string
 }
@@ -52,6 +65,8 @@ func Defaults() Settings {
 		Output:         "text",
 		ConnectTimeout: 10 * time.Second,
 		CommandTimeout: 60 * time.Second,
+		Mode:           ModeParallel,
+		Workers:        5,
 	}
 	s.Sources = map[string]string{}
 	for _, k := range Keys() {
@@ -65,6 +80,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
+		KeyMode, KeyWorkers, KeyOrdered,
 	}
 }
 
@@ -79,6 +95,9 @@ type Layer struct {
 	ConnectTimeout *Duration `json:"connect_timeout,omitempty" yaml:"connect_timeout,omitempty"`
 	CommandTimeout *Duration `json:"command_timeout,omitempty" yaml:"command_timeout,omitempty"`
 	Timeout        *Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Mode           *string   `json:"mode,omitempty" yaml:"mode,omitempty"`
+	Workers        *int      `json:"workers,omitempty" yaml:"workers,omitempty"`
+	Ordered        *bool     `json:"ordered,omitempty" yaml:"ordered,omitempty"`
 }
 
 // Source is a named layer.
@@ -112,6 +131,9 @@ func (s *Settings) Apply(name string, l Layer) {
 	setDuration(s, name, KeyConnectTimeout, &s.ConnectTimeout, l.ConnectTimeout)
 	setDuration(s, name, KeyCommandTimeout, &s.CommandTimeout, l.CommandTimeout)
 	setDuration(s, name, KeyTimeout, &s.Timeout, l.Timeout)
+	set(s, name, KeyMode, &s.Mode, l.Mode)
+	set(s, name, KeyWorkers, &s.Workers, l.Workers)
+	set(s, name, KeyOrdered, &s.Ordered, l.Ordered)
 }
 
 // set copies *src into *dst when src is not nil and records the source.

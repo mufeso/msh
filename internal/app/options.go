@@ -32,6 +32,9 @@ var settingsFlags = map[string]string{
 	"connect-timeout": config.KeyConnectTimeout,
 	"command-timeout": config.KeyCommandTimeout,
 	"timeout":         config.KeyTimeout,
+	"mode":            config.KeyMode,
+	"workers":         config.KeyWorkers,
+	"ordered":         config.KeyOrdered,
 }
 
 // register adds the common flags to fs. The defaults shown in help come
@@ -50,6 +53,9 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.Duration("connect-timeout", d.ConnectTimeout, "TCP connect and SSH handshake `timeout` per server")
 	fs.Duration("command-timeout", d.CommandTimeout, "remote command `timeout` per server (0 = none)")
 	fs.Duration("timeout", d.Timeout, "global `timeout` for the whole run (0 = none)")
+	fs.String("mode", d.Mode, "execution `mode`: sequential or parallel")
+	fs.Int("workers", d.Workers, "maximum concurrent `servers` in parallel mode")
+	fs.Bool("ordered", d.Ordered, "print results in selection order instead of completion order")
 }
 
 // settingsLayer builds a configuration layer from the flags that were set
@@ -81,6 +87,14 @@ func (o *commonOptions) settingsLayer() config.Layer {
 			l.CommandTimeout = durationPtr(get().(time.Duration))
 		case config.KeyTimeout:
 			l.Timeout = durationPtr(get().(time.Duration))
+		case config.KeyMode:
+			l.Mode = &v
+		case config.KeyWorkers:
+			n := get().(int)
+			l.Workers = &n
+		case config.KeyOrdered:
+			b := get().(bool)
+			l.Ordered = &b
 		}
 	})
 	return l
