@@ -5,7 +5,10 @@
 //	command-line flag > environment variable > configuration file > built-in default
 package config
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // Setting keys, as written in configuration files. They also name the
 // entries in Settings.Sources.
@@ -39,23 +42,23 @@ const (
 
 // Settings are fully resolved values: every field has a usable value.
 type Settings struct {
-	Inventory      string
-	User           string
-	Port           int
-	IdentityFile   string
-	KnownHostsFile string
-	Output         string
+	Inventory      string `json:"inventory"`
+	User           string `json:"user"`
+	Port           int    `json:"port"`
+	IdentityFile   string `json:"identity_file"`
+	KnownHostsFile string `json:"known_hosts_file"`
+	Output         string `json:"output"`
 
-	ConnectTimeout time.Duration // TCP connect + SSH handshake, per server
-	CommandTimeout time.Duration // remote command, per server (0 = none)
-	Timeout        time.Duration // whole run, all servers (0 = none)
+	ConnectTimeout time.Duration `json:"connect_timeout"` // TCP connect + SSH handshake, per server
+	CommandTimeout time.Duration `json:"command_timeout"` // remote command, per server (0 = none)
+	Timeout        time.Duration `json:"timeout"`         // whole run, all servers (0 = none)
 
-	Mode    string // "sequential" or "parallel"
-	Workers int    // maximum concurrent servers in parallel mode
-	Ordered bool   // print results in selection order instead of completion order
+	Mode    string `json:"mode"`    // "sequential" or "parallel"
+	Workers int    `json:"workers"` // maximum concurrent servers in parallel mode
+	Ordered bool   `json:"ordered"` // print results in selection order instead of completion order
 
 	// Sources maps each setting key to the layer that provided its value.
-	Sources map[string]string
+	Sources map[string]string `json:"-"`
 }
 
 // Defaults returns the built-in defaults, the lowest layer.
@@ -149,5 +152,37 @@ func setDuration(s *Settings, source, key string, dst *time.Duration, src *Durat
 	if src != nil {
 		v := time.Duration(*src)
 		set(s, source, key, dst, &v)
+	}
+}
+
+// Value returns the setting named key formatted for display.
+func (s Settings) Value(key string) string {
+	switch key {
+	case KeyInventory:
+		return s.Inventory
+	case KeyUser:
+		return s.User
+	case KeyPort:
+		return strconv.Itoa(s.Port)
+	case KeyIdentityFile:
+		return s.IdentityFile
+	case KeyKnownHostsFile:
+		return s.KnownHostsFile
+	case KeyOutput:
+		return s.Output
+	case KeyConnectTimeout:
+		return s.ConnectTimeout.String()
+	case KeyCommandTimeout:
+		return s.CommandTimeout.String()
+	case KeyTimeout:
+		return s.Timeout.String()
+	case KeyMode:
+		return s.Mode
+	case KeyWorkers:
+		return strconv.Itoa(s.Workers)
+	case KeyOrdered:
+		return strconv.FormatBool(s.Ordered)
+	default:
+		return ""
 	}
 }

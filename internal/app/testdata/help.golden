@@ -6,6 +6,7 @@ Usage:
   msh --version
 
 Commands:
+  config     Show and validate configuration
   help       Show help for msh or for one command
   hosts      List and check inventory servers
   version    Print version information

@@ -19,6 +19,7 @@ type command struct {
 // such as help can call it without creating an initialization cycle.
 func commands() []*command {
 	return []*command{
+		configCommand(),
 		helpCommand(),
 		hostsCommand(),
 		versionCommand(),
