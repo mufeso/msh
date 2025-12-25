@@ -81,3 +81,33 @@ func TestEnvExecutionSettings(t *testing.T) {
 		t.Error("MSH_ORDERED=maybe accepted")
 	}
 }
+
+func TestExpandHome(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"~", "/home/u"},
+		{"~/.ssh/known_hosts", "/home/u/.ssh/known_hosts"},
+		{"/etc/msh.yaml", "/etc/msh.yaml"},
+		{"~other/file", "~other/file"},
+		{"relative/~/x", "relative/~/x"},
+	}
+	for _, tt := range tests {
+		if got := ExpandHome(tt.in, "/home/u"); got != tt.want {
+			t.Errorf("ExpandHome(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+	if got := ExpandHome("~/x", ""); got != "~/x" {
+		t.Errorf("without home: %q", got)
+	}
+}
+
+func TestSafeDefaults(t *testing.T) {
+	d := Defaults()
+	if d.KnownHostsFile == "" {
+		t.Error("known_hosts_file must have a default: host keys are always verified")
+	}
+	s := d
+	s.ExpandPaths("/home/u")
+	if s.KnownHostsFile != "/home/u/.ssh/known_hosts" || s.Inventory != "/home/u/.config/msh/inventory.yaml" {
+		t.Errorf("expanded = %+v", s)
+	}
+}

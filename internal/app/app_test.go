@@ -31,7 +31,7 @@ func TestRun(t *testing.T) {
 		{name: "help for version", args: []string{"help", "version"}, wantCode: exitcode.OK, wantStdout: "Usage: msh version"},
 		{name: "help unknown", args: []string{"help", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown command "nope"`},
 		{name: "hosts without subcommand", args: []string{"hosts"}, wantCode: exitcode.Usage, wantStderr: "Subcommands:"},
-		{name: "hosts list without inventory", args: []string{"hosts", "list"}, wantCode: exitcode.Config, wantStderr: "no inventory file"},
+		{name: "hosts list without inventory", args: []string{"hosts", "list"}, wantCode: exitcode.Config, wantStderr: "no inventory file at"},
 		{name: "hosts list", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json"}, wantCode: exitcode.OK, wantStdout: "web02  192.0.2.11        2222  admin    web,staging"},
 		{name: "hosts list json", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json", "--output", "json"}, wantCode: exitcode.OK, wantStdout: `"name": "db01"`},
 		{name: "hosts list one host", args: []string{"hosts", "list", "--inventory", "testdata/inventory.json", "--host", "db01", "--output", "json"}, wantCode: exitcode.OK, wantStdout: `"name": "db01"`},

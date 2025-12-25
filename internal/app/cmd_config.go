@@ -62,10 +62,11 @@ func runConfigShow(c *cli, args []string) exitcode.Code {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	s, code, ok := c.loadSettings(&opts)
-	if !ok {
+	st, code := c.load(&opts, false)
+	if st == nil {
 		return code
 	}
+	s := st.settings
 
 	views := make([]settingView, 0, len(config.Keys()))
 	for _, k := range config.Keys() {

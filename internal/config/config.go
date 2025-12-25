@@ -35,9 +35,10 @@ const (
 
 // Source names used in Settings.Sources.
 const (
-	SourceDefault = "default"
-	SourceFile    = "config file"
-	SourceFlag    = "flag"
+	SourceDefault   = "default"
+	SourceFile      = "config file"
+	SourceInventory = "inventory defaults"
+	SourceFlag      = "flag"
 )
 
 // Settings are fully resolved values: every field has a usable value.
@@ -64,7 +65,9 @@ type Settings struct {
 // Defaults returns the built-in defaults, the lowest layer.
 func Defaults() Settings {
 	s := Settings{
+		Inventory:      "~/.config/msh/inventory.yaml",
 		Port:           22,
+		KnownHostsFile: "~/.ssh/known_hosts",
 		Output:         "text",
 		ConnectTimeout: 10 * time.Second,
 		CommandTimeout: 60 * time.Second,

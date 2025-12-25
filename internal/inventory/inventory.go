@@ -6,6 +6,8 @@ package inventory
 
 import (
 	"net"
+
+	"example.com/msh/internal/config"
 	"slices"
 	"strconv"
 )
@@ -47,10 +49,15 @@ func (s Server) HasTags(want map[string]string) bool {
 	return true
 }
 
-// Defaults are values applied to servers that do not set them.
+// Defaults is the inventory's "defaults:" block. It is a configuration
+// layer: it can set the same values as a configuration file (user, port,
+// timeouts, workers, ...), and it is applied with higher precedence than
+// the configuration file but lower than environment variables and flags.
+//
+// config.Layer is embedded. encoding/json promotes the fields of an
+// embedded struct automatically; yaml.v3 needs the ",inline" tag.
 type Defaults struct {
-	User string `json:"user,omitempty" yaml:"user,omitempty"`
-	Port int    `json:"port,omitempty" yaml:"port,omitempty"`
+	config.Layer `yaml:",inline"`
 }
 
 // Inventory is the complete set of servers.

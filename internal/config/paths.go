@@ -1,6 +1,9 @@
 package config
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // DefaultConfigPath returns the configuration file used when neither
 // --config nor MSH_CONFIG is given: $XDG_CONFIG_HOME/msh/config.yaml, or
@@ -13,4 +16,26 @@ func DefaultConfigPath(lookup LookupFunc) string {
 		return filepath.Join(home, ".config", "msh", "config.yaml")
 	}
 	return ""
+}
+
+// ExpandHome replaces a leading "~" or "~/" in path with home. Other
+// paths, including "~user/...", are returned unchanged.
+func ExpandHome(path, home string) string {
+	if home == "" {
+		return path
+	}
+	if path == "~" {
+		return home
+	}
+	if rest, ok := strings.CutPrefix(path, "~/"); ok {
+		return filepath.Join(home, rest)
+	}
+	return path
+}
+
+// ExpandPaths expands "~" in every path-valued setting.
+func (s *Settings) ExpandPaths(home string) {
+	s.Inventory = ExpandHome(s.Inventory, home)
+	s.IdentityFile = ExpandHome(s.IdentityFile, home)
+	s.KnownHostsFile = ExpandHome(s.KnownHostsFile, home)
 }

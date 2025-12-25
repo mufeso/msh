@@ -6,38 +6,33 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"example.com/msh/internal/decode"
 )
 
 func TestLoadFile(t *testing.T) {
-	inv, err := LoadFile("testdata/inventory.json", "local")
+	inv, err := LoadFile("testdata/inventory.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(inv.Servers) != 3 {
 		t.Fatalf("got %d servers, want 3", len(inv.Servers))
 	}
-	if inv.Defaults.User != "admin" {
-		t.Errorf("Defaults.User = %q", inv.Defaults.User)
-	}
-	web01, _ := inv.Find("web01")
-	if web01.Port != 22 {
-		t.Errorf("web01.Port = %d, want default 22", web01.Port)
-	}
-	if web01.User != "admin" {
-		t.Errorf("web01.User = %q, want inventory default admin", web01.User)
-	}
-	db01, _ := inv.Find("db01")
-	if db01.User != "dbadmin" {
-		t.Errorf("db01.User = %q, want dbadmin", db01.User)
+	if u := inv.Defaults.User; u == nil || *u != "admin" {
+		t.Errorf("Defaults.User = %v", u)
 	}
 	web02, _ := inv.Find("web02")
 	if web02.Port != 2222 || !web02.InGroup("staging") {
 		t.Errorf("web02 = %+v", web02)
 	}
+	web01, _ := inv.Find("web01")
+	if web01.Port != 0 {
+		t.Errorf("LoadFile must not apply defaults; web01.Port = %d", web01.Port)
+	}
 }
 
 func TestLoadFileMissing(t *testing.T) {
-	_, err := LoadFile("testdata/does-not-exist.json", "local")
+	_, err := LoadFile("testdata/does-not-exist.json")
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("err = %v, want fs.ErrNotExist", err)
 	}
@@ -57,15 +52,37 @@ func TestParseRejectsInvalidJSON(t *testing.T) {
 }
 
 func TestLoadYAMLMatchesJSON(t *testing.T) {
-	fromJSON, err := LoadFile("testdata/inventory.json", "local")
+	fromJSON, err := LoadFile("testdata/inventory.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	fromYAML, err := LoadFile("testdata/inventory.yaml", "local")
+	fromYAML, err := LoadFile("testdata/inventory.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(fromJSON, fromYAML) {
 		t.Errorf("YAML and JSON inventories differ:\n%+v\n%+v", fromJSON, fromYAML)
+	}
+}
+
+func TestDefaultsAcceptConfigKeys(t *testing.T) {
+	in := "defaults:\n  workers: 3\n  connect_timeout: 4s\nservers:\n  - name: a\n    address: 192.0.2.1\n"
+	inv, err := ParseFormat(strings.NewReader(in), decode.YAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := inv.Defaults.Workers; w == nil || *w != 3 {
+		t.Errorf("workers = %v", w)
+	}
+}
+
+func TestDefaultsCannotSetInventory(t *testing.T) {
+	in := "defaults:\n  inventory: other.yaml\nservers:\n  - name: a\n    address: 192.0.2.1\n"
+	inv, err := ParseFormat(strings.NewReader(in), decode.YAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.Validate(); err == nil {
+		t.Error("Validate accepted defaults.inventory")
 	}
 }

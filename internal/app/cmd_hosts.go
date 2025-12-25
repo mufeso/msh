@@ -71,18 +71,14 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	settings, code, ok := c.loadSettings(&opts)
-	if !ok {
+	st, code := c.load(&opts, true)
+	if st == nil {
 		return code
 	}
-	inv, code := c.loadInventory(&opts, settings)
-	if inv == nil {
-		return code
-	}
-	servers := inv.Servers
+	servers := st.inv.Servers
 	if !sel.isEmpty() {
 		var err error
-		servers, err = inv.Select(sel.selector())
+		servers, err = st.inv.Select(sel.selector())
 		if err != nil {
 			c.errorf("%v", err)
 			return exitcode.Usage
@@ -127,7 +123,7 @@ func runHostsCheck(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	if _, code, ok := c.loadSettings(&opts); !ok {
+	if st, code := c.load(&opts, false); st == nil {
 		return code
 	}
 	fmt.Fprintln(c.stdout, "Connectivity checks are added together with SSH support.")

@@ -22,10 +22,10 @@ func ParseFormat(r io.Reader, format decode.Format) (*Inventory, error) {
 	return &inv, nil
 }
 
-// LoadFile opens, parses, validates and completes the inventory file at
-// path (.yaml, .yml or .json). fallbackUser is used for servers without a
-// user.
-func LoadFile(path, fallbackUser string) (*Inventory, error) {
+// LoadFile opens, parses and validates the inventory file at path (.yaml,
+// .yml or .json). The caller applies defaults with ApplyDefaults after
+// resolving the settings.
+func LoadFile(path string) (*Inventory, error) {
 	var inv Inventory
 	if err := decode.File(path, &inv); err != nil {
 		return nil, err
@@ -33,6 +33,5 @@ func LoadFile(path, fallbackUser string) (*Inventory, error) {
 	if err := inv.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	inv.ApplyDefaults(fallbackUser)
 	return &inv, nil
 }

@@ -42,7 +42,7 @@ func TestInvalidConfigIsConfigError(t *testing.T) {
 	if code != exitcode.Config {
 		t.Errorf("code = %v, want %v", code, exitcode.Config)
 	}
-	if !contains(stderr, "port: 70000 is out of range") {
+	if !contains(stderr, "workers: 0 is out of range") {
 		t.Errorf("stderr = %q", stderr)
 	}
 }
@@ -125,5 +125,50 @@ func TestDefaultConfigFileIsOptionalButUsed(t *testing.T) {
 	}
 	if !contains(stdout, "fromdefaultfile") {
 		t.Errorf("default config not used: %q", stdout)
+	}
+}
+
+func TestInventoryDefaultsLayer(t *testing.T) {
+	dir := t.TempDir()
+	inv := filepath.Join(dir, "inv.yaml")
+	content := "defaults:\n  user: invdefault\n  workers: 7\nservers:\n  - name: a\n    address: 192.0.2.1\n"
+	if err := os.WriteFile(inv, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(dir, "cfg.yaml")
+	if err := os.WriteFile(cfg, []byte("user: fromconfig\nworkers: 2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Inventory defaults beat the config file...
+	stdout, stderr, code := runCLI(t, "hosts", "list", "--config", cfg, "--inventory", inv)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "invdefault") {
+		t.Errorf("inventory default user not used: %q", stdout)
+	}
+	// ...but environment variables beat inventory defaults.
+	stdout, _, _ = runCLIEnv(t, map[string]string{"MSH_USER": "fromenv"}, "hosts", "list", "--config", cfg, "--inventory", inv)
+	if !contains(stdout, "fromenv") {
+		t.Errorf("environment did not beat inventory defaults: %q", stdout)
+	}
+}
+
+func TestHomeExpansionAndDefaultInventory(t *testing.T) {
+	home := t.TempDir()
+	dir := filepath.Join(home, ".config", "msh")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inv := "servers:\n  - name: a\n    address: 192.0.2.1\n"
+	if err := os.WriteFile(filepath.Join(dir, "inventory.yaml"), []byte(inv), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runCLIEnv(t, map[string]string{"HOME": home}, "hosts", "list")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "192.0.2.1") {
+		t.Errorf("default inventory not used: %q", stdout)
 	}
 }

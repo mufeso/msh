@@ -34,8 +34,11 @@ func (inv *Inventory) Validate() error {
 	if len(inv.Servers) == 0 {
 		verr.add("no servers defined")
 	}
-	if !validPort(inv.Defaults.Port) {
-		verr.add("defaults: port %d out of range 1-65535", inv.Defaults.Port)
+	if inv.Defaults.Inventory != nil {
+		verr.add("defaults: \"inventory\" cannot be set inside an inventory")
+	}
+	if p := inv.Defaults.Port; p != nil && (*p < 1 || *p > 65535) {
+		verr.add("defaults: port %d out of range 1-65535", *p)
 	}
 
 	seen := make(map[string]int) // name -> index of first occurrence
