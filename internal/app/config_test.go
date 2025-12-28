@@ -51,3 +51,27 @@ func TestConfigShowText(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestConfigValidate(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "config", "validate", "--inventory", "testdata/inventory.yaml", "--output", "json")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	var sum validationSummary
+	if err := json.Unmarshal([]byte(stdout), &sum); err != nil {
+		t.Fatal(err)
+	}
+	if !sum.Valid || sum.Servers != 3 || len(sum.Groups) != 4 || sum.Groups[0] != "database" {
+		t.Errorf("summary = %+v", sum)
+	}
+}
+
+func TestConfigValidateInvalidInventory(t *testing.T) {
+	_, stderr, code := runCLI(t, "config", "validate", "--inventory", "testdata/invalid.json")
+	if code != exitcode.Config {
+		t.Errorf("code = %v, want config", code)
+	}
+	if !contains(stderr, "duplicate name") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}

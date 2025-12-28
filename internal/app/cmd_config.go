@@ -12,6 +12,7 @@ const configUsage = `Usage: msh config <subcommand> [flags]
 
 Subcommands:
   show      Show effective settings and where each value came from
+  validate  Validate the configuration and the inventory
 
 Precedence: flag > environment variable > configuration file > default.
 `
@@ -38,6 +39,8 @@ func runConfig(c *cli, args []string) exitcode.Code {
 	switch args[0] {
 	case "show":
 		return runConfigShow(c, args[1:])
+	case "validate":
+		return runConfigValidate(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, configUsage)
 		return exitcode.OK

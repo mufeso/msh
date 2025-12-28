@@ -3,18 +3,29 @@
 msh is a command-line SSH fleet-management tool for Linux servers. It is
 being built step by step as a Go learning project.
 
-At this step msh can only print its banner, help and version. Later steps
-add an inventory, configuration, SSH execution, bastion hosts, tasks,
-parallel execution, interactive shells and tmux integration.
+## Current features
+
+- `msh hosts list` — list inventory servers, selected by `--host`,
+  `--group`, `--tag` or `--all`, as a table or JSON.
+- `msh config show` — effective settings and where each value came from.
+- `msh config validate` — validate the configuration and inventory.
+- `msh version`, `msh --version`, `msh --help`.
+
+See [docs/configuration.md](docs/configuration.md) for configuration.
 
 ## Layout
 
 ```
-cmd/msh/            the executable (tiny main package)
-internal/app/       command-line interface
-internal/buildinfo/ name, version, commit, build date
-scripts/check.sh    runs every quality check
-Makefile            fmt, vet, test, race, build, clean
+cmd/msh/             the executable (tiny main package)
+internal/app/        command-line interface
+internal/buildinfo/  name, version, commit, build date
+internal/cliflag/    custom flag types
+internal/config/     settings, layers and precedence
+internal/decode/     strict JSON/YAML decoding
+internal/exitcode/   documented exit codes
+internal/inventory/  servers and selection
+internal/output/     text tables and JSON
+scripts/check.sh     runs every quality check
 ```
 
 ## Build and test
@@ -24,22 +35,9 @@ gofmt -w .
 go vet ./...
 go test ./...
 go build -o msh ./cmd/msh
-./msh --help
-./msh --version
 ```
 
-Or run everything at once:
-
-```bash
-./scripts/check.sh --race
-```
-
-## Version injection
-
-```bash
-make VERSION=1.2.3 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) build
-./msh --version
-```
+Or: `./scripts/check.sh --race`
 
 ## Layered steps
 
