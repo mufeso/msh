@@ -20,6 +20,7 @@ type command struct {
 func commands() []*command {
 	return []*command{
 		configCommand(),
+		execCommand(),
 		helpCommand(),
 		hostsCommand(),
 		versionCommand(),

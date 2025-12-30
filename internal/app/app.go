@@ -2,6 +2,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -76,4 +77,10 @@ func (c *cli) printUsage(w io.Writer) {
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Run 'msh help <command>' for details about a command.")
+}
+
+// ctx returns the context for the current run. Later steps replace it
+// with a context that is canceled by CTRL+C.
+func (c *cli) ctx() context.Context {
+	return context.Background()
 }
