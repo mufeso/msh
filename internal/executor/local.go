@@ -20,9 +20,12 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	// never builds a shell string from its arguments, so nothing else is
 	// interpreted by a shell.
 	cmd := exec.Command("/bin/sh", "-c", req.Command)
-	out, err := cmd.Output()
+	stdout := NewLimitedBuffer(req.OutputLimit)
+	cmd.Stdout = stdout
+	err := cmd.Run()
 	res.Duration = time.Since(res.Started)
-	res.Stdout = string(out)
+	res.Stdout = stdout.String()
+	res.StdoutTruncated = stdout.Truncated()
 
 	if err != nil {
 		res.Status = StatusError

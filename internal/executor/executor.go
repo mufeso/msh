@@ -28,6 +28,10 @@ type Request struct {
 	// Command is a command line. Like ssh, it is interpreted by a shell
 	// on the target (the remote user's login shell, or /bin/sh locally).
 	Command string
+
+	// OutputLimit is the maximum number of bytes kept per output stream;
+	// 0 means DefaultOutputLimit.
+	OutputLimit int
 }
 
 // Status is the outcome of running a command on one server.
@@ -44,12 +48,15 @@ const (
 
 // Result is what happened when a command ran on one server.
 type Result struct {
-	Server   string        // inventory name
-	Address  string        // address that was used
-	Status   Status        // outcome
-	ExitCode int           // process exit code; -1 when there is none
-	Stdout   string        // captured standard output
-	Stderr   string        // captured standard error
+	Server   string // inventory name
+	Address  string // address that was used
+	Status   Status // outcome
+	ExitCode int    // process exit code; -1 when there is none
+
+	Stdout          string // captured standard output
+	Stderr          string // captured standard error
+	StdoutTruncated bool   // stdout exceeded the output limit
+
 	Err      error         // why Status is not StatusOK or StatusFailed
 	Started  time.Time     // when the attempt started
 	Duration time.Duration // how long it took

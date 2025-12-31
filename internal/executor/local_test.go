@@ -18,3 +18,10 @@ func TestLocalExecutorStdout(t *testing.T) {
 		t.Error("duration not recorded")
 	}
 }
+
+func TestLocalExecutorOutputLimit(t *testing.T) {
+	r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: "printf 0123456789", OutputLimit: 4})
+	if r.Stdout != "0123" || !r.StdoutTruncated || r.Status != StatusOK {
+		t.Errorf("result = %+v", r)
+	}
+}
