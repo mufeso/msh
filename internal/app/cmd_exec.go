@@ -40,12 +40,16 @@ func runExec(c *cli, args []string) exitcode.Code {
 		c.errorf("exec: remote execution is not available yet; use --local")
 		return exitcode.Usage
 	}
-	if st, code := c.load(&opts, false); st == nil {
+	st, code := c.load(&opts, false)
+	if st == nil {
 		return code
 	}
 
 	server := inventory.Server{Name: "local", Address: "localhost"}
-	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{Command: *command})
+	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{
+		Command: *command,
+		Timeout: st.settings.CommandTimeout,
+	})
 	fmt.Fprint(c.stdout, res.Stdout)
 	fmt.Fprint(c.stderr, res.Stderr)
 	switch res.Status {
@@ -54,6 +58,12 @@ func runExec(c *cli, args []string) exitcode.Code {
 	case executor.StatusFailed:
 		c.errorf("%s: command exited with code %d", res.Server, res.ExitCode)
 		return exitcode.Failure
+	case executor.StatusTimeout:
+		c.errorf("%s: command timed out", res.Server)
+		return exitcode.Timeout
+	case executor.StatusCanceled:
+		c.errorf("%s: canceled", res.Server)
+		return exitcode.Canceled
 	default:
 		c.errorf("%s: %v", res.Server, res.Err)
 		return exitcode.Internal

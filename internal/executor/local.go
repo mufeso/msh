@@ -20,7 +20,16 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	// The command line is passed as ONE argument to sh -c. exec.Command
 	// never builds a shell string from its arguments, so nothing else is
 	// interpreted by a shell.
-	cmd := exec.Command("/bin/sh", "-c", req.Command)
+	// Derive a context that also ends when the timeout expires. cancel
+	// must always be called to release the timer, hence the defer.
+	if req.Timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+	}
+
+	// CommandContext kills the process when ctx is done.
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", req.Command)
 	// Separate buffers: os/exec copies stdout and stderr from separate
 	// goroutines, and LimitedBuffer is not safe for concurrent writes.
 	stdout := NewLimitedBuffer(req.OutputLimit)
@@ -33,7 +42,20 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	res.Stderr, res.StderrTruncated = stderr.String(), stderr.Truncated()
 
 	classify(&res, err)
+	// If the context ended, that explains the failure better than the
+	// "signal: killed" error from the process.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		res.Status, res.Err = statusForContext(ctxErr), ctxErr
+	}
 	return res
+}
+
+// statusForContext maps a context error to a Status.
+func statusForContext(err error) Status {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return StatusTimeout
+	}
+	return StatusCanceled
 }
 
 // classify sets Status, ExitCode and Err from the error returned by

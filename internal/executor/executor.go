@@ -32,6 +32,10 @@ type Request struct {
 	// OutputLimit is the maximum number of bytes kept per output stream;
 	// 0 means DefaultOutputLimit.
 	OutputLimit int
+
+	// Timeout limits how long the command may run; 0 means no limit
+	// beyond the context passed to Run.
+	Timeout time.Duration
 }
 
 // Status is the outcome of running a command on one server.

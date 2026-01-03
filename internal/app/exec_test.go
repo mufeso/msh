@@ -38,3 +38,10 @@ func TestExecLocalFailure(t *testing.T) {
 		t.Errorf("stderr = %q", stderr)
 	}
 }
+
+func TestExecLocalTimeout(t *testing.T) {
+	_, stderr, code := runCLI(t, "exec", "--local", "--command-timeout", "100ms", "--command", "sleep 5")
+	if code != exitcode.Timeout {
+		t.Errorf("code = %v, want timeout; stderr = %s", code, stderr)
+	}
+}

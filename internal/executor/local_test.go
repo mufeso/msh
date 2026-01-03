@@ -2,7 +2,9 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/inventory"
 )
@@ -52,5 +54,28 @@ func TestLocalExecutorExitCodes(t *testing.T) {
 		if r.Err != nil {
 			t.Errorf("%q: Err = %v, want nil for a command that ran", tt.command, r.Err)
 		}
+	}
+}
+
+func TestLocalExecutorTimeout(t *testing.T) {
+	start := time.Now()
+	r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: "sleep 5", Timeout: 100 * time.Millisecond})
+	if r.Status != StatusTimeout {
+		t.Errorf("status = %s, err = %v, want timeout", r.Status, r.Err)
+	}
+	if !errors.Is(r.Err, context.DeadlineExceeded) {
+		t.Errorf("err = %v", r.Err)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Error("timeout did not stop the command quickly")
+	}
+}
+
+func TestLocalExecutorCanceledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // already canceled
+	r := LocalExecutor{}.Run(ctx, localServer, Request{Command: "echo never"})
+	if r.Status != StatusCanceled {
+		t.Errorf("status = %s, want canceled", r.Status)
 	}
 }
