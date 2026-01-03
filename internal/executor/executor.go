@@ -56,6 +56,7 @@ type Result struct {
 	Stdout          string // captured standard output
 	Stderr          string // captured standard error
 	StdoutTruncated bool   // stdout exceeded the output limit
+	StderrTruncated bool   // stderr exceeded the output limit
 
 	Err      error         // why Status is not StatusOK or StatusFailed
 	Started  time.Time     // when the attempt started

@@ -21,3 +21,10 @@ func TestExecRequiresCommand(t *testing.T) {
 		t.Errorf("code = %v, want usage", code)
 	}
 }
+
+func TestExecLocalStderr(t *testing.T) {
+	stdout, stderr, _ := runCLI(t, "exec", "--local", "--command", "echo out; echo err >&2")
+	if stdout != "out\n" || stderr != "err\n" {
+		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
+	}
+}

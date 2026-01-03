@@ -25,3 +25,10 @@ func TestLocalExecutorOutputLimit(t *testing.T) {
 		t.Errorf("result = %+v", r)
 	}
 }
+
+func TestLocalExecutorSeparatesStreams(t *testing.T) {
+	r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: "echo out; echo err >&2"})
+	if r.Stdout != "out\n" || r.Stderr != "err\n" {
+		t.Errorf("stdout = %q, stderr = %q", r.Stdout, r.Stderr)
+	}
+}

@@ -47,6 +47,7 @@ func runExec(c *cli, args []string) exitcode.Code {
 	server := inventory.Server{Name: "local", Address: "localhost"}
 	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{Command: *command})
 	fmt.Fprint(c.stdout, res.Stdout)
+	fmt.Fprint(c.stderr, res.Stderr)
 	if res.Err != nil {
 		c.errorf("%s: %v", res.Server, res.Err)
 		return exitcode.Failure
