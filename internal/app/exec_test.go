@@ -28,3 +28,13 @@ func TestExecLocalStderr(t *testing.T) {
 		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
 	}
 }
+
+func TestExecLocalFailure(t *testing.T) {
+	_, stderr, code := runCLI(t, "exec", "--local", "--command", "exit 3")
+	if code != exitcode.Failure {
+		t.Errorf("code = %v, want failure", code)
+	}
+	if !contains(stderr, "exited with code 3") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}

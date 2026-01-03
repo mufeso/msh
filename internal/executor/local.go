@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 
@@ -31,12 +32,24 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	res.Stdout, res.StdoutTruncated = stdout.String(), stdout.Truncated()
 	res.Stderr, res.StderrTruncated = stderr.String(), stderr.Truncated()
 
-	if err != nil {
-		res.Status = StatusError
-		res.Err = err
-		return res
-	}
-	res.Status = StatusOK
-	res.ExitCode = 0
+	classify(&res, err)
 	return res
+}
+
+// classify sets Status, ExitCode and Err from the error returned by
+// cmd.Run.
+func classify(res *Result, err error) {
+	var exitErr *exec.ExitError
+	switch {
+	case err == nil:
+		res.Status, res.ExitCode = StatusOK, 0
+	case errors.As(err, &exitErr):
+		// The command ran and exited non-zero. That is a normal outcome,
+		// not an execution error, so Err stays nil. ExitCode returns -1
+		// when the process was killed by a signal.
+		res.Status, res.ExitCode = StatusFailed, exitErr.ExitCode()
+	default:
+		// The command could not be started at all.
+		res.Status, res.Err = StatusError, err
+	}
 }

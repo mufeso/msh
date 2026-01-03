@@ -48,9 +48,14 @@ func runExec(c *cli, args []string) exitcode.Code {
 	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{Command: *command})
 	fmt.Fprint(c.stdout, res.Stdout)
 	fmt.Fprint(c.stderr, res.Stderr)
-	if res.Err != nil {
-		c.errorf("%s: %v", res.Server, res.Err)
+	switch res.Status {
+	case executor.StatusOK:
+		return exitcode.OK
+	case executor.StatusFailed:
+		c.errorf("%s: command exited with code %d", res.Server, res.ExitCode)
 		return exitcode.Failure
+	default:
+		c.errorf("%s: %v", res.Server, res.Err)
+		return exitcode.Internal
 	}
-	return exitcode.OK
 }

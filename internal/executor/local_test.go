@@ -32,3 +32,25 @@ func TestLocalExecutorSeparatesStreams(t *testing.T) {
 		t.Errorf("stdout = %q, stderr = %q", r.Stdout, r.Stderr)
 	}
 }
+
+func TestLocalExecutorExitCodes(t *testing.T) {
+	tests := []struct {
+		command    string
+		wantStatus Status
+		wantCode   int
+	}{
+		{"true", StatusOK, 0},
+		{"exit 3", StatusFailed, 3},
+		{"false", StatusFailed, 1},
+		{"command-that-does-not-exist-xyz", StatusFailed, 127},
+	}
+	for _, tt := range tests {
+		r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: tt.command})
+		if r.Status != tt.wantStatus || r.ExitCode != tt.wantCode {
+			t.Errorf("%q: status=%s exit=%d, want %s %d", tt.command, r.Status, r.ExitCode, tt.wantStatus, tt.wantCode)
+		}
+		if r.Err != nil {
+			t.Errorf("%q: Err = %v, want nil for a command that ran", tt.command, r.Err)
+		}
+	}
+}
