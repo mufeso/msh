@@ -1,11 +1,10 @@
 package app
 
 import (
-	"fmt"
-
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
+	"example.com/msh/internal/output"
 )
 
 const execUsage = `Usage: msh exec --local --command CMD [flags]
@@ -50,22 +49,10 @@ func runExec(c *cli, args []string) exitcode.Code {
 		Command: *command,
 		Timeout: st.settings.CommandTimeout,
 	})
-	fmt.Fprint(c.stdout, res.Stdout)
-	fmt.Fprint(c.stderr, res.Stderr)
-	switch res.Status {
-	case executor.StatusOK:
-		return exitcode.OK
-	case executor.StatusFailed:
-		c.errorf("%s: command exited with code %d", res.Server, res.ExitCode)
-		return exitcode.Failure
-	case executor.StatusTimeout:
-		c.errorf("%s: command timed out", res.Server)
-		return exitcode.Timeout
-	case executor.StatusCanceled:
-		c.errorf("%s: canceled", res.Server)
-		return exitcode.Canceled
-	default:
-		c.errorf("%s: %v", res.Server, res.Err)
-		return exitcode.Internal
+	results := []executor.Result{res}
+	if err := output.WriteResults(c.stdout, opts.format, results); err != nil {
+		c.errorf("writing output: %v", err)
+		return exitcode.IO
 	}
+	return exitCodeForResults(results)
 }

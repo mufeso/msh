@@ -1,9 +1,11 @@
 package app
 
 import (
+	"encoding/json"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/output"
 )
 
 func TestExecLocal(t *testing.T) {
@@ -11,7 +13,7 @@ func TestExecLocal(t *testing.T) {
 	if code != exitcode.OK {
 		t.Fatalf("code = %v, stderr = %s", code, stderr)
 	}
-	if stdout != "from-msh\n" {
+	if !contains(stdout, "=== local: ok (exit 0") || !contains(stdout, "from-msh\n") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -22,20 +24,18 @@ func TestExecRequiresCommand(t *testing.T) {
 	}
 }
 
-func TestExecLocalStderr(t *testing.T) {
-	stdout, stderr, _ := runCLI(t, "exec", "--local", "--command", "echo out; echo err >&2")
-	if stdout != "out\n" || stderr != "err\n" {
-		t.Errorf("stdout = %q, stderr = %q", stdout, stderr)
-	}
-}
-
-func TestExecLocalFailure(t *testing.T) {
-	_, stderr, code := runCLI(t, "exec", "--local", "--command", "exit 3")
+func TestExecLocalJSON(t *testing.T) {
+	stdout, _, code := runCLI(t, "exec", "--local", "--output", "json", "--command", "echo out; echo err >&2; exit 4")
 	if code != exitcode.Failure {
 		t.Errorf("code = %v, want failure", code)
 	}
-	if !contains(stderr, "exited with code 3") {
-		t.Errorf("stderr = %q", stderr)
+	var views []output.ResultView
+	if err := json.Unmarshal([]byte(stdout), &views); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, stdout)
+	}
+	v := views[0]
+	if v.Status != "failed" || v.ExitCode != 4 || v.Stdout != "out\n" || v.Stderr != "err\n" {
+		t.Errorf("view = %+v", v)
 	}
 }
 
