@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,5 +78,24 @@ func TestLocalExecutorCanceledContext(t *testing.T) {
 	r := LocalExecutor{}.Run(ctx, localServer, Request{Command: "echo never"})
 	if r.Status != StatusCanceled {
 		t.Errorf("status = %s, want canceled", r.Status)
+	}
+}
+
+func TestLocalExecutorKillsWholeProcessGroup(t *testing.T) {
+	// The shell is not the only process here: sleep is its child. Without
+	// a process group, Run would wait for sleep to finish.
+	start := time.Now()
+	r := LocalExecutor{}.Run(context.Background(), localServer, Request{
+		Command: "sleep 30; echo finished",
+		Timeout: 200 * time.Millisecond,
+	})
+	if r.Status != StatusTimeout {
+		t.Errorf("status = %s", r.Status)
+	}
+	if strings.Contains(r.Stdout, "finished") {
+		t.Error("command was not stopped")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("Run took %v; the child process kept it waiting", elapsed)
 	}
 }

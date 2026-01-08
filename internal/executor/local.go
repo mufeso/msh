@@ -30,6 +30,8 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 
 	// CommandContext kills the process when ctx is done.
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", req.Command)
+	stop := setProcessGroup(cmd)
+	defer stop()
 	// Separate buffers: os/exec copies stdout and stderr from separate
 	// goroutines, and LimitedBuffer is not safe for concurrent writes.
 	stdout := NewLimitedBuffer(req.OutputLimit)
