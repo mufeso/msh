@@ -36,6 +36,11 @@ type Request struct {
 	// Timeout limits how long the command may run; 0 means no limit
 	// beyond the context passed to Run.
 	Timeout time.Duration
+
+	// Stdin, if not nil, is sent to the command's standard input. It is a
+	// byte slice rather than an io.Reader so that each server gets its
+	// own reader: one script can be streamed to many servers at once.
+	Stdin []byte
 }
 
 // Status is the outcome of running a command on one server.

@@ -99,3 +99,21 @@ func TestLocalExecutorKillsWholeProcessGroup(t *testing.T) {
 		t.Errorf("Run took %v; the child process kept it waiting", elapsed)
 	}
 }
+
+func TestLocalExecutorStdin(t *testing.T) {
+	script := []byte("echo line1\necho line2\n")
+	// The same request can be used twice: each run reads its own copy.
+	for i := 0; i < 2; i++ {
+		r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: "sh -s", Stdin: script})
+		if r.Status != StatusOK || r.Stdout != "line1\nline2\n" {
+			t.Errorf("run %d: result = %+v", i, r)
+		}
+	}
+}
+
+func TestLocalExecutorNoStdinMeansEOF(t *testing.T) {
+	r := LocalExecutor{}.Run(context.Background(), localServer, Request{Command: "cat", Timeout: 2 * time.Second})
+	if r.Status != StatusOK || r.Stdout != "" {
+		t.Errorf("cat without stdin should see EOF immediately: %+v", r)
+	}
+}

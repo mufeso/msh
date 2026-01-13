@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os/exec"
@@ -32,6 +33,9 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", req.Command)
 	stop := setProcessGroup(cmd)
 	defer stop()
+	if req.Stdin != nil {
+		cmd.Stdin = bytes.NewReader(req.Stdin)
+	}
 	// Separate buffers: os/exec copies stdout and stderr from separate
 	// goroutines, and LimitedBuffer is not safe for concurrent writes.
 	stdout := NewLimitedBuffer(req.OutputLimit)
