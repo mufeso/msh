@@ -7,10 +7,14 @@ import (
 	"example.com/msh/internal/output"
 )
 
-const execUsage = `Usage: msh exec --local --command CMD [flags]
+const execUsage = `Usage: msh exec (--host NAME | --group NAME | --tag K=V | --all) --command CMD [flags]
+       msh exec --local --command CMD [flags]
 
-Runs a command. In this step only --local is supported: the command runs
-on this machine with /bin/sh -c. Remote execution over SSH is added later.
+Runs a command line on a server over SSH, like "ssh user@server CMD".
+The command is interpreted by the remote user's shell. In this step the
+selection must match exactly one server.
+
+With --local the command runs on this machine with /bin/sh -c instead.
 `
 
 func execCommand() *command {
@@ -24,8 +28,12 @@ func execCommand() *command {
 
 func runExec(c *cli, args []string) exitcode.Code {
 	var opts commonOptions
+	var sel selectionOptions
+	var ro remoteOptions
 	fs := c.newFlagSet("exec", execUsage)
 	opts.register(fs)
+	sel.register(fs)
+	ro.register(fs)
 	command := fs.String("command", "", "command line to run")
 	local := fs.Bool("local", false, "run on this machine instead of remote servers")
 	if code, ok := parseFlags(fs, args); !ok {
@@ -35,21 +43,61 @@ func runExec(c *cli, args []string) exitcode.Code {
 		c.errorf("exec: --command is required")
 		return exitcode.Usage
 	}
-	if !*local {
-		c.errorf("exec: remote execution is not available yet; use --local")
+	if err := sel.validate(); err != nil {
+		c.errorf("%v", err)
 		return exitcode.Usage
 	}
-	st, code := c.load(&opts, false)
+	if *local {
+		return c.execLocal(&opts, *command)
+	}
+	if sel.isEmpty() {
+		c.errorf("exec: select servers with --host, --group, --tag or --all")
+		return exitcode.Usage
+	}
+
+	st, code := c.load(&opts, true)
 	if st == nil {
 		return code
 	}
+	servers, err := st.inv.Select(sel.selector())
+	if err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	if len(servers) != 1 {
+		c.errorf("exec: the selection matches %d servers; this version runs on exactly one", len(servers))
+		return exitcode.Usage
+	}
 
-	server := inventory.Server{Name: "local", Address: "localhost"}
-	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{
+	stack, code := c.newSSH(&opts, &ro, st)
+	if stack == nil {
+		return code
+	}
+	defer stack.Close()
+
+	res := stack.executor.Run(c.ctx(), servers[0], executor.Request{
 		Command: *command,
 		Timeout: st.settings.CommandTimeout,
 	})
-	results := []executor.Result{res}
+	return c.writeResults(&opts, []executor.Result{res})
+}
+
+// execLocal runs the command on this machine.
+func (c *cli) execLocal(opts *commonOptions, command string) exitcode.Code {
+	st, code := c.load(opts, false)
+	if st == nil {
+		return code
+	}
+	server := inventory.Server{Name: "local", Address: "localhost"}
+	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{
+		Command: command,
+		Timeout: st.settings.CommandTimeout,
+	})
+	return c.writeResults(opts, []executor.Result{res})
+}
+
+// writeResults prints results and returns the exit code they imply.
+func (c *cli) writeResults(opts *commonOptions, results []executor.Result) exitcode.Code {
 	if err := output.WriteResults(c.stdout, opts.format, results); err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO

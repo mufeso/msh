@@ -1,6 +1,7 @@
 package app
 
 import (
+	"example.com/msh/internal/errs"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 )
@@ -17,13 +18,15 @@ var statusPriority = []executor.Status{
 
 // exitCodeForResults returns the process exit code for a set of results.
 func exitCodeForResults(results []executor.Result) exitcode.Code {
-	seen := map[executor.Status]bool{}
+	first := map[executor.Status]executor.Result{}
 	for _, r := range results {
-		seen[r.Status] = true
+		if _, ok := first[r.Status]; !ok {
+			first[r.Status] = r
+		}
 	}
 	for _, st := range statusPriority {
-		if seen[st] {
-			return exitCodeForStatus(st)
+		if r, ok := first[st]; ok {
+			return exitCodeForResult(r)
 		}
 	}
 	return exitcode.OK
@@ -42,4 +45,13 @@ func exitCodeForStatus(st executor.Status) exitcode.Code {
 	default:
 		return exitcode.Internal
 	}
+}
+
+// exitCodeForResult refines the code for one result: errors are mapped by
+// their kind (connection, transfer, ...).
+func exitCodeForResult(r executor.Result) exitcode.Code {
+	if r.Status == executor.StatusError {
+		return errs.ExitCode(errs.KindOf(r.Err))
+	}
+	return exitCodeForStatus(r.Status)
 }
