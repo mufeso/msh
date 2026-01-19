@@ -1,0 +1,12 @@
+bastions:
+  - name: production-bastion
+    address: bastion.example.com
+    user: jumpuser
+    port: 22
+servers:
+  - name: app01
+    address: 10.10.20.15
+    user: appadmin
+    bastion: production-bastion
+  - name: app02
+    address: 10.10.20.16

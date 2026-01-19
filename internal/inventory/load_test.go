@@ -86,3 +86,21 @@ func TestDefaultsCannotSetInventory(t *testing.T) {
 		t.Error("Validate accepted defaults.inventory")
 	}
 }
+
+func TestLoadBastions(t *testing.T) {
+	inv, err := LoadFile("testdata/bastion.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, ok := inv.FindBastion("production-bastion")
+	if !ok || b.User != "jumpuser" || b.Address != "bastion.example.com" {
+		t.Errorf("bastion = %+v, %v", b, ok)
+	}
+	app01, _ := inv.Find("app01")
+	if app01.Bastion != "production-bastion" {
+		t.Errorf("app01.Bastion = %q", app01.Bastion)
+	}
+	if _, ok := inv.FindBastion("nope"); ok {
+		t.Error("FindBastion(nope) found something")
+	}
+}
