@@ -65,15 +65,58 @@ func (e *Executor) Run(ctx context.Context, server inventory.Server, req executo
 	}
 	sess.SetStdio(stdin, stdout, stderr)
 
+	runCtx := ctx
+	if req.Timeout > 0 {
+		var cancel context.CancelFunc
+		runCtx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+	}
+
 	if err := sess.Start(req.Command); err != nil {
 		res.Status, res.Err = executor.StatusError, errs.New(errs.KindRemoteCommand, server.Name, err)
 		return res
 	}
-	err = sess.Wait()
+
+	// Session.Wait blocks and has no context parameter, so it runs in a
+	// goroutine. The channel is buffered: the goroutine can always send
+	// and exit, even if nobody receives.
+	done := make(chan error, 1)
+	go func() { done <- sess.Wait() }()
+
+	select {
+	case err = <-done:
+	case <-runCtx.Done():
+		// Ask the remote process to stop (OpenSSH 7.9+ delivers signals),
+		// then close the channel and the connection. Closing makes Wait
+		// return, so receiving from done below cannot block forever and
+		// the goroutine always finishes.
+		_ = sess.Signal(ssh.SIGTERM)
+		_ = sess.Close()
+		_ = client.Close()
+		<-done
+	}
+
 	res.Stdout, res.StdoutTruncated = stdout.String(), stdout.Truncated()
 	res.Stderr, res.StderrTruncated = stderr.String(), stderr.Truncated()
+	if runCtx.Err() != nil {
+		interrupted(&res, ctx, runCtx, server.Name)
+		return res
+	}
 	classifyWait(&res, server.Name, err)
 	return res
+}
+
+// interrupted records why the command was stopped: the caller's context
+// (user cancellation or global timeout) or the per-command timeout.
+func interrupted(res *executor.Result, parent, run context.Context, host string) {
+	switch {
+	case errors.Is(parent.Err(), context.Canceled):
+		res.Status, res.Err = executor.StatusCanceled, errs.New(errs.KindCanceled, host, parent.Err())
+	case parent.Err() != nil:
+		res.Status, res.Err = executor.StatusTimeout, errs.New(errs.KindGlobalTimeout, host, parent.Err())
+	default:
+		res.Status, res.Err = executor.StatusTimeout, errs.New(errs.KindRemoteTimeout, host, run.Err())
+	}
 }
 
 // classifyWait interprets the error returned by Session.Wait.

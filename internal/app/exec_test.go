@@ -8,6 +8,7 @@ import (
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
+	"example.com/msh/internal/sshtest"
 )
 
 func TestExecLocal(t *testing.T) {
@@ -92,5 +93,13 @@ func TestExecInsecurePrintsWarning(t *testing.T) {
 func TestExecRequiresSelection(t *testing.T) {
 	if _, _, code := runCLI(t, "exec", "--command", "true"); code != exitcode.Usage {
 		t.Errorf("code = %v", code)
+	}
+}
+
+func TestExecRemoteCommandTimeout(t *testing.T) {
+	fleet := newTestFleet(t, 1, sshtest.Blocking(""))
+	_, stderr, code := fleet.run(t, []string{"exec"}, "--host", "s1", "--command", "wait", "--command-timeout", "200ms")
+	if exitcode.Code(code) != exitcode.Timeout {
+		t.Errorf("code = %d, want timeout; stderr = %s", code, stderr)
 	}
 }
