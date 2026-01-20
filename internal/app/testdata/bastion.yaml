@@ -1,0 +1,17 @@
+defaults:
+  user: admin
+  bastion: jump1
+bastions:
+  - name: jump1
+    address: 192.0.2.200
+  - name: jump2
+    address: 192.0.2.201
+servers:
+  - name: app01
+    address: 10.10.20.15
+    bastion: jump2
+  - name: app02
+    address: 10.10.20.16
+  - name: edge01
+    address: 192.0.2.50
+    bastion: none

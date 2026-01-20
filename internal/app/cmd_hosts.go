@@ -103,10 +103,18 @@ func (c *cli) writeServers(format output.Format, servers []inventory.Server) err
 	rows := make([][]string, 0, len(servers))
 	for _, s := range servers {
 		rows = append(rows, []string{
-			s.Name, s.Address, strconv.Itoa(s.Port), s.User, strings.Join(s.Groups, ","),
+			s.Name, s.Address, strconv.Itoa(s.Port), s.User, strings.Join(s.Groups, ","), via(s.Bastion),
 		})
 	}
-	return output.Table(c.stdout, []string{"NAME", "ADDRESS", "PORT", "USER", "GROUPS"}, rows)
+	return output.Table(c.stdout, []string{"NAME", "ADDRESS", "PORT", "USER", "GROUPS", "VIA"}, rows)
+}
+
+// via shows the bastion name or "direct".
+func via(bastion string) string {
+	if bastion == "" {
+		return "direct"
+	}
+	return bastion
 }
 
 func runHostsCheck(c *cli, args []string) exitcode.Code {

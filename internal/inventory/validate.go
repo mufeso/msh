@@ -78,6 +78,8 @@ func (inv *Inventory) Validate() error {
 		}
 	}
 
+	inv.validateBastions(verr)
+
 	if len(verr.Problems) > 0 {
 		return verr
 	}

@@ -35,6 +35,7 @@ var settingsFlags = map[string]string{
 	"mode":            config.KeyMode,
 	"workers":         config.KeyWorkers,
 	"ordered":         config.KeyOrdered,
+	"bastion":         config.KeyBastion,
 }
 
 // register adds the common flags to fs. The defaults shown in help come
@@ -56,6 +57,7 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.String("mode", d.Mode, "execution `mode`: sequential or parallel")
 	fs.Int("workers", d.Workers, "maximum concurrent `servers` in parallel mode")
 	fs.Bool("ordered", d.Ordered, "print results in selection order instead of completion order")
+	fs.String("bastion", "", "connect through this bastion `name` (\"none\" = direct)")
 }
 
 // settingsLayer builds a configuration layer from the flags that were set
@@ -95,6 +97,8 @@ func (o *commonOptions) settingsLayer() config.Layer {
 		case config.KeyOrdered:
 			b := get().(bool)
 			l.Ordered = &b
+		case config.KeyBastion:
+			l.Bastion = &v
 		}
 	})
 	return l

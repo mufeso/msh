@@ -25,6 +25,7 @@ const (
 	KeyMode           = "mode"
 	KeyWorkers        = "workers"
 	KeyOrdered        = "ordered"
+	KeyBastion        = "bastion"
 )
 
 // Execution modes.
@@ -58,6 +59,9 @@ type Settings struct {
 	Workers int    `json:"workers"` // maximum concurrent servers in parallel mode
 	Ordered bool   `json:"ordered"` // print results in selection order instead of completion order
 
+	// Bastion is the default jump host ("" or "none" = direct).
+	Bastion string `json:"bastion"`
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string `json:"-"`
 }
@@ -86,7 +90,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
-		KeyMode, KeyWorkers, KeyOrdered,
+		KeyMode, KeyWorkers, KeyOrdered, KeyBastion,
 	}
 }
 
@@ -104,6 +108,7 @@ type Layer struct {
 	Mode           *string   `json:"mode,omitempty" yaml:"mode,omitempty"`
 	Workers        *int      `json:"workers,omitempty" yaml:"workers,omitempty"`
 	Ordered        *bool     `json:"ordered,omitempty" yaml:"ordered,omitempty"`
+	Bastion        *string   `json:"bastion,omitempty" yaml:"bastion,omitempty"`
 }
 
 // Source is a named layer.
@@ -140,6 +145,7 @@ func (s *Settings) Apply(name string, l Layer) {
 	set(s, name, KeyMode, &s.Mode, l.Mode)
 	set(s, name, KeyWorkers, &s.Workers, l.Workers)
 	set(s, name, KeyOrdered, &s.Ordered, l.Ordered)
+	set(s, name, KeyBastion, &s.Bastion, l.Bastion)
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -185,6 +191,8 @@ func (s Settings) Value(key string) string {
 		return strconv.Itoa(s.Workers)
 	case KeyOrdered:
 		return strconv.FormatBool(s.Ordered)
+	case KeyBastion:
+		return s.Bastion
 	default:
 		return ""
 	}

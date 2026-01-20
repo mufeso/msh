@@ -94,6 +94,9 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 			user = currentUser()
 		}
 		st.inv.ApplyDefaults(user, st.settings.Port)
+		if code := c.resolveBastions(st); code != exitcode.OK {
+			return nil, code
+		}
 	}
 	opts.format = output.Format(st.settings.Output)
 	return st, exitcode.OK
@@ -158,4 +161,25 @@ func currentUser() string {
 		return u.Username
 	}
 	return os.Getenv("USER")
+}
+
+// resolveBastions decides which bastion each server uses. A bastion
+// given on the command line or in MSH_BASTION overrides the servers' own
+// settings; one from the inventory defaults or config file does not.
+func (c *cli) resolveBastions(st *setup) exitcode.Code {
+	var override, fallback string
+	switch st.settings.Sources[config.KeyBastion] {
+	case config.SourceFlag, config.SourceEnv:
+		override = st.settings.Bastion
+	default:
+		fallback = st.settings.Bastion
+	}
+	if err := st.inv.ResolveBastions(override, fallback); err != nil {
+		c.errorf("%v", err)
+		if st.settings.Sources[config.KeyBastion] == config.SourceFlag {
+			return exitcode.Usage
+		}
+		return exitcode.Config
+	}
+	return exitcode.OK
 }

@@ -24,6 +24,7 @@ const (
 	EnvMode           = "MSH_MODE"
 	EnvWorkers        = "MSH_WORKERS"
 	EnvOrdered        = "MSH_ORDERED"
+	EnvBastion        = "MSH_BASTION"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -45,6 +46,7 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	l.KnownHostsFile = str(EnvKnownHostsFile)
 	l.Output = str(EnvOutput)
 	l.Mode = str(EnvMode)
+	l.Bastion = str(EnvBastion)
 
 	var err error
 	if l.Port, err = envInt(str, EnvPort); err != nil {
