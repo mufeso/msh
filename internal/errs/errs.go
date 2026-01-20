@@ -77,11 +77,35 @@ func (k Kind) String() string {
 	return "error"
 }
 
+// Role says which hop of a connection failed.
+type Role string
+
+// Connection roles.
+const (
+	RoleTarget  Role = ""        // the server itself (the default)
+	RoleBastion Role = "bastion" // a bastion (jump host) on the way
+)
+
 // Error is a categorized error.
 type Error struct {
 	Kind Kind
-	Host string // server name, if the error concerns one
+	Role Role   // which hop failed, for connection errors
+	Host string // server or bastion name, if the error concerns one
 	Err  error  // underlying cause; may be nil
+}
+
+// NewRole returns an *Error for a specific connection hop.
+func NewRole(kind Kind, role Role, host string, err error) *Error {
+	return &Error{Kind: kind, Role: role, Host: host, Err: err}
+}
+
+// RoleOf returns the Role of the first *Error in err's chain.
+func RoleOf(err error) Role {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Role
+	}
+	return RoleTarget
 }
 
 // New returns an *Error.
@@ -92,6 +116,10 @@ func New(kind Kind, host string, err error) *Error {
 // Error formats "host: kind: cause".
 func (e *Error) Error() string {
 	var b strings.Builder
+	if e.Role != RoleTarget {
+		b.WriteString(string(e.Role))
+		b.WriteString(" ")
+	}
 	if e.Host != "" {
 		b.WriteString(e.Host)
 		b.WriteString(": ")

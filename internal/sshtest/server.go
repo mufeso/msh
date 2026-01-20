@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,8 +31,9 @@ type Handler func(ctx context.Context, e *Exec) int
 
 // Options configure a Server.
 type Options struct {
-	AuthorizedKeys []ssh.PublicKey // keys allowed to log in (any user name)
-	Handler        Handler         // default: ShellHandler
+	AuthorizedKeys  []ssh.PublicKey // keys allowed to log in (any user name)
+	Handler         Handler         // default: ShellHandler
+	AllowForwarding bool            // accept direct-tcpip channels (act as a bastion)
 }
 
 // Server is an SSH server listening on 127.0.0.1 for one test.
@@ -48,6 +50,7 @@ type Server struct {
 	conns    map[net.Conn]struct{}
 	commands []string
 	signals  []string
+	forwards []string
 
 	active atomic.Int64 // sessions currently open
 }
@@ -100,6 +103,13 @@ func (s *Server) Signals() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.signals...)
+}
+
+// Forwards returns the host:port targets of direct-tcpip channels.
+func (s *Server) Forwards() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.forwards...)
 }
 
 // ActiveSessions returns the number of open sessions. Tests use it to
@@ -177,6 +187,8 @@ func (s *Server) handleChannel(newCh ssh.NewChannel) {
 	switch newCh.ChannelType() {
 	case "session":
 		s.handleSession(newCh)
+	case "direct-tcpip":
+		s.handleDirectTCPIP(newCh)
 	default:
 		newCh.Reject(ssh.UnknownChannelType, "unsupported channel type")
 	}
@@ -277,4 +289,56 @@ func Blocking(started string) Handler {
 		<-ctx.Done()
 		return 143
 	}
+}
+
+// handleDirectTCPIP forwards a TCP connection, like "ssh -J" asks a
+// bastion to do. The payload names the target host and port.
+func (s *Server) handleDirectTCPIP(newCh ssh.NewChannel) {
+	if !s.opts.AllowForwarding {
+		newCh.Reject(ssh.Prohibited, "port forwarding is disabled")
+		return
+	}
+	var p struct {
+		Host     string
+		Port     uint32
+		OrigHost string
+		OrigPort uint32
+	}
+	if err := ssh.Unmarshal(newCh.ExtraData(), &p); err != nil {
+		newCh.Reject(ssh.ConnectionFailed, "bad payload")
+		return
+	}
+	target := net.JoinHostPort(p.Host, strconv.Itoa(int(p.Port)))
+	s.record(&s.forwards, target)
+
+	conn, err := net.DialTimeout("tcp", target, 5*time.Second)
+	if err != nil {
+		newCh.Reject(ssh.ConnectionFailed, err.Error())
+		return
+	}
+	defer conn.Close()
+	ch, reqs, err := newCh.Accept()
+	if err != nil {
+		return
+	}
+	defer ch.Close()
+	go ssh.DiscardRequests(reqs)
+
+	// Copy in both directions. When one direction ends, signal EOF to the
+	// other side with CloseWrite and wait for the second copy.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		io.Copy(conn, ch)
+		if tc, ok := conn.(*net.TCPConn); ok {
+			tc.CloseWrite()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		io.Copy(ch, conn)
+		ch.CloseWrite()
+	}()
+	wg.Wait()
 }

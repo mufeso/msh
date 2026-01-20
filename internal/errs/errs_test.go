@@ -53,3 +53,16 @@ func TestEveryKindHasText(t *testing.T) {
 		}
 	}
 }
+
+func TestRole(t *testing.T) {
+	err := NewRole(KindAuth, RoleBastion, "jump1", io.EOF)
+	if got := err.Error(); got != "bastion jump1: authentication failed: EOF" {
+		t.Errorf("Error() = %q", got)
+	}
+	if RoleOf(fmt.Errorf("x: %w", err)) != RoleBastion {
+		t.Error("RoleOf through wrapping failed")
+	}
+	if RoleOf(New(KindTCP, "web01", nil)) != RoleTarget {
+		t.Error("default role should be target")
+	}
+}

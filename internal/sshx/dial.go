@@ -12,11 +12,17 @@ import (
 	"example.com/msh/internal/errs"
 )
 
-// Dialer opens SSH connections.
+// Dialer opens SSH connections, directly or through bastions.
 type Dialer struct {
 	cfg      Config
 	auth     *Auth
 	hostKeys ssh.HostKeyCallback
+	bastions map[string]*bastionHop
+}
+
+// bastionHop is everything needed to connect to one bastion.
+type bastionHop struct {
+	ep Endpoint
 }
 
 // NewDialer prepares a Dialer. It fails if host key verification cannot
@@ -26,7 +32,37 @@ func NewDialer(cfg Config, auth *Auth) (*Dialer, error) {
 	if err != nil {
 		return nil, errs.New(errs.KindHostKey, "", err)
 	}
-	return &Dialer{cfg: cfg, auth: auth, hostKeys: cb}, nil
+	return &Dialer{cfg: cfg, auth: auth, hostKeys: cb, bastions: map[string]*bastionHop{}}, nil
+}
+
+// AddBastion registers a bastion under its name.
+func (d *Dialer) AddBastion(name string, ep Endpoint) {
+	d.bastions[name] = &bastionHop{ep: ep}
+}
+
+// DialBastion connects to the named bastion. Errors are marked with the
+// bastion role so the user sees which hop failed.
+func (d *Dialer) DialBastion(ctx context.Context, name string) (*ssh.Client, error) {
+	hop, ok := d.bastions[name]
+	if !ok {
+		return nil, errs.NewRole(errs.KindConfig, errs.RoleBastion, name, errors.New("unknown bastion"))
+	}
+	c, err := d.Dial(ctx, hop.ep)
+	if err != nil {
+		return nil, asBastionError(err)
+	}
+	return c, nil
+}
+
+// asBastionError marks a connection error as a bastion failure.
+func asBastionError(err error) error {
+	var e *errs.Error
+	if errors.As(err, &e) {
+		copied := *e
+		copied.Role = errs.RoleBastion
+		return &copied
+	}
+	return errs.NewRole(errs.KindHandshake, errs.RoleBastion, "", err)
 }
 
 // Dial connects to ep: TCP connect, then SSH handshake and
