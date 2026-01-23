@@ -17,6 +17,7 @@ import (
 // known_hosts file that describe them.
 type testFleet struct {
 	servers   []*sshtest.Server
+	bastion   *sshtest.Server // nil unless fleetOptions.bastion
 	key       sshtest.Key
 	dir       string
 	inventory string
@@ -24,16 +25,36 @@ type testFleet struct {
 	known     string
 }
 
+// fleetOptions configure newFleet.
+type fleetOptions struct {
+	servers int
+	handler sshtest.Handler
+	bastion bool // route every server through a bastion named "jump"
+}
+
 // newTestFleet starts n servers named s1..sN. Servers with an odd number
 // are in group "odd", the others in "even"; all are in "all".
 func newTestFleet(t *testing.T, n int, handler sshtest.Handler) *testFleet {
 	t.Helper()
+	return newFleet(t, fleetOptions{servers: n, handler: handler})
+}
+
+func newFleet(t *testing.T, o fleetOptions) *testFleet {
+	t.Helper()
 	f := &testFleet{key: sshtest.NewKey(t), dir: t.TempDir()}
-	var inv strings.Builder
-	inv.WriteString("servers:\n")
+	authorized := []ssh.PublicKey{f.key.Public()}
 	var knownLines []string
-	for i := 1; i <= n; i++ {
-		srv := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{f.key.Public()}, Handler: handler})
+	var inv strings.Builder
+
+	if o.bastion {
+		f.bastion = sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: authorized, AllowForwarding: true})
+		knownLines = append(knownLines, f.bastion.KnownHostsLine())
+		host, port, _ := net.SplitHostPort(f.bastion.Addr)
+		fmt.Fprintf(&inv, "bastions:\n  - name: jump\n    address: %s\n    port: %s\n    user: tester\n", host, port)
+	}
+	inv.WriteString("servers:\n")
+	for i := 1; i <= o.servers; i++ {
+		srv := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: authorized, Handler: o.handler})
 		f.servers = append(f.servers, srv)
 		knownLines = append(knownLines, srv.KnownHostsLine())
 		host, port, _ := net.SplitHostPort(srv.Addr)
@@ -42,6 +63,9 @@ func newTestFleet(t *testing.T, n int, handler sshtest.Handler) *testFleet {
 			group = "odd"
 		}
 		fmt.Fprintf(&inv, "  - name: s%d\n    address: %s\n    port: %s\n    user: tester\n    groups: [all, %s]\n", i, host, port, group)
+		if o.bastion {
+			inv.WriteString("    bastion: jump\n")
+		}
 	}
 	f.inventory = filepath.Join(f.dir, "inventory.yaml")
 	if err := os.WriteFile(f.inventory, []byte(inv.String()), 0o600); err != nil {

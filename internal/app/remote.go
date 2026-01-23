@@ -7,6 +7,7 @@ import (
 
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/sshx"
 )
 
@@ -55,7 +56,28 @@ func (c *cli) newSSH(opts *commonOptions, ro *remoteOptions, st *setup) (*sshSta
 		c.errorf("%v", err)
 		return nil, errs.ExitCode(errs.KindOf(err))
 	}
+	if st.inv != nil {
+		for _, b := range st.inv.Bastions {
+			dialer.AddBastion(b.Name, c.bastionEndpoint(b, st))
+		}
+	}
 	return &sshStack{executor: &sshx.Executor{Connector: dialer}, auth: auth}, exitcode.OK
+}
+
+// bastionEndpoint completes a bastion's connection details: its own user
+// and port, else the resolved settings, else the local user.
+func (c *cli) bastionEndpoint(b inventory.Bastion, st *setup) sshx.Endpoint {
+	ep := sshx.Endpoint{Name: b.Name, Host: b.Address, Port: b.Port, User: b.User}
+	if ep.Port == 0 {
+		ep.Port = st.settings.Port
+	}
+	if ep.User == "" {
+		ep.User = st.settings.User
+	}
+	if ep.User == "" {
+		ep.User = currentUser()
+	}
+	return ep
 }
 
 // sshConfig translates settings into sshx.Config.
