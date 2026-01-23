@@ -19,13 +19,60 @@ type Connector interface {
 	Connect(ctx context.Context, server inventory.Server) (Client, error)
 }
 
-// Connect implements Connector with a direct connection.
+// Connect implements Connector. Servers with a Bastion are reached
+// through that bastion; all others directly. If the bastion fails, the
+// error is returned: there is no fallback to a direct connection.
 func (d *Dialer) Connect(ctx context.Context, server inventory.Server) (Client, error) {
-	c, err := d.Dial(ctx, EndpointFor(server))
+	// One timeout for the whole setup, however many hops it has.
+	if d.cfg.ConnectTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, d.cfg.ConnectTimeout)
+		defer cancel()
+	}
+	ep := EndpointFor(server)
+	if server.Bastion == "" {
+		c, err := d.Dial(ctx, ep)
+		if err != nil {
+			return nil, err
+		}
+		return WrapClient(c), nil
+	}
+	return d.connectVia(ctx, server.Bastion, ep)
+}
+
+// connectVia connects to ep through the named bastion.
+func (d *Dialer) connectVia(ctx context.Context, bastionName string, ep Endpoint) (Client, error) {
+	bastion, err := d.DialBastion(ctx, bastionName)
 	if err != nil {
 		return nil, err
 	}
-	return WrapClient(c), nil
+	conn, err := Forward(ctx, bastion, bastionName, ep)
+	if err != nil {
+		bastion.Close()
+		return nil, err
+	}
+	target, err := d.Handshake(ctx, conn, ep)
+	if err != nil {
+		bastion.Close()
+		return nil, err
+	}
+	return chainedClient{Client: WrapClient(target), bastion: bastion}, nil
+}
+
+// chainedClient is a target connection that runs through a bastion.
+// Embedding Client provides NewSession; Close is overridden to close the
+// target first and then the bastion connection it depends on.
+type chainedClient struct {
+	Client
+	bastion *ssh.Client
+}
+
+func (c chainedClient) Close() error {
+	err := c.Client.Close()
+	if berr := c.bastion.Close(); err == nil {
+		err = berr
+	}
+	return err
 }
 
 // Executor runs commands over SSH. It implements executor.Executor.

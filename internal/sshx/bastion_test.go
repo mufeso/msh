@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/errs"
+	"example.com/msh/internal/executor"
 	"example.com/msh/internal/sshtest"
 	"golang.org/x/crypto/ssh"
 )
@@ -121,5 +123,48 @@ func TestForwardRefusedIsTargetTCPError(t *testing.T) {
 	_, err = Forward(context.Background(), bastion, "jump", Endpoint{Name: "app01", Host: "127.0.0.1", Port: port})
 	if errs.KindOf(err) != errs.KindTCP || errs.RoleOf(err) != errs.RoleTarget || !contains(err.Error(), "via bastion jump") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestConnectThroughBastion(t *testing.T) {
+	// One key is authorized on both servers; the target only listens on
+	// 127.0.0.1, and the bastion forwards to it.
+	env := newTestEnv(t, sshtest.Options{})
+	bastion := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{env.key.Public()}, AllowForwarding: true})
+	env.cfg.KnownHostsFile = sshtest.WriteKnownHosts(t, t.TempDir(), env.server.KnownHostsLine(), bastion.KnownHostsLine())
+	d := env.dialer(t)
+	d.AddBastion("jump", endpointOf("jump", bastion))
+
+	target := env.server0()
+	target.Bastion = "jump"
+	ex := &Executor{Connector: d}
+	r := ex.Run(context.Background(), target, executor.Request{Command: "echo through-bastion"})
+	if r.Status != executor.StatusOK || r.Stdout != "through-bastion\n" {
+		t.Fatalf("result = %+v", r)
+	}
+	if fw := bastion.Forwards(); len(fw) != 1 || fw[0] != env.server.Addr {
+		t.Errorf("bastion forwards = %v, want [%s]", fw, env.server.Addr)
+	}
+	if !env.server.WaitIdle(2 * time.Second) {
+		t.Error("target session left open")
+	}
+}
+
+func TestBastionFailureDoesNotFallBackToDirect(t *testing.T) {
+	env := newTestEnv(t, sshtest.Options{})
+	d := env.dialer(t)
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+	d.AddBastion("jump", Endpoint{Name: "jump", Host: "127.0.0.1", Port: port, User: "u"})
+
+	target := env.server0() // directly reachable, but configured via the bastion
+	target.Bastion = "jump"
+	r := (&Executor{Connector: d}).Run(context.Background(), target, executor.Request{Command: "true"})
+	if r.Status != executor.StatusError || errs.RoleOf(r.Err) != errs.RoleBastion || errs.KindOf(r.Err) != errs.KindTCP {
+		t.Errorf("result = %+v", r)
+	}
+	if len(env.server.Commands()) != 0 {
+		t.Error("msh fell back to a direct connection")
 	}
 }
