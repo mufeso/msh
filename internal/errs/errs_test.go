@@ -66,3 +66,11 @@ func TestRole(t *testing.T) {
 		t.Error("default role should be target")
 	}
 }
+
+func TestVia(t *testing.T) {
+	e := New(KindAuth, "app01", io.EOF)
+	e.Via = "jump"
+	if got := e.Error(); got != "app01 (via bastion jump): authentication failed: EOF" {
+		t.Errorf("Error() = %q", got)
+	}
+}

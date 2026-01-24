@@ -2,7 +2,6 @@ package sshx
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"golang.org/x/crypto/ssh"
@@ -22,7 +21,9 @@ func Forward(ctx context.Context, bastion *ssh.Client, bastionName string, ep En
 		if ctx.Err() != nil {
 			return nil, contextError(ctx, ep)
 		}
-		return nil, errs.New(errs.KindTCP, ep.Name, fmt.Errorf("via bastion %s: %w", bastionName, err))
+		e := errs.New(errs.KindTCP, ep.Name, err)
+		e.Via = bastionName
+		return nil, e
 	}
 	return conn, nil
 }

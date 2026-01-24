@@ -54,7 +54,7 @@ func (d *Dialer) connectVia(ctx context.Context, bastionName string, ep Endpoint
 	target, err := d.Handshake(ctx, conn, ep)
 	if err != nil {
 		bastion.Close()
-		return nil, err
+		return nil, withVia(err, bastionName)
 	}
 	return chainedClient{Client: WrapClient(target), bastion: bastion}, nil
 }
@@ -193,4 +193,15 @@ func statusFor(err error) executor.Status {
 	default:
 		return executor.StatusError
 	}
+}
+
+// withVia records the bastion in a target connection error.
+func withVia(err error, bastion string) error {
+	var e *errs.Error
+	if errors.As(err, &e) && e.Role == errs.RoleTarget {
+		copied := *e
+		copied.Via = bastion
+		return &copied
+	}
+	return err
 }

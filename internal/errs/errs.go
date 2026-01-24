@@ -91,6 +91,7 @@ type Error struct {
 	Kind Kind
 	Role Role   // which hop failed, for connection errors
 	Host string // server or bastion name, if the error concerns one
+	Via  string // bastion the target was reached through, if any
 	Err  error  // underlying cause; may be nil
 }
 
@@ -122,6 +123,11 @@ func (e *Error) Error() string {
 	}
 	if e.Host != "" {
 		b.WriteString(e.Host)
+		if e.Via != "" {
+			b.WriteString(" (via bastion ")
+			b.WriteString(e.Via)
+			b.WriteString(")")
+		}
 		b.WriteString(": ")
 	}
 	b.WriteString(e.Kind.String())
