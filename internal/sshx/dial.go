@@ -12,17 +12,33 @@ import (
 	"example.com/msh/internal/errs"
 )
 
-// Dialer opens SSH connections, directly or through bastions.
-type Dialer struct {
+// creds are the credentials and checks used for one hop: client
+// configuration, keys, and host key verification.
+type creds struct {
 	cfg      Config
 	auth     *Auth
 	hostKeys ssh.HostKeyCallback
-	bastions map[string]*bastionHop
+	ownsAuth bool // auth was created for this hop and must be closed with it
 }
 
 // bastionHop is everything needed to connect to one bastion.
 type bastionHop struct {
-	ep Endpoint
+	ep    Endpoint
+	creds creds
+}
+
+// BastionSpec describes a bastion for AddBastion.
+type BastionSpec struct {
+	Name           string
+	Endpoint       Endpoint
+	IdentityFile   string // "" = the same keys as for target servers
+	KnownHostsFile string // "" = the same known_hosts as for target servers
+}
+
+// Dialer opens SSH connections, directly or through bastions.
+type Dialer struct {
+	target   creds
+	bastions map[string]*bastionHop
 }
 
 // NewDialer prepares a Dialer. It fails if host key verification cannot
@@ -32,26 +48,107 @@ func NewDialer(cfg Config, auth *Auth) (*Dialer, error) {
 	if err != nil {
 		return nil, errs.New(errs.KindHostKey, "", err)
 	}
-	return &Dialer{cfg: cfg, auth: auth, hostKeys: cb, bastions: map[string]*bastionHop{}}, nil
+	return &Dialer{
+		target:   creds{cfg: cfg, auth: auth, hostKeys: cb},
+		bastions: map[string]*bastionHop{},
+	}, nil
 }
 
-// AddBastion registers a bastion under its name.
-func (d *Dialer) AddBastion(name string, ep Endpoint) {
-	d.bastions[name] = &bastionHop{ep: ep}
+// AddBastion registers a bastion. A bastion-specific identity file gets
+// its own Auth; a bastion-specific known_hosts file its own callback.
+func (d *Dialer) AddBastion(spec BastionSpec) error {
+	c := d.target // a copy: changing c does not change d.target
+	c.ownsAuth = false
+	if spec.KnownHostsFile != "" {
+		c.cfg.KnownHostsFile = spec.KnownHostsFile
+		cb, err := HostKeyCallback(c.cfg)
+		if err != nil {
+			return errs.NewRole(errs.KindHostKey, errs.RoleBastion, spec.Name, err)
+		}
+		c.hostKeys = cb
+	}
+	if spec.IdentityFile != "" {
+		c.cfg.IdentityFile = spec.IdentityFile
+		auth, err := NewAuth(c.cfg)
+		if err != nil {
+			return errs.NewRole(errs.KindAuth, errs.RoleBastion, spec.Name, err)
+		}
+		c.auth, c.ownsAuth = auth, true
+	}
+	d.bastions[spec.Name] = &bastionHop{ep: spec.Endpoint, creds: c}
+	return nil
 }
 
-// DialBastion connects to the named bastion. Errors are marked with the
-// bastion role so the user sees which hop failed.
+// Close releases resources the Dialer created for bastions.
+func (d *Dialer) Close() error {
+	for _, b := range d.bastions {
+		if b.creds.ownsAuth {
+			b.creds.auth.Close()
+		}
+	}
+	return nil
+}
+
+// Dial connects directly to a target endpoint.
+func (d *Dialer) Dial(ctx context.Context, ep Endpoint) (*ssh.Client, error) {
+	return d.dial(ctx, ep, d.target)
+}
+
+// Handshake runs the target SSH handshake over an established connection
+// (for example one forwarded by a bastion). It takes ownership of conn.
+func (d *Dialer) Handshake(ctx context.Context, conn net.Conn, ep Endpoint) (*ssh.Client, error) {
+	return d.handshake(ctx, conn, ep, d.target)
+}
+
+// DialBastion connects to the named bastion. Errors carry the bastion role.
 func (d *Dialer) DialBastion(ctx context.Context, name string) (*ssh.Client, error) {
 	hop, ok := d.bastions[name]
 	if !ok {
 		return nil, errs.NewRole(errs.KindConfig, errs.RoleBastion, name, errors.New("unknown bastion"))
 	}
-	c, err := d.Dial(ctx, hop.ep)
+	c, err := d.dial(ctx, hop.ep, hop.creds)
 	if err != nil {
 		return nil, asBastionError(err)
 	}
 	return c, nil
+}
+
+// dial makes the TCP connection and then the SSH handshake.
+func (d *Dialer) dial(ctx context.Context, ep Endpoint, c creds) (*ssh.Client, error) {
+	nd := net.Dialer{Timeout: c.cfg.ConnectTimeout}
+	conn, err := nd.DialContext(ctx, "tcp", ep.Addr())
+	if err != nil {
+		return nil, classifyDial(ctx, ep, err)
+	}
+	return d.handshake(ctx, conn, ep, c)
+}
+
+// handshake runs the SSH handshake and authentication over conn.
+func (d *Dialer) handshake(ctx context.Context, conn net.Conn, ep Endpoint, c creds) (*ssh.Client, error) {
+	if t := c.cfg.ConnectTimeout; t > 0 {
+		// Forwarded connections do not support deadlines; the error is
+		// ignored because ctx still bounds the handshake.
+		_ = conn.SetDeadline(time.Now().Add(t))
+	}
+	// If ctx ends during the handshake, closing the connection makes the
+	// blocked handshake return immediately. stop() returns false if the
+	// callback already ran.
+	stop := context.AfterFunc(ctx, func() { conn.Close() })
+
+	sc, chans, reqs, err := ssh.NewClientConn(conn, ep.Addr(), ClientConfig(c.cfg, ep, c.auth, c.hostKeys))
+	interrupted := !stop()
+	if err != nil || interrupted {
+		conn.Close()
+		if sc != nil {
+			sc.Close()
+		}
+		if interrupted {
+			return nil, contextError(ctx, ep)
+		}
+		return nil, classifyHandshake(ep, err)
+	}
+	_ = conn.SetDeadline(time.Time{})
+	return ssh.NewClient(sc, chans, reqs), nil
 }
 
 // asBastionError marks a connection error as a bastion failure.
@@ -63,45 +160,6 @@ func asBastionError(err error) error {
 		return &copied
 	}
 	return errs.NewRole(errs.KindHandshake, errs.RoleBastion, "", err)
-}
-
-// Dial connects to ep: TCP connect, then SSH handshake and
-// authentication, all bounded by cfg.ConnectTimeout and ctx.
-func (d *Dialer) Dial(ctx context.Context, ep Endpoint) (*ssh.Client, error) {
-	nd := net.Dialer{Timeout: d.cfg.ConnectTimeout}
-	conn, err := nd.DialContext(ctx, "tcp", ep.Addr())
-	if err != nil {
-		return nil, classifyDial(ctx, ep, err)
-	}
-	return d.Handshake(ctx, conn, ep)
-}
-
-// Handshake runs the SSH handshake over an already established
-// connection. It takes ownership of conn: on failure conn is closed.
-// Keeping it separate from Dial lets bastion connections reuse it.
-func (d *Dialer) Handshake(ctx context.Context, conn net.Conn, ep Endpoint) (*ssh.Client, error) {
-	if t := d.cfg.ConnectTimeout; t > 0 {
-		_ = conn.SetDeadline(time.Now().Add(t))
-	}
-	// If ctx ends during the handshake, closing the connection makes the
-	// blocked handshake return immediately. stop() unregisters the
-	// callback; it returns false if the callback already ran.
-	stop := context.AfterFunc(ctx, func() { conn.Close() })
-
-	c, chans, reqs, err := ssh.NewClientConn(conn, ep.Addr(), ClientConfig(d.cfg, ep, d.auth, d.hostKeys))
-	interrupted := !stop()
-	if err != nil || interrupted {
-		conn.Close()
-		if c != nil {
-			c.Close()
-		}
-		if interrupted {
-			return nil, contextError(ctx, ep)
-		}
-		return nil, classifyHandshake(ep, err)
-	}
-	_ = conn.SetDeadline(time.Time{}) // no deadline once connected
-	return ssh.NewClient(c, chans, reqs), nil
 }
 
 // classifyDial categorizes a TCP connection error.

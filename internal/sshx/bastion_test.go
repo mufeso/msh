@@ -27,7 +27,7 @@ func endpointOf(name string, srv *sshtest.Server) Endpoint {
 func TestDialBastion(t *testing.T) {
 	env := newTestEnv(t, sshtest.Options{AllowForwarding: true})
 	d := env.dialer(t)
-	d.AddBastion("jump", endpointOf("jump", env.server))
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: endpointOf("jump", env.server)})
 
 	c, err := d.DialBastion(context.Background(), "jump")
 	if err != nil {
@@ -39,7 +39,7 @@ func TestDialBastion(t *testing.T) {
 func TestDialBastionErrorsHaveBastionRole(t *testing.T) {
 	env := newTestEnv(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{sshtest.NewKey(t).Public()}})
 	d := env.dialer(t)
-	d.AddBastion("jump", endpointOf("jump", env.server))
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: endpointOf("jump", env.server)})
 
 	_, err := d.DialBastion(context.Background(), "jump")
 	if errs.KindOf(err) != errs.KindAuth || errs.RoleOf(err) != errs.RoleBastion {
@@ -82,7 +82,7 @@ func startEcho(t *testing.T) string {
 func TestForwardThroughBastion(t *testing.T) {
 	env := newTestEnv(t, sshtest.Options{AllowForwarding: true})
 	d := env.dialer(t)
-	d.AddBastion("jump", endpointOf("jump", env.server))
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: endpointOf("jump", env.server)})
 	bastion, err := d.DialBastion(context.Background(), "jump")
 	if err != nil {
 		t.Fatal(err)
@@ -110,7 +110,7 @@ func TestForwardThroughBastion(t *testing.T) {
 func TestForwardRefusedIsTargetTCPError(t *testing.T) {
 	env := newTestEnv(t, sshtest.Options{AllowForwarding: true})
 	d := env.dialer(t)
-	d.AddBastion("jump", endpointOf("jump", env.server))
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: endpointOf("jump", env.server)})
 	bastion, err := d.DialBastion(context.Background(), "jump")
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +133,7 @@ func TestConnectThroughBastion(t *testing.T) {
 	bastion := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{env.key.Public()}, AllowForwarding: true})
 	env.cfg.KnownHostsFile = sshtest.WriteKnownHosts(t, t.TempDir(), env.server.KnownHostsLine(), bastion.KnownHostsLine())
 	d := env.dialer(t)
-	d.AddBastion("jump", endpointOf("jump", bastion))
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: endpointOf("jump", bastion)})
 
 	target := env.server0()
 	target.Bastion = "jump"
@@ -156,7 +156,7 @@ func TestBastionFailureDoesNotFallBackToDirect(t *testing.T) {
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	port := ln.Addr().(*net.TCPAddr).Port
 	ln.Close()
-	d.AddBastion("jump", Endpoint{Name: "jump", Host: "127.0.0.1", Port: port, User: "u"})
+	mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: Endpoint{Name: "jump", Host: "127.0.0.1", Port: port, User: "u"}})
 
 	target := env.server0() // directly reachable, but configured via the bastion
 	target.Bastion = "jump"
@@ -166,5 +166,34 @@ func TestBastionFailureDoesNotFallBackToDirect(t *testing.T) {
 	}
 	if len(env.server.Commands()) != 0 {
 		t.Error("msh fell back to a direct connection")
+	}
+}
+
+func mustAddBastion(t *testing.T, d *Dialer, spec BastionSpec) {
+	t.Helper()
+	if err := d.AddBastion(spec); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBastionOwnIdentity(t *testing.T) {
+	// The target accepts the normal key; the bastion only a second key
+	// that is configured as the bastion's identity_file.
+	env := newTestEnv(t, sshtest.Options{})
+	jumpKey := sshtest.NewKey(t)
+	bastion := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{jumpKey.Public()}, AllowForwarding: true})
+	env.cfg.KnownHostsFile = sshtest.WriteKnownHosts(t, t.TempDir(), env.server.KnownHostsLine(), bastion.KnownHostsLine())
+	d := env.dialer(t)
+	defer d.Close()
+	mustAddBastion(t, d, BastionSpec{
+		Name:         "jump",
+		Endpoint:     endpointOf("jump", bastion),
+		IdentityFile: sshtest.WriteKeyFile(t, t.TempDir(), "jump_key", jumpKey, ""),
+	})
+	target := env.server0()
+	target.Bastion = "jump"
+	r := (&Executor{Connector: d}).Run(context.Background(), target, executor.Request{Command: "echo ok"})
+	if r.Status != executor.StatusOK {
+		t.Fatalf("result = %+v", r)
 	}
 }

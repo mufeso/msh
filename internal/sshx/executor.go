@@ -24,9 +24,9 @@ type Connector interface {
 // error is returned: there is no fallback to a direct connection.
 func (d *Dialer) Connect(ctx context.Context, server inventory.Server) (Client, error) {
 	// One timeout for the whole setup, however many hops it has.
-	if d.cfg.ConnectTimeout > 0 {
+	if d.target.cfg.ConnectTimeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.cfg.ConnectTimeout)
+		ctx, cancel = context.WithTimeout(ctx, d.target.cfg.ConnectTimeout)
 		defer cancel()
 	}
 	ep := EndpointFor(server)

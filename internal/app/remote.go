@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
@@ -30,10 +31,14 @@ func (o *remoteOptions) register(fs *flag.FlagSet) {
 type sshStack struct {
 	executor *sshx.Executor
 	auth     *sshx.Auth
+	dialer   *sshx.Dialer
 }
 
-// Close releases the agent connection.
-func (s *sshStack) Close() { s.auth.Close() }
+// Close releases agent connections and bastion credentials.
+func (s *sshStack) Close() {
+	s.dialer.Close()
+	s.auth.Close()
+}
 
 // newSSH builds the SSH executor from the resolved settings. On failure
 // it prints the error and returns nil and the exit code.
@@ -57,11 +62,23 @@ func (c *cli) newSSH(opts *commonOptions, ro *remoteOptions, st *setup) (*sshSta
 		return nil, errs.ExitCode(errs.KindOf(err))
 	}
 	if st.inv != nil {
+		home, _ := c.lookupEnv("HOME")
 		for _, b := range st.inv.Bastions {
-			dialer.AddBastion(b.Name, c.bastionEndpoint(b, st))
+			err := dialer.AddBastion(sshx.BastionSpec{
+				Name:           b.Name,
+				Endpoint:       c.bastionEndpoint(b, st),
+				IdentityFile:   config.ExpandHome(b.IdentityFile, home),
+				KnownHostsFile: config.ExpandHome(b.KnownHostsFile, home),
+			})
+			if err != nil {
+				dialer.Close()
+				auth.Close()
+				c.errorf("%v", err)
+				return nil, errs.ExitCode(errs.KindOf(err))
+			}
 		}
 	}
-	return &sshStack{executor: &sshx.Executor{Connector: dialer}, auth: auth}, exitcode.OK
+	return &sshStack{executor: &sshx.Executor{Connector: dialer}, auth: auth, dialer: dialer}, exitcode.OK
 }
 
 // bastionEndpoint completes a bastion's connection details: its own user

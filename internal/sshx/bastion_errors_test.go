@@ -76,6 +76,7 @@ func TestBastionFailureModes(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			defer d.Close()
 			bep := endpointOf("jump", bastion)
 			tsrv := (&testEnv{server: target}).server0()
 			if s.bastionDown {
@@ -86,7 +87,7 @@ func TestBastionFailureModes(t *testing.T) {
 				tsrv.Port = ln.Addr().(*net.TCPAddr).Port
 				ln.Close()
 			}
-			d.AddBastion("jump", bep)
+			mustAddBastion(t, d, BastionSpec{Name: "jump", Endpoint: bep})
 			tsrv.Bastion = "jump"
 
 			r := (&Executor{Connector: d}).Run(context.Background(), tsrv, executor.Request{Command: "true"})
