@@ -10,6 +10,7 @@ Commands:
   exec       Run a command on servers
   help       Show help for msh or for one command
   hosts      List and check inventory servers
+  task       List, show and run configured tasks
   version    Print version information
 
 Run 'msh help <command>' for details about a command.
