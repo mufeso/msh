@@ -7,9 +7,11 @@ import (
 	"os/user"
 
 	"example.com/msh/internal/config"
+	"example.com/msh/internal/configfile"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
+	"example.com/msh/internal/task"
 )
 
 // setup is everything a command needs after its flags are parsed.
@@ -17,6 +19,7 @@ type setup struct {
 	configFile string               // configuration file that was loaded ("" = none)
 	settings   config.Settings      // fully resolved and validated
 	inv        *inventory.Inventory // nil unless the command needs servers
+	tasks      *task.Set            // tasks from the configuration file
 }
 
 // load resolves settings and, if needInventory is true, loads the
@@ -35,14 +38,16 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 	home, _ := c.lookupEnv("HOME")
 
 	var fileLayer *config.Source
+	var taskDefs map[string]task.Task
 	path, explicit := c.configPath(opts)
 	if path != "" {
-		layer, err := config.LoadFile(path)
+		file, err := configfile.Load(path)
 		switch {
 		case err == nil:
 			c.verbosef(opts, "loaded configuration %s", path)
 			st.configFile = path
-			fileLayer = &config.Source{Name: config.SourceFile, Layer: layer}
+			fileLayer = &config.Source{Name: config.SourceFile, Layer: file.Layer}
+			taskDefs = file.Tasks
 		case !explicit && errors.Is(err, fs.ErrNotExist):
 			c.verbosef(opts, "no configuration file at %s", path)
 		default:
@@ -50,6 +55,13 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 			return nil, fileErrorCode(err)
 		}
 	}
+	tasks, err := task.NewSet(taskDefs)
+	if err != nil {
+		c.errorf("%s: %v", path, err)
+		return nil, exitcode.Config
+	}
+	st.tasks = tasks
+
 	envLayer, err := config.EnvLayer(c.lookupEnv)
 	if err != nil {
 		c.errorf("environment: %v", err)

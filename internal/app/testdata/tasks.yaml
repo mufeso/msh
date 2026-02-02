@@ -1,0 +1,29 @@
+inventory: testdata/inventory.yaml
+tasks:
+  message:
+    description: Follow the messages log and filter by pattern
+    aliases: [msg]
+    interpreter: bash
+    command: "tail -100f /var/log/messages | grep --line-buffered -- {{pattern}}"
+    arguments:
+      - name: pattern
+        required: true
+    interactive: true
+  uptime:
+    description: Show how long the server has been up
+    argv: [uptime]
+  security-summary:
+    description: Collect a security summary
+    interpreter: bash
+    script: |
+      set -e
+      echo "Host: $(hostname)"
+      echo "Kernel: $(uname -r)"
+  restart-service:
+    description: Restart a systemd service
+    argv: [sudo, systemctl, restart, "{{service}}"]
+    arguments:
+      - name: service
+        required: true
+        pattern: "^[A-Za-z0-9@._-]+$"
+    safety: changes
