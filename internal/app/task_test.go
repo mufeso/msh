@@ -30,3 +30,22 @@ func TestTaskList(t *testing.T) {
 		}
 	}
 }
+
+func TestTaskShow(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "task", "show", "msg", "--config", "testdata/tasks.yaml")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"Name:        message", "SHELL (bash -c)", "pattern (required)", "Interactive: true"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q:\n%s", want, stdout)
+		}
+	}
+}
+
+func TestTaskShowUnknownSuggests(t *testing.T) {
+	_, stderr, code := runCLI(t, "task", "show", "uptim", "--config", "testdata/tasks.yaml")
+	if code != exitcode.Usage || !contains(stderr, `Did you mean "uptime"?`) {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}

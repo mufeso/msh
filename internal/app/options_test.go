@@ -85,3 +85,20 @@ func TestBadTimeoutFlagIsUsageError(t *testing.T) {
 		t.Errorf("code = %v, want usage", code)
 	}
 }
+
+func TestParseInterspersed(t *testing.T) {
+	fs := flag.NewFlagSet("t", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	v := fs.Bool("v", false, "")
+	o := fs.String("o", "", "")
+	pos, code, ok := parseInterspersed(fs, []string{"a", "-v", "b", "-o", "x", "--", "-c", "d"})
+	if !ok || code != exitcode.OK {
+		t.Fatalf("parse failed: %v", code)
+	}
+	if !*v || *o != "x" {
+		t.Errorf("flags v=%v o=%q", *v, *o)
+	}
+	if strings.Join(pos, " ") != "a b -c d" {
+		t.Errorf("positional = %q", pos)
+	}
+}

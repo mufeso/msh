@@ -13,6 +13,7 @@ const taskUsage = `Usage: msh task <subcommand> [flags]
 
 Subcommands:
   list    List configured tasks
+  show    Show one task in detail
 
 Tasks are defined under "tasks:" in the configuration file.
 `
@@ -39,6 +40,8 @@ func runTask(c *cli, args []string) exitcode.Code {
 	switch args[0] {
 	case "list":
 		return runTaskList(c, args[1:])
+	case "show":
+		return runTaskShow(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, taskUsage)
 		return exitcode.OK

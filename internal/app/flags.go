@@ -45,3 +45,27 @@ func parseFlags(fs *flag.FlagSet, args []string) (code exitcode.Code, ok bool) {
 	}
 	return exitcode.OK, true
 }
+
+// parseInterspersed parses flags that may appear before, between or after
+// positional arguments ("msh task show NAME --config FILE"). The standard
+// flag package stops at the first non-flag argument, so this loops:
+// parse, take one positional argument, parse the rest again. Everything
+// after a "--" argument is positional.
+func parseInterspersed(fs *flag.FlagSet, args []string) (positional []string, code exitcode.Code, ok bool) {
+	for {
+		if code, ok := parseFlags(fs, args); !ok {
+			return nil, code, false
+		}
+		rest := fs.Args()
+		if len(rest) == 0 {
+			return positional, exitcode.OK, true
+		}
+		// The flag package consumes a "--" terminator itself; detect it by
+		// comparing with the input.
+		if len(args) > len(rest) && args[len(args)-len(rest)-1] == "--" {
+			return append(positional, rest...), exitcode.OK, true
+		}
+		positional = append(positional, rest[0])
+		args = rest[1:]
+	}
+}
