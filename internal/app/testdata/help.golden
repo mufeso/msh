@@ -6,6 +6,7 @@ Usage:
   msh --version
 
 Commands:
+  c          Short form of task run: msh c TASK SERVER
   config     Show and validate configuration
   exec       Run a command on servers
   help       Show help for msh or for one command

@@ -43,43 +43,17 @@ func runExec(c *cli, args []string) exitcode.Code {
 		c.errorf("exec: --command is required")
 		return exitcode.Usage
 	}
-	if err := sel.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
 	if *local {
+		if err := sel.validate(); err != nil {
+			c.errorf("%v", err)
+			return exitcode.Usage
+		}
 		return c.execLocal(&opts, *command)
 	}
-	if sel.isEmpty() {
-		c.errorf("exec: select servers with --host, --group, --tag or --all")
-		return exitcode.Usage
-	}
-
-	st, code := c.load(&opts, true)
-	if st == nil {
-		return code
-	}
-	servers, err := st.inv.Select(sel.selector())
-	if err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
-	if len(servers) != 1 {
-		c.errorf("exec: the selection matches %d servers; this version runs on exactly one", len(servers))
-		return exitcode.Usage
-	}
-
-	stack, code := c.newSSH(&opts, &ro, st)
-	if stack == nil {
-		return code
-	}
-	defer stack.Close()
-
-	res := stack.executor.Run(c.ctx(), servers[0], executor.Request{
-		Command: *command,
-		Timeout: st.settings.CommandTimeout,
+	return c.runRemote(remoteRun{
+		opts: &opts, sel: &sel, ro: &ro, name: "exec",
+		req: executor.Request{Command: *command},
 	})
-	return c.writeResults(&opts, []executor.Result{res})
 }
 
 // execLocal runs the command on this machine.

@@ -65,7 +65,15 @@ func NewSet(m map[string]Task) (*Set, error) {
 
 // validate checks one task.
 func (t *Task) validate() error {
-	return t.validateShape()
+	if err := t.validateShape(); err != nil {
+		return err
+	}
+	if t.Mode() != ModeDirect {
+		if _, err := LookupInterpreter(t.Interpreter); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get returns a task by name or alias.
