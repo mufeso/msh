@@ -1,6 +1,9 @@
 package task
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestRenderModes(t *testing.T) {
 	tests := []struct {
@@ -124,5 +127,41 @@ func TestBindNamed(t *testing.T) {
 	}
 	if _, err := tk.Bind(nil, map[string]string{"1": "x"}); err == nil {
 		t.Error("numeric name accepted as a named argument")
+	}
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestRequiredDefaultAndPattern(t *testing.T) {
+	set, err := NewSet(map[string]Task{"svc": {
+		Argv: []string{"systemctl", "status", "{{service}}", "{{lines}}"},
+		Arguments: []Argument{
+			{Name: "service", Required: true, Pattern: "[A-Za-z0-9@._-]+"},
+			{Name: "lines", Default: strPtr("-n20")},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tk, _ := set.Get("svc")
+
+	if _, err := tk.Bind(nil, nil); err == nil || !strings.Contains(err.Error(), "required") {
+		t.Errorf("missing required: err = %v", err)
+	}
+	values, err := tk.Bind([]string{"sshd"}, nil)
+	if err != nil || values["lines"] != "-n20" {
+		t.Errorf("default not applied: %v %v", values, err)
+	}
+	for _, bad := range []string{"sshd; reboot", "a b", "$(id)", "sshd\x00"} {
+		if _, err := tk.Bind([]string{bad}, nil); err == nil {
+			t.Errorf("value %q accepted", bad)
+		}
+	}
+}
+
+func TestBadPatternIsLoadError(t *testing.T) {
+	_, err := NewSet(map[string]Task{"t": {Command: "echo {{a}}", Arguments: []Argument{{Name: "a", Pattern: "("}}}})
+	if err == nil {
+		t.Error("invalid regular expression accepted")
 	}
 }

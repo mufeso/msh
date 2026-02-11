@@ -43,6 +43,12 @@ const basicTasks = `  hello:
     command: "printf 'alpha\nbeta\ngamma beta\n' | grep -- {{pattern}}"
     arguments:
       - name: pattern
+  service:
+    argv: [echo, "service={{name}}"]
+    arguments:
+      - name: name
+        required: true
+        pattern: "[a-z]+"
   args:
     interpreter: sh
     script: |
@@ -138,5 +144,21 @@ func TestTaskRunNamedArguments(t *testing.T) {
 	_, stderr, code = fleet.run(t, []string{"task", "run", "greet", "--host", "s1", "--param", "nobody=x"}, "--config", cfg)
 	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, `no argument named "nobody"`) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}
+
+func TestTaskRunArgumentValidation(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := fleetConfig(t, basicTasks)
+	_, stderr, code := fleet.run(t, []string{"task", "run", "service", "--host", "s1"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, "is required") {
+		t.Errorf("missing: code = %d, stderr = %q", code, stderr)
+	}
+	_, stderr, code = fleet.run(t, []string{"task", "run", "service", "--host", "s1", "--arg", "sshd;id"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, "does not match") {
+		t.Errorf("pattern: code = %d, stderr = %q", code, stderr)
+	}
+	if len(fleet.servers[0].Commands()) != 0 {
+		t.Error("an invalid task invocation reached the server")
 	}
 }

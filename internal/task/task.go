@@ -16,6 +16,7 @@ package task
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"example.com/msh/internal/config"
 )
@@ -68,6 +69,9 @@ type Task struct {
 	// AllowRedirection permits <, > and >> in shell commands. Redirection
 	// can overwrite files, so it must be enabled explicitly.
 	AllowRedirection bool `json:"allow_redirection,omitempty" yaml:"allow_redirection,omitempty"`
+
+	// patterns holds compiled argument patterns; filled by validation.
+	patterns map[string]*regexp.Regexp
 }
 
 // Mode returns the execution mode implied by the fields that are set.

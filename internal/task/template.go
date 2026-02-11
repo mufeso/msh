@@ -63,6 +63,7 @@ func (t *Task) validatePlaceholders() error {
 		return fmt.Errorf("scripts receive arguments as positional parameters (\"$1\"); {{...}} placeholders are not substituted in scripts")
 	}
 	seen := map[string]bool{}
+	t.patterns = map[string]*regexp.Regexp{}
 	for _, a := range t.Arguments {
 		if !namePattern.MatchString(a.Name) {
 			return fmt.Errorf("argument name %q must match %s", a.Name, namePattern)
@@ -71,6 +72,39 @@ func (t *Task) validatePlaceholders() error {
 			return fmt.Errorf("duplicate argument %q", a.Name)
 		}
 		seen[a.Name] = true
+		if a.Required && a.Default != nil {
+			return fmt.Errorf("argument %q: a required argument cannot have a default", a.Name)
+		}
+		if a.Pattern != "" {
+			// Anchor the pattern: "[a-z]+" must match the whole value, not
+			// just a part of "abc; rm -rf /".
+			re, err := regexp.Compile("^(?:" + a.Pattern + ")$")
+			if err != nil {
+				return fmt.Errorf("argument %q: invalid pattern: %v", a.Name, err)
+			}
+			t.patterns[a.Name] = re
+		}
+	}
+	return nil
+}
+
+// complete applies defaults and validates every value.
+func (t *Task) complete(values Values) error {
+	for _, a := range t.Arguments {
+		v, given := values[a.Name]
+		switch {
+		case !given && a.Required:
+			return fmt.Errorf("task %q: argument %q is required", t.Name, a.Name)
+		case !given && a.Default != nil:
+			v = *a.Default
+		}
+		if strings.ContainsRune(v, 0) {
+			return fmt.Errorf("task %q: argument %q contains a NUL byte", t.Name, a.Name)
+		}
+		if re := t.patterns[a.Name]; re != nil && (given || v != "") && !re.MatchString(v) {
+			return fmt.Errorf("task %q: argument %q value %q does not match %s", t.Name, a.Name, v, a.Pattern)
+		}
+		values[a.Name] = v
 	}
 	return nil
 }
@@ -94,6 +128,9 @@ func (t *Task) Bind(positional []string, named map[string]string) (Values, error
 			return nil, fmt.Errorf("argument %q given both by position and by name", name)
 		}
 		values[name] = v
+	}
+	if err := t.complete(values); err != nil {
+		return nil, err
 	}
 	return values, nil
 }
