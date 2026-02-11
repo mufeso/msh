@@ -73,7 +73,7 @@ func (t *Task) validate() error {
 			return err
 		}
 	}
-	return nil
+	return t.validatePlaceholders()
 }
 
 // Get returns a task by name or alias.

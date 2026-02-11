@@ -3,20 +3,21 @@ package app
 import (
 	"flag"
 
+	"example.com/msh/internal/cliflag"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/task"
 )
 
-const taskRunUsage = `Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [flags]
+const taskRunUsage = `Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [--arg VALUE]... [flags]
 
 Runs a configured task on the selected servers. Tasks classified as
 "changes" or "dangerous" also require --yes.
 `
 
-const cUsage = `Usage: msh c TASK SERVER [flags]
+const cUsage = `Usage: msh c TASK SERVER [ARG]... [flags]
 
-Short form of: msh task run TASK --host SERVER
+Short form of: msh task run TASK --host SERVER --arg ARG...
 `
 
 // taskRunFlags are the flags of "task run" and "c".
@@ -25,6 +26,7 @@ type taskRunFlags struct {
 	sel  selectionOptions
 	ro   remoteOptions
 	yes  bool
+	args cliflag.StringList
 }
 
 func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet) {
@@ -34,6 +36,12 @@ func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet)
 	f.sel.register(fs)
 	f.ro.register(fs)
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a task classified as changes or dangerous")
+	fs.Func("arg", "task argument `value`, in order (repeatable)", func(v string) error {
+		// fs.Func instead of cliflag.StringList: argument values may
+		// legitimately contain commas.
+		f.args = append(f.args, v)
+		return nil
+	})
 	return f, fs
 }
 
@@ -70,11 +78,8 @@ func runC(c *cli, args []string) exitcode.Code {
 		c.errorf("c: usage: msh c TASK SERVER")
 		return exitcode.Usage
 	}
-	if len(positional) > 2 {
-		c.errorf("c: too many arguments")
-		return exitcode.Usage
-	}
 	f.sel.hosts = append(f.sel.hosts, positional[1])
+	f.args = append(f.args, positional[2:]...)
 	return c.runTaskOn(f, positional[0])
 }
 
@@ -92,7 +97,12 @@ func (c *cli) runTaskOn(f *taskRunFlags, name string) exitcode.Code {
 		c.errorf("task %q is classified %q; add --yes to run it", t.Name, s)
 		return exitcode.Usage
 	}
-	inv, err := t.Render()
+	values, err := t.Bind(f.args)
+	if err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	inv, err := t.Render(values)
 	if err != nil {
 		c.errorf("task %q: %v", t.Name, err)
 		return exitcode.Config
