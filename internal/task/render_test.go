@@ -46,7 +46,7 @@ func messageTask() Task {
 
 func TestRenderPositionalArguments(t *testing.T) {
 	tk := messageTask()
-	values, err := tk.Bind([]string{"sshd"})
+	values, err := tk.Bind([]string{"sshd"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestRenderPositionalArguments(t *testing.T) {
 		t.Errorf("Command = %s\nwant      %s", inv.Command, want)
 	}
 
-	values, _ = tk.Bind([]string{"Failed password"})
+	values, _ = tk.Bind([]string{"Failed password"}, nil)
 	inv, _ = tk.Render(values)
 	want = `bash -c 'tail -100f /var/log/messages | grep --line-buffered -- '\''Failed password'\'''`
 	if inv.Command != want {
@@ -70,7 +70,7 @@ func TestRenderPositionalArguments(t *testing.T) {
 func TestRenderNumericPlaceholderAndArgv(t *testing.T) {
 	tk := Task{Argv: []string{"journalctl", "-u", "{{1}}", "--since={{2}}"},
 		Arguments: []Argument{{Name: "unit"}, {Name: "since"}}}
-	values, _ := tk.Bind([]string{"sshd", "1 hour ago"})
+	values, _ := tk.Bind([]string{"sshd", "1 hour ago"}, nil)
 	inv, err := tk.Render(values)
 	if err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestRenderNumericPlaceholderAndArgv(t *testing.T) {
 
 func TestRenderScriptArguments(t *testing.T) {
 	tk := Task{Interpreter: "bash", Script: "echo \"$1\"\n", Arguments: []Argument{{Name: "who"}}}
-	values, _ := tk.Bind([]string{"a b"})
+	values, _ := tk.Bind([]string{"a b"}, nil)
 	inv, _ := tk.Render(values)
 	if inv.Command != "bash -s -- 'a b'" || string(inv.Stdin) != "echo \"$1\"\n" {
 		t.Errorf("inv = %+v", inv)
@@ -105,7 +105,24 @@ func TestPlaceholderValidation(t *testing.T) {
 
 func TestBindTooMany(t *testing.T) {
 	tk := messageTask()
-	if _, err := tk.Bind([]string{"a", "b"}); err == nil {
+	if _, err := tk.Bind([]string{"a", "b"}, nil); err == nil {
 		t.Error("too many arguments accepted")
+	}
+}
+
+func TestBindNamed(t *testing.T) {
+	tk := Task{Name: "t", Arguments: []Argument{{Name: "a"}, {Name: "b"}}}
+	values, err := tk.Bind([]string{"one"}, map[string]string{"b": "two"})
+	if err != nil || values["a"] != "one" || values["b"] != "two" {
+		t.Errorf("values = %v, err = %v", values, err)
+	}
+	if _, err := tk.Bind([]string{"one"}, map[string]string{"a": "again"}); err == nil {
+		t.Error("argument given twice accepted")
+	}
+	if _, err := tk.Bind(nil, map[string]string{"c": "x"}); err == nil {
+		t.Error("unknown named argument accepted")
+	}
+	if _, err := tk.Bind(nil, map[string]string{"1": "x"}); err == nil {
+		t.Error("numeric name accepted as a named argument")
 	}
 }

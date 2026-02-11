@@ -2,6 +2,8 @@ package app
 
 import (
 	"flag"
+	"fmt"
+	"strings"
 
 	"example.com/msh/internal/cliflag"
 	"example.com/msh/internal/executor"
@@ -9,7 +11,7 @@ import (
 	"example.com/msh/internal/task"
 )
 
-const taskRunUsage = `Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [--arg VALUE]... [flags]
+const taskRunUsage = `Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [--arg VALUE]... [--param NAME=VALUE]... [flags]
 
 Runs a configured task on the selected servers. Tasks classified as
 "changes" or "dangerous" also require --yes.
@@ -22,11 +24,12 @@ Short form of: msh task run TASK --host SERVER --arg ARG...
 
 // taskRunFlags are the flags of "task run" and "c".
 type taskRunFlags struct {
-	opts commonOptions
-	sel  selectionOptions
-	ro   remoteOptions
-	yes  bool
-	args cliflag.StringList
+	opts   commonOptions
+	sel    selectionOptions
+	ro     remoteOptions
+	yes    bool
+	args   cliflag.StringList
+	params map[string]string
 }
 
 func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet) {
@@ -40,6 +43,18 @@ func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet)
 		// fs.Func instead of cliflag.StringList: argument values may
 		// legitimately contain commas.
 		f.args = append(f.args, v)
+		return nil
+	})
+	f.params = map[string]string{}
+	fs.Func("param", "named task argument `name=value` (repeatable)", func(v string) error {
+		name, value, ok := strings.Cut(v, "=")
+		if !ok || name == "" {
+			return fmt.Errorf("%q is not in name=value form", v)
+		}
+		if _, dup := f.params[name]; dup {
+			return fmt.Errorf("argument %q given twice", name)
+		}
+		f.params[name] = value
 		return nil
 	})
 	return f, fs
@@ -97,7 +112,7 @@ func (c *cli) runTaskOn(f *taskRunFlags, name string) exitcode.Code {
 		c.errorf("task %q is classified %q; add --yes to run it", t.Name, s)
 		return exitcode.Usage
 	}
-	values, err := t.Bind(f.args)
+	values, err := t.Bind(f.args, f.params)
 	if err != nil {
 		c.errorf("%v", err)
 		return exitcode.Usage

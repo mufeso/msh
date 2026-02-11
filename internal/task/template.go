@@ -75,8 +75,10 @@ func (t *Task) validatePlaceholders() error {
 	return nil
 }
 
-// Bind assigns positional values to arguments in definition order.
-func (t *Task) Bind(positional []string) (Values, error) {
+// Bind assigns values to arguments: positional values in definition
+// order, then named values. Giving the same argument both ways, or
+// naming an argument the task does not have, is an error.
+func (t *Task) Bind(positional []string, named map[string]string) (Values, error) {
 	if len(positional) > len(t.Arguments) {
 		return nil, fmt.Errorf("task %q takes %d argument(s), got %d", t.Name, len(t.Arguments), len(positional))
 	}
@@ -84,5 +86,19 @@ func (t *Task) Bind(positional []string) (Values, error) {
 	for i, v := range positional {
 		values[t.Arguments[i].Name] = v
 	}
+	for name, v := range named {
+		if _, err := t.argName(name); err != nil || isNumber(name) {
+			return nil, fmt.Errorf("task %q has no argument named %q", t.Name, name)
+		}
+		if _, dup := values[name]; dup {
+			return nil, fmt.Errorf("argument %q given both by position and by name", name)
+		}
+		values[name] = v
+	}
 	return values, nil
+}
+
+func isNumber(s string) bool {
+	_, err := strconv.Atoi(s)
+	return err == nil
 }

@@ -124,3 +124,19 @@ func TestTaskRunTooManyArguments(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
 	}
 }
+
+func TestTaskRunNamedArguments(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := fleetConfig(t, basicTasks)
+	stdout, stderr, code := fleet.run(t, []string{"task", "run", "greet", "--host", "s1", "--param", "who=a=b", "--arg", "hey"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "hey|a=b\n") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	_, stderr, code = fleet.run(t, []string{"task", "run", "greet", "--host", "s1", "--param", "nobody=x"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, `no argument named "nobody"`) {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}
