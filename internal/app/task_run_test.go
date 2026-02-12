@@ -162,3 +162,39 @@ func TestTaskRunArgumentValidation(t *testing.T) {
 		t.Error("an invalid task invocation reached the server")
 	}
 }
+
+func TestUnsafeTaskDefinitionsAreRejected(t *testing.T) {
+	cfg := fleetConfig(t, `  bad:
+    interpreter: sh
+    command: "grep '{{p}}' /etc/passwd"
+    arguments:
+      - name: p
+`)
+	_, stderr, code := runCLI(t, "task", "list", "--config", cfg)
+	if code != exitcode.Config || !contains(stderr, "inside quotes") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func TestMultiLineScriptTask(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := fleetConfig(t, `  summary:
+    interpreter: sh
+    script: |
+      set -e
+      echo "first: $1"
+      for i in 1 2 3; do
+        printf 'n=%s\n' "$i"
+      done
+    arguments:
+      - name: label
+        default: none
+`)
+	stdout, stderr, code := fleet.run(t, []string{"task", "run", "summary", "--host", "s1"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "first: none\nn=1\nn=2\nn=3\n") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}

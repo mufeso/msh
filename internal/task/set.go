@@ -73,6 +73,16 @@ func (t *Task) validate() error {
 			return err
 		}
 	}
+	if t.Mode() == ModeShell {
+		in, _ := LookupInterpreter(t.Interpreter)
+		if in.POSIXShell {
+			if err := checkShellTemplate(t.Command, t.AllowRedirection); err != nil {
+				return err
+			}
+		} else if placeholderRE.MatchString(t.Command) {
+			return fmt.Errorf("placeholders are only supported for sh and bash commands; use a script with %s and read the arguments from sys.argv or @ARGV", in.Program)
+		}
+	}
 	return t.validatePlaceholders()
 }
 
