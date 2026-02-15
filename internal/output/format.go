@@ -30,5 +30,8 @@ func ParseFormat(s string) (Format, error) {
 func WriteJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
+	// JSON output is for programs, not web pages: keep <, > and & as they
+	// are instead of escaping them as \u003c etc.
+	enc.SetEscapeHTML(false)
 	return enc.Encode(v)
 }
