@@ -11,8 +11,8 @@ const execUsage = `Usage: msh exec (--host NAME | --group NAME | --tag K=V | --a
        msh exec --local --command CMD [flags]
 
 Runs a command line on a server over SSH, like "ssh user@server CMD".
-The command is interpreted by the remote user's shell. In this step the
-selection must match exactly one server.
+The command is interpreted by the remote user's shell. It runs on every
+selected server.
 
 With --local the command runs on this machine with /bin/sh -c instead.
 `

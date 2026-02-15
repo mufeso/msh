@@ -3,6 +3,7 @@ package app
 import (
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/runner"
 )
 
 // remoteRun is everything needed to run one request on selected servers.
@@ -36,10 +37,6 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
-	if len(servers) != 1 {
-		c.errorf("%s: the selection matches %d servers; this version runs on exactly one", r.name, len(servers))
-		return exitcode.Usage
-	}
 	if r.req.Timeout == 0 {
 		r.req.Timeout = st.settings.CommandTimeout
 	}
@@ -50,6 +47,6 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	}
 	defer stack.Close()
 
-	res := stack.executor.Run(c.ctx(), servers[0], r.req)
-	return c.writeResults(r.opts, []executor.Result{res})
+	results := runner.Run(c.ctx(), stack.executor, servers, r.req, nil)
+	return c.writeResults(r.opts, results)
 }
