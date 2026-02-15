@@ -47,6 +47,6 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	}
 	defer stack.Close()
 
-	results := runner.Run(c.ctx(), stack.executor, servers, r.req, nil)
-	return c.writeResults(r.opts, results)
+	report := runner.Run(c.ctx(), stack.executor, servers, r.req, nil)
+	return c.writeResults(r.opts, report.Results)
 }

@@ -15,13 +15,13 @@ import (
 	"example.com/msh/internal/inventory"
 )
 
-// Run executes req on each server, one after another, and returns the
-// results in selection order. emit, if not nil, is called with each
-// result as soon as it is available.
+// Run executes req on each server, one after another, and returns a
+// report with the results in selection order. emit, if not nil, is called
+// with each result as soon as it is available.
 //
 // Once ctx is done no further server is started; the remaining servers
 // get a "not started" result, so every server is always reported.
-func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) []executor.Result {
+func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) Report {
 	results := make([]executor.Result, 0, len(servers))
 	for _, s := range servers {
 		var r executor.Result
@@ -35,7 +35,7 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 			emit(r)
 		}
 	}
-	return results
+	return Report{Results: results, Summary: Summarize(results)}
 }
 
 // notStarted is the result for a server that was never contacted.

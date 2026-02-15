@@ -24,7 +24,7 @@ func TestRunSequential(t *testing.T) {
 	var emitted []string
 	results := Run(context.Background(), f, servers("a", "b", "c"), executor.Request{Command: "uptime"}, func(r executor.Result) {
 		emitted = append(emitted, r.Server)
-	})
+	}).Results
 	if len(results) != 3 || results[2].Server != "c" {
 		t.Errorf("results = %+v", results)
 	}
@@ -45,7 +45,7 @@ func TestRunStopsSchedulingAfterCancel(t *testing.T) {
 		if seen == 2 {
 			cancel() // like CTRL+C after the second server
 		}
-	})
+	}).Results
 	if len(f.Calls()) != 2 {
 		t.Errorf("executor called %d times, want 2", len(f.Calls()))
 	}
@@ -62,7 +62,7 @@ func TestRunStopsSchedulingAfterCancel(t *testing.T) {
 func TestNotStartedGlobalTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 0)
 	defer cancel()
-	results := Run(ctx, &fake.Executor{}, servers("a"), executor.Request{}, nil)
+	results := Run(ctx, &fake.Executor{}, servers("a"), executor.Request{}, nil).Results
 	if results[0].Status != executor.StatusTimeout || errs.KindOf(results[0].Err) != errs.KindGlobalTimeout {
 		t.Errorf("result = %+v", results[0])
 	}
