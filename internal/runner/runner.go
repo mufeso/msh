@@ -22,6 +22,7 @@ import (
 // Once ctx is done no further server is started; the remaining servers
 // get a "not started" result, so every server is always reported.
 func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) Report {
+	start := time.Now()
 	results := make([]executor.Result, 0, len(servers))
 	for _, s := range servers {
 		var r executor.Result
@@ -35,7 +36,9 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 			emit(r)
 		}
 	}
-	return Report{Results: results, Summary: Summarize(results)}
+	summary := Summarize(results)
+	summary.Duration = time.Since(start)
+	return Report{Results: results, Summary: summary}
 }
 
 // notStarted is the result for a server that was never contacted.

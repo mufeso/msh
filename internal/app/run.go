@@ -1,8 +1,11 @@
 package app
 
 import (
+	"fmt"
+
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/output"
 	"example.com/msh/internal/runner"
 )
 
@@ -48,5 +51,9 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	defer stack.Close()
 
 	report := runner.Run(c.ctx(), stack.executor, servers, r.req, nil)
-	return c.writeResults(r.opts, report.Results)
+	code = c.writeResults(r.opts, report.Results)
+	if r.opts.format == output.Text && report.Summary.Total > 1 {
+		fmt.Fprintf(c.stdout, "--- %s\n", report.Summary)
+	}
+	return code
 }

@@ -17,3 +17,11 @@ func TestExecOnGroup(t *testing.T) {
 		t.Errorf("%d ok results:\n%s", n, stdout)
 	}
 }
+
+func TestSummaryLine(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	stdout, _, _ := fleet.run(t, []string{"exec"}, "--all", "--command", "true")
+	if !contains(stdout, "--- 2 servers: 2 ok in ") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
