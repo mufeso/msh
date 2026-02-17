@@ -42,3 +42,14 @@ func TestOneUnreachableServerDoesNotStopOthers(t *testing.T) {
 		t.Errorf("fail-fast stdout = %q", stdout)
 	}
 }
+
+func TestProblemsLineAndExitCode(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--command", `test "$(hostname)" = never`)
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d, want failure", code)
+	}
+	if !contains(stdout, "--- problems: s1, s2, s3") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}

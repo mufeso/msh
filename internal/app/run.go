@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
@@ -54,6 +55,9 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	code = c.writeResults(r.opts, report.Results)
 	if r.opts.format == output.Text && report.Summary.Total > 1 {
 		fmt.Fprintf(c.stdout, "--- %s\n", report.Summary)
+		if len(report.Summary.Problems) > 0 {
+			fmt.Fprintf(c.stdout, "--- problems: %s\n", strings.Join(report.Summary.Problems, ", "))
+		}
 	}
 	return code
 }
