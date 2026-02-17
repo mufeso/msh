@@ -41,7 +41,7 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 		if err := ctx.Err(); err != nil {
 			r = notStarted(s, err)
 		} else {
-			r = ex.Run(ctx, s, req)
+			r = runOne(ctx, ex, s, req)
 		}
 		results = append(results, r)
 		if emit != nil {
@@ -70,4 +70,13 @@ func notStarted(s inventory.Server, cause error) executor.Result {
 		Err:      errs.New(kind, s.Name, fmt.Errorf("not started: %w", cause)),
 		Started:  time.Now(),
 	}
+}
+
+// runOne runs req on one server under its own child context. Canceling
+// the child right after the run releases anything tied to it. A defer
+// inside the caller's loop would only run when Run returns.
+func runOne(ctx context.Context, ex executor.Executor, s inventory.Server, req executor.Request) executor.Result {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	return ex.Run(ctx, s, req)
 }

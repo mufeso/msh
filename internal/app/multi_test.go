@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/sshtest"
 )
 
 func TestExecOnGroup(t *testing.T) {
@@ -51,5 +52,18 @@ func TestProblemsLineAndExitCode(t *testing.T) {
 	}
 	if !contains(stdout, "--- problems: s1, s2, s3") {
 		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestSlowServerTimesOutAlone(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 3, handlers: map[int]sshtest.Handler{2: sshtest.Blocking("")}})
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--command-timeout", "300ms", "--command", "echo fast")
+	if exitcode.Code(code) != exitcode.Timeout {
+		t.Errorf("code = %d, want timeout", code)
+	}
+	for _, want := range []string{"=== s1: ok", "=== s2: timeout", "=== s3: ok", "remote command timed out"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
 	}
 }

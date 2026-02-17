@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/executor"
@@ -84,5 +85,17 @@ func TestFailFast(t *testing.T) {
 	report = Run(context.Background(), f, servers("a", "b", "c"), executor.Request{}, Options{}, nil)
 	if len(f.Calls()) != 3 || report.Summary.Failed != 1 || report.Summary.OK != 2 {
 		t.Errorf("without fail-fast: calls = %d, summary = %+v", len(f.Calls()), report.Summary)
+	}
+}
+
+func TestTimeoutIsPerServer(t *testing.T) {
+	f := &fake.Executor{Responses: map[string]fake.Response{"slow": {Delay: time.Hour}}}
+	report := Run(context.Background(), f, servers("a", "slow", "b"), executor.Request{Timeout: 50 * time.Millisecond}, Options{}, nil)
+	got := map[string]executor.Status{}
+	for _, r := range report.Results {
+		got[r.Server] = r.Status
+	}
+	if got["a"] != executor.StatusOK || got["slow"] != executor.StatusTimeout || got["b"] != executor.StatusOK {
+		t.Errorf("statuses = %v", got)
 	}
 }

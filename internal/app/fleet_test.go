@@ -27,9 +27,10 @@ type testFleet struct {
 
 // fleetOptions configure newFleet.
 type fleetOptions struct {
-	servers int
-	handler sshtest.Handler
-	bastion bool // route every server through a bastion named "jump"
+	servers  int
+	handler  sshtest.Handler
+	handlers map[int]sshtest.Handler // per-server handler by number (1-based)
+	bastion  bool                    // route every server through a bastion named "jump"
 }
 
 // newTestFleet starts n servers named s1..sN. Servers with an odd number
@@ -54,7 +55,11 @@ func newFleet(t *testing.T, o fleetOptions) *testFleet {
 	}
 	inv.WriteString("servers:\n")
 	for i := 1; i <= o.servers; i++ {
-		srv := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: authorized, Handler: o.handler})
+		handler := o.handler
+		if h, ok := o.handlers[i]; ok {
+			handler = h
+		}
+		srv := sshtest.NewServer(t, sshtest.Options{AuthorizedKeys: authorized, Handler: handler})
 		f.servers = append(f.servers, srv)
 		knownLines = append(knownLines, srv.KnownHostsLine())
 		host, port, _ := net.SplitHostPort(srv.Addr)
