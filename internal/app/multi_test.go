@@ -25,3 +25,20 @@ func TestSummaryLine(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestOneUnreachableServerDoesNotStopOthers(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	fleet.servers[1].Close() // s2 is down
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--command", "echo up")
+	if exitcode.Code(code) != exitcode.Connection {
+		t.Errorf("code = %d, want connection", code)
+	}
+	if strings.Count(stdout, ": ok") != 2 || !contains(stdout, "=== s2: error") {
+		t.Errorf("stdout = %q", stdout)
+	}
+
+	stdout, _, _ = fleet.run(t, []string{"exec"}, "--all", "--command", "echo up", "--fail-fast")
+	if !contains(stdout, "=== s3: canceled") || !contains(stdout, "not started") {
+		t.Errorf("fail-fast stdout = %q", stdout)
+	}
+}

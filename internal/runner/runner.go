@@ -15,14 +15,26 @@ import (
 	"example.com/msh/internal/inventory"
 )
 
+// Options control a run.
+type Options struct {
+	// FailFast stops starting new servers after the first server that did
+	// not succeed. Servers already running are not interrupted.
+	FailFast bool
+}
+
 // Run executes req on each server, one after another, and returns a
 // report with the results in selection order. emit, if not nil, is called
 // with each result as soon as it is available.
 //
 // Once ctx is done no further server is started; the remaining servers
 // get a "not started" result, so every server is always reported.
-func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) Report {
+func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) Report {
 	start := time.Now()
+	// A child context lets fail-fast stop the run without touching the
+	// caller's context. cancel must always be called: defer it.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	results := make([]executor.Result, 0, len(servers))
 	for _, s := range servers {
 		var r executor.Result
@@ -34,6 +46,9 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 		results = append(results, r)
 		if emit != nil {
 			emit(r)
+		}
+		if opts.FailFast && r.Status != executor.StatusOK {
+			cancel()
 		}
 	}
 	summary := Summarize(results)

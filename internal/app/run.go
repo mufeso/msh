@@ -50,7 +50,7 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	}
 	defer stack.Close()
 
-	report := runner.Run(c.ctx(), stack.executor, servers, r.req, nil)
+	report := runner.Run(c.ctx(), stack.executor, servers, r.req, runner.Options{FailFast: r.ro.failFast}, nil)
 	code = c.writeResults(r.opts, report.Results)
 	if r.opts.format == output.Text && report.Summary.Total > 1 {
 		fmt.Fprintf(c.stdout, "--- %s\n", report.Summary)

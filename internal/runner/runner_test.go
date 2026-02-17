@@ -22,7 +22,7 @@ func servers(names ...string) []inventory.Server {
 func TestRunSequential(t *testing.T) {
 	f := &fake.Executor{}
 	var emitted []string
-	results := Run(context.Background(), f, servers("a", "b", "c"), executor.Request{Command: "uptime"}, func(r executor.Result) {
+	results := Run(context.Background(), f, servers("a", "b", "c"), executor.Request{Command: "uptime"}, Options{}, func(r executor.Result) {
 		emitted = append(emitted, r.Server)
 	}).Results
 	if len(results) != 3 || results[2].Server != "c" {
@@ -40,7 +40,7 @@ func TestRunStopsSchedulingAfterCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	f := &fake.Executor{}
 	var seen int
-	results := Run(ctx, f, servers("a", "b", "c", "d"), executor.Request{}, func(executor.Result) {
+	results := Run(ctx, f, servers("a", "b", "c", "d"), executor.Request{}, Options{}, func(executor.Result) {
 		seen++
 		if seen == 2 {
 			cancel() // like CTRL+C after the second server
@@ -62,8 +62,27 @@ func TestRunStopsSchedulingAfterCancel(t *testing.T) {
 func TestNotStartedGlobalTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 0)
 	defer cancel()
-	results := Run(ctx, &fake.Executor{}, servers("a"), executor.Request{}, nil).Results
+	results := Run(ctx, &fake.Executor{}, servers("a"), executor.Request{}, Options{}, nil).Results
 	if results[0].Status != executor.StatusTimeout || errs.KindOf(results[0].Err) != errs.KindGlobalTimeout {
 		t.Errorf("result = %+v", results[0])
+	}
+}
+
+func TestFailFast(t *testing.T) {
+	f := &fake.Executor{Responses: map[string]fake.Response{
+		"b": {Result: executor.Result{Status: executor.StatusFailed, ExitCode: 1}},
+	}}
+	report := Run(context.Background(), f, servers("a", "b", "c"), executor.Request{}, Options{FailFast: true}, nil)
+	if len(f.Calls()) != 2 {
+		t.Errorf("calls = %d, want 2", len(f.Calls()))
+	}
+	if report.Results[2].Status != executor.StatusCanceled {
+		t.Errorf("c = %+v", report.Results[2])
+	}
+
+	f = &fake.Executor{Responses: f.Responses}
+	report = Run(context.Background(), f, servers("a", "b", "c"), executor.Request{}, Options{}, nil)
+	if len(f.Calls()) != 3 || report.Summary.Failed != 1 || report.Summary.OK != 2 {
+		t.Errorf("without fail-fast: calls = %d, summary = %+v", len(f.Calls()), report.Summary)
 	}
 }
