@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"strings"
-
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
@@ -51,13 +48,29 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	}
 	defer stack.Close()
 
-	report := runner.Run(c.ctx(), stack.executor, servers, r.req, runner.Options{FailFast: r.ro.failFast}, nil)
-	code = c.writeResults(r.opts, report.Results)
-	if r.opts.format == output.Text && report.Summary.Total > 1 {
-		fmt.Fprintf(c.stdout, "--- %s\n", report.Summary)
-		if len(report.Summary.Problems) > 0 {
-			fmt.Fprintf(c.stdout, "--- problems: %s\n", strings.Join(report.Summary.Problems, ", "))
+	return c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
+		return runner.Run(c.ctx(), stack.executor, servers, r.req, runner.Options{FailFast: r.ro.failFast}, emit)
+	})
+}
+
+// runAndReport runs work, streaming each result to an output sink as it
+// arrives, and returns the exit code the results imply.
+func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emit func(executor.Result)) runner.Report) exitcode.Code {
+	sink := output.NewSink(c.stdout, opts.format, output.SinkOptions{Prefix: ro.prefix})
+	var writeErr error
+	report := work(func(r executor.Result) {
+		// Keep the first write error, but keep running: the servers are
+		// already working and their results still count.
+		if err := sink.Write(r); err != nil && writeErr == nil {
+			writeErr = err
 		}
+	})
+	if err := sink.Close(report.Summary); err != nil && writeErr == nil {
+		writeErr = err
 	}
-	return code
+	if writeErr != nil {
+		c.errorf("writing output: %v", writeErr)
+		return exitcode.IO
+	}
+	return exitCodeForResults(report.Results)
 }

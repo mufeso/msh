@@ -67,3 +67,16 @@ func TestSlowServerTimesOutAlone(t *testing.T) {
 		}
 	}
 }
+
+func TestPrefixOutput(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--prefix", "--command", "printf 'one\ntwo\n'")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d", code)
+	}
+	for _, want := range []string{"s1: one\n", "s1: two\n", "s2: one\n", "s2: two\n"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in %q", want, stdout)
+		}
+	}
+}

@@ -21,12 +21,14 @@ WARNING: everything you send. Use this only on isolated test networks.`
 type remoteOptions struct {
 	insecureIgnoreHostKey bool
 	failFast              bool
+	prefix                bool
 }
 
 func (o *remoteOptions) register(fs *flag.FlagSet) {
 	fs.BoolVar(&o.insecureIgnoreHostKey, "insecure-ignore-host-key", false,
 		"UNSAFE: do not verify server host keys")
 	fs.BoolVar(&o.failFast, "fail-fast", false, "stop starting new servers after the first one that does not succeed")
+	fs.BoolVar(&o.prefix, "prefix", false, "text output: prefix every line with the server name")
 }
 
 // sshStack is the SSH machinery for one run.

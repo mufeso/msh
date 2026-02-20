@@ -4,7 +4,7 @@ import (
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
-	"example.com/msh/internal/output"
+	"example.com/msh/internal/runner"
 )
 
 const execUsage = `Usage: msh exec (--host NAME | --group NAME | --tag K=V | --all) --command CMD [flags]
@@ -48,7 +48,7 @@ func runExec(c *cli, args []string) exitcode.Code {
 			c.errorf("%v", err)
 			return exitcode.Usage
 		}
-		return c.execLocal(&opts, *command)
+		return c.execLocal(&opts, &ro, *command)
 	}
 	return c.runRemote(remoteRun{
 		opts: &opts, sel: &sel, ro: &ro, name: "exec",
@@ -57,24 +57,14 @@ func runExec(c *cli, args []string) exitcode.Code {
 }
 
 // execLocal runs the command on this machine.
-func (c *cli) execLocal(opts *commonOptions, command string) exitcode.Code {
+func (c *cli) execLocal(opts *commonOptions, ro *remoteOptions, command string) exitcode.Code {
 	st, code := c.load(opts, false)
 	if st == nil {
 		return code
 	}
 	server := inventory.Server{Name: "local", Address: "localhost"}
-	res := executor.LocalExecutor{}.Run(c.ctx(), server, executor.Request{
-		Command: command,
-		Timeout: st.settings.CommandTimeout,
+	req := executor.Request{Command: command, Timeout: st.settings.CommandTimeout}
+	return c.runAndReport(opts, ro, func(emit func(executor.Result)) runner.Report {
+		return runner.Run(c.ctx(), executor.LocalExecutor{}, []inventory.Server{server}, req, runner.Options{}, emit)
 	})
-	return c.writeResults(opts, []executor.Result{res})
-}
-
-// writeResults prints results and returns the exit code they imply.
-func (c *cli) writeResults(opts *commonOptions, results []executor.Result) exitcode.Code {
-	if err := output.WriteResults(c.stdout, opts.format, results); err != nil {
-		c.errorf("writing output: %v", err)
-		return exitcode.IO
-	}
-	return exitCodeForResults(results)
 }
