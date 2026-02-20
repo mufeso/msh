@@ -96,9 +96,30 @@ func (s *jsonSink) Write(r executor.Result) error {
 	return nil
 }
 
-func (s *jsonSink) Close(runner.Summary) error {
+func (s *jsonSink) Close(sum runner.Summary) error {
 	if s.views == nil {
 		s.views = []ResultView{}
 	}
-	return WriteJSON(s.w, s.views)
+	return WriteJSON(s.w, RunView{Results: s.views, Summary: NewSummaryView(sum)})
+}
+
+// RunView is the JSON document of a run.
+type RunView struct {
+	Results []ResultView `json:"results"`
+	Summary SummaryView  `json:"summary"`
+}
+
+// SummaryView is the JSON form of runner.Summary. Embedding runner.Summary
+// reuses its JSON tags; DurationMS adds the duration as a number.
+type SummaryView struct {
+	runner.Summary
+	DurationMS int64 `json:"duration_ms"`
+}
+
+// NewSummaryView converts a summary.
+func NewSummaryView(s runner.Summary) SummaryView {
+	if s.Problems == nil {
+		s.Problems = []string{}
+	}
+	return SummaryView{Summary: s, DurationMS: s.Duration.Milliseconds()}
 }

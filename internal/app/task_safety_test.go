@@ -68,12 +68,12 @@ func TestTaskArgumentsCannotInjectShellSyntax(t *testing.T) {
 				t.Errorf("%s %q: code = %d, stderr = %s", taskName, v, code, stderr)
 				continue
 			}
-			var views []output.ResultView
-			if err := json.Unmarshal([]byte(stdout), &views); err != nil || len(views) != 1 {
+			var run output.RunView
+			if err := json.Unmarshal([]byte(stdout), &run); err != nil || len(run.Results) != 1 {
 				t.Fatalf("%s %q: bad JSON: %v", taskName, v, err)
 			}
-			if want := "[" + v + "]"; views[0].Stdout != want {
-				t.Errorf("%s: value changed: sent %q, received %q", taskName, v, views[0].Stdout)
+			if want := "[" + v + "]"; run.Results[0].Stdout != want {
+				t.Errorf("%s: value changed: sent %q, received %q", taskName, v, run.Results[0].Stdout)
 			}
 		}
 		if _, err := os.Stat(marker); err == nil {

@@ -32,11 +32,11 @@ func TestExecLocalJSON(t *testing.T) {
 	if code != exitcode.Failure {
 		t.Errorf("code = %v, want failure", code)
 	}
-	var views []output.ResultView
-	if err := json.Unmarshal([]byte(stdout), &views); err != nil {
+	var run output.RunView
+	if err := json.Unmarshal([]byte(stdout), &run); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, stdout)
 	}
-	v := views[0]
+	v := run.Results[0]
 	if v.Status != "failed" || v.ExitCode != 4 || v.Stdout != "out\n" || v.Stderr != "err\n" {
 		t.Errorf("view = %+v", v)
 	}

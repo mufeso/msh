@@ -2,8 +2,10 @@ package output
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/runner"
@@ -33,5 +35,22 @@ func TestTextSinkSingleResultHasNoSummary(t *testing.T) {
 	s.Close(runner.Summary{Total: 1, OK: 1})
 	if bytes.Contains(buf.Bytes(), []byte("---")) {
 		t.Errorf("unexpected summary: %q", buf.String())
+	}
+}
+
+func TestJSONSinkDocument(t *testing.T) {
+	var buf bytes.Buffer
+	s := NewSink(&buf, JSON, SinkOptions{})
+	s.Write(executor.Result{Server: "a", Status: executor.StatusOK})
+	s.Close(runner.Summary{Total: 1, OK: 1, Duration: 1500 * time.Millisecond})
+	var doc RunView
+	if err := json.Unmarshal(buf.Bytes(), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Results) != 1 || doc.Summary.Total != 1 || doc.Summary.DurationMS != 1500 || doc.Summary.Problems == nil {
+		t.Errorf("doc = %+v", doc)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"problems": []`)) {
+		t.Errorf("problems must be [] not null:\n%s", buf.String())
 	}
 }
