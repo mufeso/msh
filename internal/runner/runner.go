@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"example.com/msh/internal/errs"
@@ -20,21 +21,54 @@ type Options struct {
 	// FailFast stops starting new servers after the first server that did
 	// not succeed. Servers already running are not interrupted.
 	FailFast bool
+
+	// Parallel runs all servers at the same time.
+	Parallel bool
 }
 
-// Run executes req on each server, one after another, and returns a
-// report with the results in selection order. emit, if not nil, is called
-// with each result as soon as it is available.
-//
-// Once ctx is done no further server is started; the remaining servers
-// get a "not started" result, so every server is always reported.
+// Run executes req on the servers and returns a report with the results
+// in selection order. emit, if not nil, is called with each result as
+// soon as it is available; calls to emit never overlap.
 func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) Report {
 	start := time.Now()
-	// A child context lets fail-fast stop the run without touching the
-	// caller's context. cancel must always be called: defer it.
+	var results []executor.Result
+	if opts.Parallel {
+		results = runParallel(ctx, ex, servers, req, emit)
+	} else {
+		results = runSequential(ctx, ex, servers, req, opts, emit)
+	}
+	summary := Summarize(results)
+	summary.Duration = time.Since(start)
+	return Report{Results: results, Summary: summary}
+}
+
+// runParallel starts one goroutine per server.
+func runParallel(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) []executor.Result {
+	results := make([]executor.Result, len(servers))
+	var wg sync.WaitGroup
+	var mu sync.Mutex // serializes emit
+	for i, s := range servers {
+		wg.Add(1) // before "go", so Wait cannot miss it
+		go func() {
+			defer wg.Done()
+			r := runOne(ctx, ex, s, req)
+			// Each goroutine writes only its own index: no lock needed.
+			results[i] = r
+			if emit != nil {
+				mu.Lock()
+				emit(r)
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	return results
+}
+
+// runSequential runs the servers one after another.
+func runSequential(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) []executor.Result {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
 	results := make([]executor.Result, 0, len(servers))
 	for _, s := range servers {
 		var r executor.Result
@@ -51,9 +85,7 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 			cancel()
 		}
 	}
-	summary := Summarize(results)
-	summary.Duration = time.Since(start)
-	return Report{Results: results, Summary: summary}
+	return results
 }
 
 // notStarted is the result for a server that was never contacted.
@@ -73,8 +105,7 @@ func notStarted(s inventory.Server, cause error) executor.Result {
 }
 
 // runOne runs req on one server under its own child context. Canceling
-// the child right after the run releases anything tied to it. A defer
-// inside the caller's loop would only run when Run returns.
+// the child right after the run releases anything tied to it.
 func runOne(ctx context.Context, ex executor.Executor, s inventory.Server, req executor.Request) executor.Result {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
