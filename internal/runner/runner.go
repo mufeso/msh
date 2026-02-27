@@ -26,9 +26,15 @@ type Options struct {
 	Parallel bool
 }
 
+// indexed carries a result together with its position in the selection.
+type indexed struct {
+	index  int
+	result executor.Result
+}
+
 // Run executes req on the servers and returns a report with the results
 // in selection order. emit, if not nil, is called with each result as
-// soon as it is available; calls to emit never overlap.
+// soon as it is available, always from the caller's goroutine.
 func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) Report {
 	start := time.Now()
 	var results []executor.Result
@@ -42,26 +48,33 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 	return Report{Results: results, Summary: summary}
 }
 
-// runParallel starts one goroutine per server.
+// runParallel starts one goroutine per server. The goroutines only send;
+// this function is the only receiver, so no locks are needed.
 func runParallel(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) []executor.Result {
-	results := make([]executor.Result, len(servers))
+	out := make(chan indexed)
 	var wg sync.WaitGroup
-	var mu sync.Mutex // serializes emit
 	for i, s := range servers {
-		wg.Add(1) // before "go", so Wait cannot miss it
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			r := runOne(ctx, ex, s, req)
-			// Each goroutine writes only its own index: no lock needed.
-			results[i] = r
-			if emit != nil {
-				mu.Lock()
-				emit(r)
-				mu.Unlock()
-			}
+			out <- indexed{index: i, result: runOne(ctx, ex, s, req)}
 		}()
 	}
-	wg.Wait()
+	// Close the channel once every sender is done, so the range below
+	// ends. This must run in its own goroutine: wg.Wait would otherwise
+	// block forever, because the senders wait for us to receive.
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	results := make([]executor.Result, len(servers))
+	for ir := range out {
+		results[ir.index] = ir.result
+		if emit != nil {
+			emit(ir.result)
+		}
+	}
 	return results
 }
 
