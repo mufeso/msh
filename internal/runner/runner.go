@@ -22,8 +22,9 @@ type Options struct {
 	// not succeed. Servers already running are not interrupted.
 	FailFast bool
 
-	// Parallel runs all servers at the same time.
+	// Parallel runs servers concurrently, at most Workers at a time.
 	Parallel bool
+	Workers  int
 }
 
 // indexed carries a result together with its position in the selection.
@@ -39,7 +40,7 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 	start := time.Now()
 	var results []executor.Result
 	if opts.Parallel {
-		results = runParallel(ctx, ex, servers, req, emit)
+		results = runPool(ctx, ex, servers, req, opts.Workers, emit)
 	} else {
 		results = runSequential(ctx, ex, servers, req, opts, emit)
 	}
@@ -48,21 +49,33 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 	return Report{Results: results, Summary: summary}
 }
 
-// runParallel starts one goroutine per server. The goroutines only send;
-// this function is the only receiver, so no locks are needed.
-func runParallel(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, emit func(executor.Result)) []executor.Result {
+// runPool runs the servers on a fixed number of worker goroutines.
+//
+//	dispatcher --jobs--> worker 1..N --out--> collector (this function)
+func runPool(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, workers int, emit func(executor.Result)) []executor.Result {
+	jobs := make(chan int)
 	out := make(chan indexed)
+
 	var wg sync.WaitGroup
-	for i, s := range servers {
+	for w := 0; w < workers; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			out <- indexed{index: i, result: runOne(ctx, ex, s, req)}
+			// range ends when the dispatcher closes jobs.
+			for i := range jobs {
+				out <- indexed{index: i, result: runOne(ctx, ex, servers[i], req)}
+			}
 		}()
 	}
-	// Close the channel once every sender is done, so the range below
-	// ends. This must run in its own goroutine: wg.Wait would otherwise
-	// block forever, because the senders wait for us to receive.
+
+	// Dispatcher: hand out every server, then close jobs.
+	go func() {
+		defer close(jobs)
+		for i := range servers {
+			jobs <- i
+		}
+	}()
+
 	go func() {
 		wg.Wait()
 		close(out)
