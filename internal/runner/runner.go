@@ -40,7 +40,7 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 	start := time.Now()
 	var results []executor.Result
 	if opts.Parallel {
-		results = runPool(ctx, ex, servers, req, opts.Workers, emit)
+		results = runPool(ctx, ex, servers, req, workerCount(opts.Workers, len(servers)), emit)
 	} else {
 		results = runSequential(ctx, ex, servers, req, opts, emit)
 	}
@@ -136,4 +136,10 @@ func runOne(ctx context.Context, ex executor.Executor, s inventory.Server, req e
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return ex.Run(ctx, s, req)
+}
+
+// workerCount clamps the configured number of workers to [1, servers].
+// Extra workers would only sit idle.
+func workerCount(configured, servers int) int {
+	return max(1, min(configured, servers))
 }
