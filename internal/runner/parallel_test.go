@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ func TestParallelRunsConcurrently(t *testing.T) {
 	f := &fake.Executor{Default: fake.Response{Delay: 100 * time.Millisecond}}
 	start := time.Now()
 	var emitted int
-	report := Run(context.Background(), f, servers("a", "b", "c", "d"), executor.Request{}, Options{Parallel: true, Workers: 4}, func(executor.Result) {
+	report := Run(context.Background(), f, servers("a", "b", "c", "d"), executor.Request{}, Options{Workers: 4}, func(executor.Result) {
 		emitted++ // safe: emit calls never overlap
 	})
 	elapsed := time.Since(start)
@@ -37,7 +38,7 @@ func TestPoolBoundsConcurrency(t *testing.T) {
 	for i := range names {
 		names[i] = string(rune('a' + i))
 	}
-	report := Run(context.Background(), f, servers(names...), executor.Request{}, Options{Parallel: true, Workers: 3}, nil)
+	report := Run(context.Background(), f, servers(names...), executor.Request{}, Options{Workers: 3}, nil)
 	if got := f.MaxConcurrent(); got > 3 {
 		t.Errorf("max concurrent = %d, want <= 3", got)
 	}
@@ -59,14 +60,14 @@ func TestWorkerCount(t *testing.T) {
 
 func TestExactConcurrency(t *testing.T) {
 	f := &fake.Executor{Default: fake.Response{Delay: 50 * time.Millisecond}}
-	Run(context.Background(), f, servers("a", "b", "c", "d", "e", "f"), executor.Request{}, Options{Parallel: true, Workers: 2}, nil)
+	Run(context.Background(), f, servers("a", "b", "c", "d", "e", "f"), executor.Request{}, Options{Workers: 2}, nil)
 	if got := f.MaxConcurrent(); got != 2 {
 		t.Errorf("max concurrent = %d, want exactly 2", got)
 	}
 }
 
 func TestEmptySelection(t *testing.T) {
-	report := Run(context.Background(), &fake.Executor{}, nil, executor.Request{}, Options{Parallel: true, Workers: 4}, nil)
+	report := Run(context.Background(), &fake.Executor{}, nil, executor.Request{}, Options{Workers: 4}, nil)
 	if report.Summary.Total != 0 || len(report.Results) != 0 {
 		t.Errorf("report = %+v", report)
 	}
@@ -75,7 +76,7 @@ func TestEmptySelection(t *testing.T) {
 func TestNoGoroutineLeak(t *testing.T) {
 	before := runtime.NumGoroutine()
 	for i := 0; i < 20; i++ {
-		Run(context.Background(), &fake.Executor{}, servers("a", "b", "c"), executor.Request{}, Options{Parallel: true, Workers: 2}, nil)
+		Run(context.Background(), &fake.Executor{}, servers("a", "b", "c"), executor.Request{}, Options{Workers: 2}, nil)
 	}
 	deadline := time.Now().Add(time.Second)
 	for runtime.NumGoroutine() > before && time.Now().Before(deadline) {
@@ -83,5 +84,20 @@ func TestNoGoroutineLeak(t *testing.T) {
 	}
 	if after := runtime.NumGoroutine(); after > before {
 		t.Errorf("goroutines before %d, after %d", before, after)
+	}
+}
+
+func TestFailFastInPool(t *testing.T) {
+	f := &fake.Executor{Responses: map[string]fake.Response{
+		"b": {Result: executor.Result{Status: executor.StatusFailed, ExitCode: 1}},
+	}}
+	report := Run(context.Background(), f, servers("a", "b", "c", "d"), executor.Request{}, Options{Workers: 1, FailFast: true}, nil)
+	if len(f.Calls()) != 2 {
+		t.Errorf("calls = %d, want 2", len(f.Calls()))
+	}
+	for _, r := range report.Results[2:] {
+		if r.Status != executor.StatusCanceled || !strings.Contains(r.Err.Error(), "fail-fast") {
+			t.Errorf("result = %+v", r)
+		}
 	}
 }

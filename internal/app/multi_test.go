@@ -3,6 +3,7 @@ package app
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/sshtest"
@@ -38,7 +39,7 @@ func TestOneUnreachableServerDoesNotStopOthers(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 
-	stdout, _, _ = fleet.run(t, []string{"exec"}, "--all", "--command", "echo up", "--fail-fast")
+	stdout, _, _ = fleet.run(t, []string{"exec"}, "--all", "--command", "echo up", "--fail-fast", "--mode", "sequential")
 	if !contains(stdout, "=== s3: canceled") || !contains(stdout, "not started") {
 		t.Errorf("fail-fast stdout = %q", stdout)
 	}
@@ -78,5 +79,24 @@ func TestPrefixOutput(t *testing.T) {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in %q", want, stdout)
 		}
+	}
+}
+
+func TestParallelModeIsFasterThanSequential(t *testing.T) {
+	fleet := newTestFleet(t, 4, nil)
+	timeRun := func(mode string) time.Duration {
+		start := time.Now()
+		_, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--mode", mode, "--workers", "4", "--command", "sleep 0.3")
+		if exitcode.Code(code) != exitcode.OK {
+			t.Fatalf("%s: code = %d, stderr = %s", mode, code, stderr)
+		}
+		return time.Since(start)
+	}
+	seq, par := timeRun("sequential"), timeRun("parallel")
+	if seq < 1200*time.Millisecond {
+		t.Errorf("sequential took %v, want >= 1.2s", seq)
+	}
+	if par >= seq {
+		t.Errorf("parallel (%v) not faster than sequential (%v)", par, seq)
 	}
 }

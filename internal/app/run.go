@@ -1,6 +1,7 @@
 package app
 
 import (
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
@@ -49,7 +50,7 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	defer stack.Close()
 
 	return c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
-		return runner.Run(c.ctx(), stack.executor, servers, r.req, runner.Options{FailFast: r.ro.failFast}, emit)
+		return runner.Run(c.ctx(), stack.executor, servers, r.req, c.runnerOptions(st, r.ro), emit)
 	})
 }
 
@@ -73,4 +74,14 @@ func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emi
 		return exitcode.IO
 	}
 	return exitCodeForResults(report.Results)
+}
+
+// runnerOptions turns the settings into runner options. Sequential mode
+// is a pool with a single worker.
+func (c *cli) runnerOptions(st *setup, ro *remoteOptions) runner.Options {
+	workers := st.settings.Workers
+	if st.settings.Mode == config.ModeSequential {
+		workers = 1
+	}
+	return runner.Options{Workers: workers, FailFast: ro.failFast}
 }

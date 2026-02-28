@@ -18,13 +18,13 @@ import (
 
 // Options control a run.
 type Options struct {
+	// Workers is the maximum number of servers handled at the same time.
+	// 1 (or less) means sequential execution.
+	Workers int
+
 	// FailFast stops starting new servers after the first server that did
 	// not succeed. Servers already running are not interrupted.
 	FailFast bool
-
-	// Parallel runs servers concurrently, at most Workers at a time.
-	Parallel bool
-	Workers  int
 }
 
 // indexed carries a result together with its position in the selection.
@@ -33,45 +33,57 @@ type indexed struct {
 	result executor.Result
 }
 
-// Run executes req on the servers and returns a report with the results
-// in selection order. emit, if not nil, is called with each result as
-// soon as it is available, always from the caller's goroutine.
-func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) Report {
-	start := time.Now()
-	var results []executor.Result
-	if opts.Parallel {
-		results = runPool(ctx, ex, servers, req, workerCount(opts.Workers, len(servers)), emit)
-	} else {
-		results = runSequential(ctx, ex, servers, req, opts, emit)
-	}
-	summary := Summarize(results)
-	summary.Duration = time.Since(start)
-	return Report{Results: results, Summary: summary}
-}
-
-// runPool runs the servers on a fixed number of worker goroutines.
+// Run executes req on the servers with a bounded worker pool and returns
+// a report with the results in selection order. emit, if not nil, is
+// called with each result as soon as it is available, always from the
+// caller's goroutine.
 //
 //	dispatcher --jobs--> worker 1..N --out--> collector (this function)
-func runPool(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, workers int, emit func(executor.Result)) []executor.Result {
+//
+// Two contexts are involved: ctx cancels running work (CTRL+C, global
+// timeout); sched only stops handing out new servers (fail-fast, or ctx
+// itself ending). Servers that are never started get a "not started"
+// result, so every server is always reported.
+func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) Report {
+	start := time.Now()
+	sched, stopScheduling := context.WithCancel(ctx)
+	defer stopScheduling()
+
 	jobs := make(chan int)
 	out := make(chan indexed)
-
 	var wg sync.WaitGroup
-	for w := 0; w < workers; w++ {
+
+	for w := 0; w < workerCount(opts.Workers, len(servers)); w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// range ends when the dispatcher closes jobs.
 			for i := range jobs {
-				out <- indexed{index: i, result: runOne(ctx, ex, servers[i], req)}
+				var r executor.Result
+				if err := sched.Err(); err != nil {
+					// Scheduling stopped between dispatch and pickup.
+					r = notStarted(servers[i], cause(ctx, err))
+				} else {
+					r = runOne(ctx, ex, servers[i], req)
+				}
+				// The worker decides about fail-fast itself, before it can
+				// pick up another job; that makes the behavior exact.
+				if opts.FailFast && r.Status != executor.StatusOK {
+					stopScheduling()
+				}
+				out <- indexed{index: i, result: r}
 			}
 		}()
 	}
 
-	// Dispatcher: hand out every server, then close jobs.
-	go func() {
+	wg.Add(1)
+	go func() { // dispatcher
+		defer wg.Done()
 		defer close(jobs)
 		for i := range servers {
+			if err := sched.Err(); err != nil {
+				out <- indexed{index: i, result: notStarted(servers[i], cause(ctx, err))}
+				continue
+			}
 			jobs <- i
 		}
 	}()
@@ -88,30 +100,23 @@ func runPool(ctx context.Context, ex executor.Executor, servers []inventory.Serv
 			emit(ir.result)
 		}
 	}
-	return results
+	summary := Summarize(results)
+	summary.Duration = time.Since(start)
+	return Report{Results: results, Summary: summary}
 }
 
-// runSequential runs the servers one after another.
-func runSequential(ctx context.Context, ex executor.Executor, servers []inventory.Server, req executor.Request, opts Options, emit func(executor.Result)) []executor.Result {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	results := make([]executor.Result, 0, len(servers))
-	for _, s := range servers {
-		var r executor.Result
-		if err := ctx.Err(); err != nil {
-			r = notStarted(s, err)
-		} else {
-			r = runOne(ctx, ex, s, req)
-		}
-		results = append(results, r)
-		if emit != nil {
-			emit(r)
-		}
-		if opts.FailFast && r.Status != executor.StatusOK {
-			cancel()
-		}
+// cause explains why scheduling stopped: the caller's context ending
+// (cancellation or global timeout), or fail-fast.
+func cause(ctx context.Context, schedErr error) error {
+	if err := ctx.Err(); err != nil {
+		return err
 	}
-	return results
+	return fmt.Errorf("fail-fast after an earlier failure: %w", schedErr)
+}
+
+// workerCount clamps the configured number of workers to [1, servers].
+func workerCount(configured, servers int) int {
+	return max(1, min(configured, servers))
 }
 
 // notStarted is the result for a server that was never contacted.
@@ -136,10 +141,4 @@ func runOne(ctx context.Context, ex executor.Executor, s inventory.Server, req e
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return ex.Run(ctx, s, req)
-}
-
-// workerCount clamps the configured number of workers to [1, servers].
-// Extra workers would only sit idle.
-func workerCount(configured, servers int) int {
-	return max(1, min(configured, servers))
 }

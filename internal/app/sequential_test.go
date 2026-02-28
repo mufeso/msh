@@ -22,7 +22,7 @@ func TestSequentialIntegration(t *testing.T) {
 	}})
 	fleet.servers[2].Close() // s3 is unreachable
 
-	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--output", "json", "--command-timeout", "300ms", "--command", "echo ok")
+	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--mode", "sequential", "--output", "json", "--command-timeout", "300ms", "--command", "echo ok")
 	if exitcode.Code(code) != exitcode.Timeout {
 		t.Errorf("code = %d, want timeout (it outranks connection and failure)", code)
 	}

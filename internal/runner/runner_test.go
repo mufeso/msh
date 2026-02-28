@@ -39,19 +39,22 @@ func TestRunSequential(t *testing.T) {
 
 func TestRunStopsSchedulingAfterCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	f := &fake.Executor{}
-	var seen int
-	results := Run(ctx, f, servers("a", "b", "c", "d"), executor.Request{}, Options{}, func(executor.Result) {
-		seen++
-		if seen == 2 {
-			cancel() // like CTRL+C after the second server
-		}
-	}).Results
+	defer cancel()
+	// b is slow; CTRL+C arrives while it runs.
+	f := &fake.Executor{Responses: map[string]fake.Response{"b": {Delay: time.Hour}}}
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+	results := Run(ctx, f, servers("a", "b", "c", "d"), executor.Request{}, Options{Workers: 1}, nil).Results
 	if len(f.Calls()) != 2 {
 		t.Errorf("executor called %d times, want 2", len(f.Calls()))
 	}
 	if len(results) != 4 {
 		t.Fatalf("results = %d, want 4 (every server reported)", len(results))
+	}
+	if results[1].Status != executor.StatusCanceled {
+		t.Errorf("b = %+v", results[1])
 	}
 	for _, r := range results[2:] {
 		if r.Status != executor.StatusCanceled || !strings.Contains(r.Err.Error(), "not started") {
