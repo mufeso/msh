@@ -101,3 +101,21 @@ func TestFailFastInPool(t *testing.T) {
 		}
 	}
 }
+
+func TestCompletionOrder(t *testing.T) {
+	f := &fake.Executor{Responses: map[string]fake.Response{
+		"a": {Delay: 150 * time.Millisecond},
+		"b": {Delay: 50 * time.Millisecond},
+		"c": {Delay: 0},
+	}}
+	var order []string
+	report := Run(context.Background(), f, servers("a", "b", "c"), executor.Request{}, Options{Workers: 3}, func(r executor.Result) {
+		order = append(order, r.Server)
+	})
+	if strings.Join(order, ",") != "c,b,a" {
+		t.Errorf("emit order = %v, want completion order c,b,a", order)
+	}
+	if report.Results[0].Server != "a" {
+		t.Error("the report must keep selection order")
+	}
+}
