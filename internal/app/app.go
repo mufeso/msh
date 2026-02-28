@@ -10,6 +10,7 @@ import (
 	"example.com/msh/internal/buildinfo"
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/signals"
 )
 
 // cli carries everything a command needs. Commands are methods-like
@@ -22,13 +23,26 @@ type cli struct {
 	// lookupEnv reads environment variables. Run uses os.LookupEnv;
 	// tests pass a fake so they never depend on the real environment.
 	lookupEnv config.LookupFunc
+
+	// root is canceled by CTRL+C/SIGTERM; every operation derives from it.
+	root context.Context
 }
 
 // Run executes msh with the given arguments (without the program name)
-// and returns the process exit code.
-func Run(args []string, stdout, stderr io.Writer) int {
-	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv}
-	return int(c.run(args))
+// and returns the process exit code. ctx is the root context: canceling
+// it (CTRL+C) stops all work.
+func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx}
+	return int(c.finish(c.run(args)))
+}
+
+// finish makes a run that was interrupted by a signal exit with the
+// documented cancellation code, whatever the command returned.
+func (c *cli) finish(code exitcode.Code) exitcode.Code {
+	if code != exitcode.OK && signals.Interrupted(c.ctx()) {
+		return exitcode.Canceled
+	}
+	return code
 }
 
 func (c *cli) run(args []string) exitcode.Code {
@@ -79,8 +93,10 @@ func (c *cli) printUsage(w io.Writer) {
 	fmt.Fprintln(w, "Run 'msh help <command>' for details about a command.")
 }
 
-// ctx returns the context for the current run. Later steps replace it
-// with a context that is canceled by CTRL+C.
+// ctx returns the root context of this run.
 func (c *cli) ctx() context.Context {
-	return context.Background()
+	if c.root == nil {
+		return context.Background()
+	}
+	return c.root
 }

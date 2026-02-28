@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"os"
@@ -29,6 +30,13 @@ func runCLI(t *testing.T, args ...string) (stdout, stderr string, code exitcode.
 // own ~/.config/msh/config.yaml cannot change test results.
 func runCLIEnv(t *testing.T, env map[string]string, args ...string) (stdout, stderr string, code exitcode.Code) {
 	t.Helper()
+	return runCLICtx(t, context.Background(), env, args...)
+}
+
+// runCLICtx is runCLIEnv with an explicit root context, used to simulate
+// CTRL+C.
+func runCLICtx(t *testing.T, ctx context.Context, env map[string]string, args ...string) (stdout, stderr string, code exitcode.Code) {
+	t.Helper()
 	vars := map[string]string{"HOME": t.TempDir()}
 	for k, v := range env {
 		vars[k] = v
@@ -42,7 +50,8 @@ func runCLIEnv(t *testing.T, env map[string]string, args ...string) (stdout, std
 			return v, ok
 		},
 	}
-	result := c.run(args)
+	c.root = ctx
+	result := c.finish(c.run(args))
 	return out.String(), errOut.String(), result
 }
 
