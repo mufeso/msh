@@ -1,6 +1,9 @@
 package app
 
 import (
+	"context"
+	"errors"
+
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
@@ -49,9 +52,24 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	}
 	defer stack.Close()
 
-	return c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
-		return runner.Run(c.ctx(), stack.executor, servers, r.req, c.runnerOptions(st, r.ro), emit)
+	ctx, cancel := c.runContext(st)
+	defer cancel()
+	code = c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
+		return runner.Run(ctx, stack.executor, servers, r.req, c.runnerOptions(st, r.ro), emit)
 	})
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		c.errorf("global timeout of %s expired", st.settings.Timeout)
+	}
+	return code
+}
+
+// runContext returns the context for a whole run: the CLI context,
+// limited by the global timeout when one is configured.
+func (c *cli) runContext(st *setup) (context.Context, context.CancelFunc) {
+	if st.settings.Timeout > 0 {
+		return context.WithTimeout(c.ctx(), st.settings.Timeout)
+	}
+	return context.WithCancel(c.ctx())
 }
 
 // runAndReport runs work, streaming each result to an output sink as it

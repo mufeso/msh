@@ -111,3 +111,26 @@ func TestOrderedFlag(t *testing.T) {
 		t.Errorf("not in selection order:\n%s", stdout)
 	}
 }
+
+func TestGlobalTimeout(t *testing.T) {
+	fleet := newTestFleet(t, 3, sshtest.Blocking(""))
+	start := time.Now()
+	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--workers", "2", "--timeout", "400ms", "--command-timeout", "0s", "--command", "wait")
+	if exitcode.Code(code) != exitcode.Timeout {
+		t.Errorf("code = %d, want timeout", code)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Error("global timeout not enforced")
+	}
+	if !contains(stderr, "global timeout of 400ms expired") {
+		t.Errorf("stderr = %q", stderr)
+	}
+	if strings.Count(stdout, "global timeout expired") != 3 || !contains(stdout, "not started") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	for _, s := range fleet.servers {
+		if !s.WaitIdle(2 * time.Second) {
+			t.Error("a remote session is still open after the global timeout")
+		}
+	}
+}
