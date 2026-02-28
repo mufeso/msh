@@ -6,12 +6,15 @@ Usage:
   msh --version
 
 Commands:
-  c          Short form of task run: msh c TASK SERVER
-  config     Show and validate configuration
-  exec       Run a command on servers
-  help       Show help for msh or for one command
-  hosts      List and check inventory servers
-  task       List, show and run configured tasks
-  version    Print version information
+  c             Short form of task run: msh c TASK SERVER
+  config        Show and validate configuration
+  exec          Run a command on servers
+  help          Show help for msh or for one command
+  hosts         List and check inventory servers
+  task          List, show and run configured tasks
+  version       Print version information
+
+Shortcuts (read-only, same selection flags as exec):
+  ping          Check SSH connectivity and authentication
 
 Run 'msh help <command>' for details about a command.

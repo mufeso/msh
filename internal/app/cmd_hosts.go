@@ -22,9 +22,10 @@ const hostsListUsage = `Usage: msh hosts list [flags]
 Lists servers from the inventory.
 `
 
-const hostsCheckUsage = `Usage: msh hosts check [flags]
+const hostsCheckUsage = `Usage: msh hosts check [--host NAME | --group NAME | --tag K=V | --all] [flags]
 
-Checks SSH connectivity to servers.
+Checks SSH connectivity and authentication (like "msh ping"). Without a
+selection, all servers are checked.
 `
 
 func hostsCommand() *command {
@@ -118,22 +119,5 @@ func via(bastion string) string {
 }
 
 func runHostsCheck(c *cli, args []string) exitcode.Code {
-	var opts commonOptions
-	var sel selectionOptions
-	fs := c.newFlagSet("hosts check", hostsCheckUsage)
-	opts.register(fs)
-	sel.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
-		return code
-	}
-	if err := sel.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
-	c.verbosef(&opts, "selection: all=%v hosts=%v groups=%v tags=%v", sel.all, sel.hosts.String(), sel.groups.String(), sel.tags.String())
-	if st, code := c.load(&opts, false); st == nil {
-		return code
-	}
-	fmt.Fprintln(c.stdout, "Connectivity checks are added together with SSH support.")
-	return exitcode.OK
+	return c.runShortcut(lookupShortcut("ping"), hostsCheckUsage, args, true)
 }

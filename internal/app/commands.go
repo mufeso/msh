@@ -11,6 +11,9 @@ type command struct {
 	// run is a function value: each command stores the function that
 	// implements it. It receives the arguments after the command name.
 	run func(c *cli, args []string) exitcode.Code
+
+	// shortcut commands are listed in their own help section.
+	shortcut bool
 }
 
 // commands returns every command in the order shown by --help.
@@ -18,7 +21,7 @@ type command struct {
 // It is a function rather than a package-level variable so that commands
 // such as help can call it without creating an initialization cycle.
 func commands() []*command {
-	return []*command{
+	cmds := []*command{
 		cCommand(),
 		configCommand(),
 		execCommand(),
@@ -27,6 +30,7 @@ func commands() []*command {
 		taskCommand(),
 		versionCommand(),
 	}
+	return append(cmds, shortcutCommands()...)
 }
 
 // lookup finds a command by name.

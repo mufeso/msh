@@ -87,7 +87,16 @@ func (c *cli) printUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	for _, cmd := range commands() {
-		fmt.Fprintf(w, "  %-10s %s\n", cmd.name, cmd.summary)
+		if !cmd.shortcut {
+			fmt.Fprintf(w, "  %-13s %s\n", cmd.name, cmd.summary)
+		}
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Shortcuts (read-only, same selection flags as exec):")
+	for _, cmd := range commands() {
+		if cmd.shortcut {
+			fmt.Fprintf(w, "  %-13s %s\n", cmd.name, cmd.summary)
+		}
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Run 'msh help <command>' for details about a command.")
