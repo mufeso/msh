@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -39,5 +40,26 @@ func TestCtrlCStopsEverything(t *testing.T) {
 		if !s.WaitIdle(2 * time.Second) {
 			t.Errorf("s%d: session still open after CTRL+C", i+1)
 		}
+	}
+}
+
+func TestNoGoroutineLeakAfterCancel(t *testing.T) {
+	fleet := newTestFleet(t, 3, sshtest.Blocking(""))
+	before := runtime.NumGoroutine()
+	for i := 0; i < 3; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		args := append([]string{"exec", "--all", "--command-timeout", "0s", "--command", "wait"}, fleet.args()...)
+		runCLICtx(t, ctx, nil, args...)
+		cancel()
+	}
+	for _, s := range fleet.servers {
+		s.WaitIdle(2 * time.Second)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for runtime.NumGoroutine() > before+2 && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if after := runtime.NumGoroutine(); after > before+2 {
+		t.Errorf("goroutines before %d, after %d", before, after)
 	}
 }

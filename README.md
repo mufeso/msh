@@ -5,13 +5,20 @@ being built step by step as a Go learning project.
 
 ## Current features
 
+- `msh exec --host/--group/--tag/--all --command CMD` — run a command over
+  SSH (direct or through a bastion) on many servers, sequentially or in
+  parallel (`--mode`, `--workers`, `--ordered`, `--timeout`, `--fail-fast`).
+- `msh task list|show|run`, `msh c TASK SERVER ARGS...` — reusable tasks.
+
 - `msh hosts list` — list inventory servers, selected by `--host`,
   `--group`, `--tag` or `--all`, as a table or JSON.
 - `msh config show` — effective settings and where each value came from.
 - `msh config validate` — validate the configuration and inventory.
 - `msh version`, `msh --version`, `msh --help`.
 
-See [docs/configuration.md](docs/configuration.md) for configuration.
+Documentation: [configuration](docs/configuration.md), [tasks](docs/tasks.md),
+[bastions](docs/bastion.md), [concurrency](docs/concurrency.md),
+[exit codes](docs/exit-codes.md).
 
 ## Layout
 
