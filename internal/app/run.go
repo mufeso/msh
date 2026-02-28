@@ -83,5 +83,5 @@ func (c *cli) runnerOptions(st *setup, ro *remoteOptions) runner.Options {
 	if st.settings.Mode == config.ModeSequential {
 		workers = 1
 	}
-	return runner.Options{Workers: workers, FailFast: ro.failFast}
+	return runner.Options{Workers: workers, FailFast: ro.failFast, Ordered: st.settings.Ordered}
 }

@@ -119,3 +119,20 @@ func TestCompletionOrder(t *testing.T) {
 		t.Error("the report must keep selection order")
 	}
 }
+
+func TestOrderedOutput(t *testing.T) {
+	names := []string{"a", "b", "c", "d", "e", "f", "g", "h"}
+	responses := map[string]fake.Response{}
+	for i, n := range names {
+		// Later servers finish first.
+		responses[n] = fake.Response{Delay: time.Duration(len(names)-i) * 15 * time.Millisecond}
+	}
+	f := &fake.Executor{Responses: responses}
+	var order []string
+	Run(context.Background(), f, servers(names...), executor.Request{}, Options{Workers: 8, Ordered: true}, func(r executor.Result) {
+		order = append(order, r.Server)
+	})
+	if strings.Join(order, "") != "abcdefgh" {
+		t.Errorf("order = %v, want selection order", order)
+	}
+}

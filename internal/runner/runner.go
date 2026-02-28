@@ -25,6 +25,10 @@ type Options struct {
 	// FailFast stops starting new servers after the first server that did
 	// not succeed. Servers already running are not interrupted.
 	FailFast bool
+
+	// Ordered emits results in selection order instead of completion
+	// order. Early results wait in a buffer until their turn.
+	Ordered bool
 }
 
 // indexed carries a result together with its position in the selection.
@@ -94,11 +98,10 @@ func Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, 
 	}()
 
 	results := make([]executor.Result, len(servers))
+	deliver := newDeliverer(emit, opts.Ordered)
 	for ir := range out {
 		results[ir.index] = ir.result
-		if emit != nil {
-			emit(ir.result)
-		}
+		deliver(ir)
 	}
 	summary := Summarize(results)
 	summary.Duration = time.Since(start)
@@ -141,4 +144,30 @@ func runOne(ctx context.Context, ex executor.Executor, s inventory.Server, req e
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	return ex.Run(ctx, s, req)
+}
+
+// newDeliverer returns the function that passes results to emit, either
+// immediately (completion order) or through a reorder buffer.
+func newDeliverer(emit func(executor.Result), ordered bool) func(indexed) {
+	if emit == nil {
+		return func(indexed) {}
+	}
+	if !ordered {
+		return func(ir indexed) { emit(ir.result) }
+	}
+	pending := map[int]executor.Result{} // finished, but waiting for earlier servers
+	next := 0                            // index of the next result to emit
+	return func(ir indexed) {
+		pending[ir.index] = ir.result
+		// Flush every result that is now contiguous with what was emitted.
+		for {
+			r, ok := pending[next]
+			if !ok {
+				return
+			}
+			delete(pending, next)
+			emit(r)
+			next++
+		}
+	}
 }

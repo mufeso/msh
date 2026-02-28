@@ -100,3 +100,14 @@ func TestParallelModeIsFasterThanSequential(t *testing.T) {
 		t.Errorf("parallel (%v) not faster than sequential (%v)", par, seq)
 	}
 }
+
+func TestOrderedFlag(t *testing.T) {
+	fleet := newTestFleet(t, 4, nil)
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--ordered", "--workers", "4", "--prefix", "--command", "echo x")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.HasPrefix(stdout, "s1: x\ns2: x\ns3: x\ns4: x\n") {
+		t.Errorf("not in selection order:\n%s", stdout)
+	}
+}
