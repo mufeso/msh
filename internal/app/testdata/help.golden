@@ -19,5 +19,6 @@ Shortcuts (read-only, same selection flags as exec):
   uname         Show system information (uname -a)
   kernel        Show the kernel release (uname -r)
   uptime        Show uptime and load averages
+  disk          Show filesystem usage (df -hP)
 
 Run 'msh help <command>' for details about a command.

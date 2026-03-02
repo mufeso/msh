@@ -22,6 +22,7 @@ var shortcuts = []shortcut{
 	{name: "uname", summary: "Show system information (uname -a)", command: "uname -a"},
 	{name: "kernel", summary: "Show the kernel release (uname -r)", command: "uname -r"},
 	{name: "uptime", summary: "Show uptime and load averages", command: "uptime"},
+	{name: "disk", summary: "Show filesystem usage (df -hP)", command: "df -hP"},
 }
 
 // shortcutCommands turns the table into CLI commands.
