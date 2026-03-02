@@ -21,6 +21,7 @@ var shortcuts = []shortcut{
 	{name: "ping", summary: "Check SSH connectivity and authentication", command: "true"},
 	{name: "uname", summary: "Show system information (uname -a)", command: "uname -a"},
 	{name: "kernel", summary: "Show the kernel release (uname -r)", command: "uname -r"},
+	{name: "uptime", summary: "Show uptime and load averages", command: "uptime"},
 }
 
 // shortcutCommands turns the table into CLI commands.

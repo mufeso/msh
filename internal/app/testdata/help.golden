@@ -18,5 +18,6 @@ Shortcuts (read-only, same selection flags as exec):
   ping          Check SSH connectivity and authentication
   uname         Show system information (uname -a)
   kernel        Show the kernel release (uname -r)
+  uptime        Show uptime and load averages
 
 Run 'msh help <command>' for details about a command.

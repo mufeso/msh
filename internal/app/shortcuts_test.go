@@ -34,3 +34,16 @@ func TestPingAndHostsCheck(t *testing.T) {
 		t.Errorf("hosts check: code = %d\n%s", code, stdout)
 	}
 }
+
+func TestRealShortcuts(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil) // ShellHandler: runs the real command locally
+	for _, name := range []string{"uname", "kernel", "uptime"} {
+		stdout, stderr, code := fleet.run(t, []string{name}, "--host", "s1")
+		if exitcode.Code(code) != exitcode.OK {
+			t.Errorf("%s: code = %d, stderr = %s", name, code, stderr)
+		}
+		if len(stdout) < len("=== s1: ok") {
+			t.Errorf("%s: stdout = %q", name, stdout)
+		}
+	}
+}
