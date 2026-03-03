@@ -22,6 +22,7 @@ Shortcuts (read-only, same selection flags as exec):
   disk          Show filesystem usage (df -hP)
   memory        Show memory usage in MiB (free -m)
   services      List running systemd services
+  failed-units  List failed systemd units
   selinux       Show the SELinux mode (getenforce)
 
 Run 'msh help <command>' for details about a command.

@@ -47,3 +47,15 @@ func TestRealShortcuts(t *testing.T) {
 		}
 	}
 }
+
+func TestHelpShortcuts(t *testing.T) {
+	stdout, _, code := runCLI(t, "help", "shortcuts")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v", code)
+	}
+	for _, sc := range shortcuts {
+		if !contains(stdout, sc.command) {
+			t.Errorf("help shortcuts does not show %q", sc.command)
+		}
+	}
+}

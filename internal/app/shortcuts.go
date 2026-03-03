@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
@@ -25,6 +26,7 @@ var shortcuts = []shortcut{
 	{name: "disk", summary: "Show filesystem usage (df -hP)", command: "df -hP"},
 	{name: "memory", summary: "Show memory usage in MiB (free -m)", command: "free -m"},
 	{name: "services", summary: "List running systemd services", command: "systemctl list-units --type=service --state=running --no-pager --no-legend"},
+	{name: "failed-units", summary: "List failed systemd units", command: "systemctl --failed --no-pager --no-legend"},
 	{name: "selinux", summary: "Show the SELinux mode (getenforce)", command: "if command -v getenforce >/dev/null 2>&1; then getenforce; else echo 'SELinux tools are not installed'; fi"},
 }
 
@@ -86,4 +88,15 @@ func lookupShortcut(name string) shortcut {
 		}
 	}
 	panic("unknown shortcut " + name) // a programming error, caught by tests
+}
+
+// shortcutsHelp lists every shortcut and its remote command.
+func shortcutsHelp() string {
+	var b strings.Builder
+	b.WriteString("Built-in shortcuts. Each runs one read-only remote command and accepts\n")
+	b.WriteString("the same selection, output and timeout flags as \"msh exec\".\n\n")
+	for _, sc := range shortcuts {
+		fmt.Fprintf(&b, "  %-13s %s\n  %-13s $ %s\n", sc.name, sc.summary, "", sc.command)
+	}
+	return b.String()
 }

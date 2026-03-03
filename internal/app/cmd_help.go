@@ -25,6 +25,10 @@ func runHelp(c *cli, args []string) exitcode.Code {
 		c.printUsage(c.stdout)
 		return exitcode.OK
 	case 1:
+		if args[0] == "shortcuts" {
+			fmt.Fprint(c.stdout, shortcutsHelp())
+			return exitcode.OK
+		}
 		cmd, ok := lookup(args[0])
 		if !ok {
 			c.errorf("unknown command %q", args[0])
