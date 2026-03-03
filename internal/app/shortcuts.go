@@ -23,6 +23,9 @@ var shortcuts = []shortcut{
 	{name: "kernel", summary: "Show the kernel release (uname -r)", command: "uname -r"},
 	{name: "uptime", summary: "Show uptime and load averages", command: "uptime"},
 	{name: "disk", summary: "Show filesystem usage (df -hP)", command: "df -hP"},
+	{name: "memory", summary: "Show memory usage in MiB (free -m)", command: "free -m"},
+	{name: "services", summary: "List running systemd services", command: "systemctl list-units --type=service --state=running --no-pager --no-legend"},
+	{name: "selinux", summary: "Show the SELinux mode (getenforce)", command: "if command -v getenforce >/dev/null 2>&1; then getenforce; else echo 'SELinux tools are not installed'; fi"},
 }
 
 // shortcutCommands turns the table into CLI commands.

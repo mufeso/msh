@@ -20,5 +20,8 @@ Shortcuts (read-only, same selection flags as exec):
   kernel        Show the kernel release (uname -r)
   uptime        Show uptime and load averages
   disk          Show filesystem usage (df -hP)
+  memory        Show memory usage in MiB (free -m)
+  services      List running systemd services
+  selinux       Show the SELinux mode (getenforce)
 
 Run 'msh help <command>' for details about a command.
