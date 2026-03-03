@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -11,20 +12,21 @@ const SourceEnv = "environment"
 
 // Environment variable names.
 const (
-	EnvConfig         = "MSH_CONFIG"
-	EnvInventory      = "MSH_INVENTORY"
-	EnvUser           = "MSH_USER"
-	EnvPort           = "MSH_PORT"
-	EnvIdentityFile   = "MSH_IDENTITY_FILE"
-	EnvKnownHostsFile = "MSH_KNOWN_HOSTS_FILE"
-	EnvOutput         = "MSH_OUTPUT"
-	EnvConnectTimeout = "MSH_CONNECT_TIMEOUT"
-	EnvCommandTimeout = "MSH_COMMAND_TIMEOUT"
-	EnvTimeout        = "MSH_TIMEOUT"
-	EnvMode           = "MSH_MODE"
-	EnvWorkers        = "MSH_WORKERS"
-	EnvOrdered        = "MSH_ORDERED"
-	EnvBastion        = "MSH_BASTION"
+	EnvConfig          = "MSH_CONFIG"
+	EnvInventory       = "MSH_INVENTORY"
+	EnvUser            = "MSH_USER"
+	EnvPort            = "MSH_PORT"
+	EnvIdentityFile    = "MSH_IDENTITY_FILE"
+	EnvKnownHostsFile  = "MSH_KNOWN_HOSTS_FILE"
+	EnvOutput          = "MSH_OUTPUT"
+	EnvConnectTimeout  = "MSH_CONNECT_TIMEOUT"
+	EnvCommandTimeout  = "MSH_COMMAND_TIMEOUT"
+	EnvTimeout         = "MSH_TIMEOUT"
+	EnvMode            = "MSH_MODE"
+	EnvWorkers         = "MSH_WORKERS"
+	EnvOrdered         = "MSH_ORDERED"
+	EnvBastion         = "MSH_BASTION"
+	EnvAllowedLogPaths = "MSH_ALLOWED_LOG_PATHS"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -47,6 +49,9 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	l.Output = str(EnvOutput)
 	l.Mode = str(EnvMode)
 	l.Bastion = str(EnvBastion)
+	if v := str(EnvAllowedLogPaths); v != nil {
+		l.AllowedLogPaths = strings.Split(*v, ":")
+	}
 
 	var err error
 	if l.Port, err = envInt(str, EnvPort); err != nil {

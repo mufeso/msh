@@ -7,25 +7,27 @@ package config
 
 import (
 	"strconv"
+	"strings"
 	"time"
 )
 
 // Setting keys, as written in configuration files. They also name the
 // entries in Settings.Sources.
 const (
-	KeyInventory      = "inventory"
-	KeyUser           = "user"
-	KeyPort           = "port"
-	KeyIdentityFile   = "identity_file"
-	KeyKnownHostsFile = "known_hosts_file"
-	KeyOutput         = "output"
-	KeyConnectTimeout = "connect_timeout"
-	KeyCommandTimeout = "command_timeout"
-	KeyTimeout        = "timeout"
-	KeyMode           = "mode"
-	KeyWorkers        = "workers"
-	KeyOrdered        = "ordered"
-	KeyBastion        = "bastion"
+	KeyInventory       = "inventory"
+	KeyUser            = "user"
+	KeyPort            = "port"
+	KeyIdentityFile    = "identity_file"
+	KeyKnownHostsFile  = "known_hosts_file"
+	KeyOutput          = "output"
+	KeyConnectTimeout  = "connect_timeout"
+	KeyCommandTimeout  = "command_timeout"
+	KeyTimeout         = "timeout"
+	KeyMode            = "mode"
+	KeyWorkers         = "workers"
+	KeyOrdered         = "ordered"
+	KeyBastion         = "bastion"
+	KeyAllowedLogPaths = "allowed_log_paths"
 )
 
 // Execution modes.
@@ -62,6 +64,9 @@ type Settings struct {
 	// Bastion is the default jump host ("" or "none" = direct).
 	Bastion string `json:"bastion"`
 
+	// AllowedLogPaths are the directories "msh logs" may read from.
+	AllowedLogPaths []string `json:"allowed_log_paths"`
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string `json:"-"`
 }
@@ -69,14 +74,15 @@ type Settings struct {
 // Defaults returns the built-in defaults, the lowest layer.
 func Defaults() Settings {
 	s := Settings{
-		Inventory:      "~/.config/msh/inventory.yaml",
-		Port:           22,
-		KnownHostsFile: "~/.ssh/known_hosts",
-		Output:         "text",
-		ConnectTimeout: 10 * time.Second,
-		CommandTimeout: 60 * time.Second,
-		Mode:           ModeParallel,
-		Workers:        5,
+		Inventory:       "~/.config/msh/inventory.yaml",
+		Port:            22,
+		KnownHostsFile:  "~/.ssh/known_hosts",
+		Output:          "text",
+		ConnectTimeout:  10 * time.Second,
+		CommandTimeout:  60 * time.Second,
+		Mode:            ModeParallel,
+		AllowedLogPaths: []string{"/var/log"},
+		Workers:         5,
 	}
 	s.Sources = map[string]string{}
 	for _, k := range Keys() {
@@ -90,7 +96,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
-		KeyMode, KeyWorkers, KeyOrdered, KeyBastion,
+		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths,
 	}
 }
 
@@ -109,6 +115,8 @@ type Layer struct {
 	Workers        *int      `json:"workers,omitempty" yaml:"workers,omitempty"`
 	Ordered        *bool     `json:"ordered,omitempty" yaml:"ordered,omitempty"`
 	Bastion        *string   `json:"bastion,omitempty" yaml:"bastion,omitempty"`
+	// A nil slice means "not set"; an empty list allows nothing.
+	AllowedLogPaths []string `json:"allowed_log_paths,omitempty" yaml:"allowed_log_paths,omitempty"`
 }
 
 // Source is a named layer.
@@ -146,6 +154,10 @@ func (s *Settings) Apply(name string, l Layer) {
 	set(s, name, KeyWorkers, &s.Workers, l.Workers)
 	set(s, name, KeyOrdered, &s.Ordered, l.Ordered)
 	set(s, name, KeyBastion, &s.Bastion, l.Bastion)
+	if l.AllowedLogPaths != nil {
+		paths := append([]string(nil), l.AllowedLogPaths...)
+		set(s, name, KeyAllowedLogPaths, &s.AllowedLogPaths, &paths)
+	}
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -193,6 +205,8 @@ func (s Settings) Value(key string) string {
 		return strconv.FormatBool(s.Ordered)
 	case KeyBastion:
 		return s.Bastion
+	case KeyAllowedLogPaths:
+		return strings.Join(s.AllowedLogPaths, ":")
 	default:
 		return ""
 	}

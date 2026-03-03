@@ -11,6 +11,7 @@ Commands:
   exec          Run a command on servers
   help          Show help for msh or for one command
   hosts         List and check inventory servers
+  logs          Show or follow a log file on servers
   task          List, show and run configured tasks
   version       Print version information
 

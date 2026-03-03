@@ -40,8 +40,7 @@ func (LocalExecutor) Run(ctx context.Context, server inventory.Server, req Reque
 	// goroutines, and LimitedBuffer is not safe for concurrent writes.
 	stdout := NewLimitedBuffer(req.OutputLimit)
 	stderr := NewLimitedBuffer(req.OutputLimit)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	cmd.Stdout, cmd.Stderr = Outputs(server, req, stdout, stderr)
 	err := cmd.Run()
 	res.Duration = time.Since(res.Started)
 	res.Stdout, res.StdoutTruncated = stdout.String(), stdout.Truncated()

@@ -18,6 +18,9 @@ type remoteRun struct {
 	ro   *remoteOptions
 	req  executor.Request
 	name string // command name for messages
+
+	unlimited   bool // do not apply command_timeout (e.g. logs --follow)
+	quietOutput bool // the output was streamed live; print only statuses
 }
 
 // runRemote loads settings and inventory, selects servers, builds the SSH
@@ -42,7 +45,7 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
-	if r.req.Timeout == 0 {
+	if r.req.Timeout == 0 && !r.unlimited {
 		r.req.Timeout = st.settings.CommandTimeout
 	}
 
@@ -55,6 +58,13 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 	ctx, cancel := c.runContext(st)
 	defer cancel()
 	code = c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
+		if r.quietOutput {
+			inner := emit
+			emit = func(res executor.Result) {
+				res.Stdout, res.Stderr = "", ""
+				inner(res)
+			}
+		}
 		return runner.Run(ctx, stack.executor, servers, r.req, c.runnerOptions(st, r.ro), emit)
 	})
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {

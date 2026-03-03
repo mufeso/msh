@@ -7,6 +7,7 @@ package executor
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"example.com/msh/internal/inventory"
@@ -41,6 +42,22 @@ type Request struct {
 	// byte slice rather than an io.Reader so that each server gets its
 	// own reader: one script can be streamed to many servers at once.
 	Stdin []byte
+
+	// Stream, if not nil, returns writers that receive the command's
+	// output live, in addition to the captured Result fields. It is a
+	// function because every server needs its own writers.
+	Stream func(server inventory.Server) (stdout, stderr io.Writer)
+}
+
+// Outputs returns the writers an executor should connect to a process:
+// the capture buffers, plus the live stream writers if requested.
+func Outputs(server inventory.Server, req Request, stdout, stderr *LimitedBuffer) (io.Writer, io.Writer) {
+	if req.Stream == nil {
+		return stdout, stderr
+	}
+	liveOut, liveErr := req.Stream(server)
+	// MultiWriter writes every chunk to each writer in turn.
+	return io.MultiWriter(stdout, liveOut), io.MultiWriter(stderr, liveErr)
 }
 
 // Status is the outcome of running a command on one server.

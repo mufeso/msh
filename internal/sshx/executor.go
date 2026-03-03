@@ -110,7 +110,8 @@ func (e *Executor) Run(ctx context.Context, server inventory.Server, req executo
 	if req.Stdin != nil {
 		stdin = bytes.NewReader(req.Stdin)
 	}
-	sess.SetStdio(stdin, stdout, stderr)
+	outW, errW := executor.Outputs(server, req, stdout, stderr)
+	sess.SetStdio(stdin, outW, errW)
 
 	runCtx := ctx
 	if req.Timeout > 0 {
