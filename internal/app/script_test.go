@@ -61,3 +61,19 @@ func TestScriptRunErrors(t *testing.T) {
 		t.Errorf("directory: code = %d, want IO", code)
 	}
 }
+
+func TestScriptArguments(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	script := writeScript(t, "args.sh", "printf '[%s]\\n' \"$@\"\n")
+	stdout, stderr, code := fleet.run(t, []string{"script", "run"}, "--host", "s1", "--interpreter", "sh", "--file", script,
+		"--arg", "two words", "--arg", "$(id)", "--arg", "a,b")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "[two words]\n[$(id)]\n[a,b]\n") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if cmds := fleet.servers[0].Commands(); cmds[0] != `sh -s -- 'two words' '$(id)' a,b` {
+		t.Errorf("remote command = %q", cmds[0])
+	}
+}

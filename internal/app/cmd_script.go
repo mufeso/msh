@@ -14,7 +14,7 @@ import (
 	"example.com/msh/internal/task"
 )
 
-const scriptUsage = `Usage: msh script run (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [flags]
+const scriptUsage = `Usage: msh script run (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [--arg VALUE]... [flags]
 
 Streams a local script to an interpreter on each selected server through
 SSH standard input ("bash -s --", "sh -s --", "python3 -", "perl -").
@@ -53,6 +53,11 @@ func runScript(c *cli, args []string) exitcode.Code {
 	ro.register(fs)
 	file := fs.String("file", "", "local script `path`")
 	interpName := fs.String("interpreter", "", "remote `interpreter`: sh, bash, python3 or perl")
+	var scriptArgs []string
+	fs.Func("arg", "script argument `value` (repeatable): \"$1\", sys.argv[1], ...", func(v string) error {
+		scriptArgs = append(scriptArgs, v)
+		return nil
+	})
 	if code, ok := parseFlags(fs, args[1:]); !ok {
 		return code
 	}
@@ -75,6 +80,7 @@ func runScript(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	words := append([]string{interp.Program}, interp.ScriptArgs...)
+	words = append(words, scriptArgs...)
 	c.verbosef(&opts, "streaming %s (%d bytes) to %q", *file, len(script), shellquote.Join(words))
 	return c.runRemote(remoteRun{
 		opts: &opts, sel: &sel, ro: &ro, name: "script run",
