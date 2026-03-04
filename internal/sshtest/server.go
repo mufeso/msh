@@ -19,10 +19,17 @@ import (
 
 // Exec describes one command the test server was asked to run.
 type Exec struct {
-	Command string
+	Command string // "" for an interactive shell request
 	Stdin   io.Reader
 	Stdout  io.Writer
 	Stderr  io.Writer
+	PTY     *PTY // non-nil when the client requested a pseudo-terminal
+}
+
+// PTY describes a pseudo-terminal request.
+type PTY struct {
+	Term          string
+	Width, Height int
 }
 
 // Handler runs a command and returns its exit status. ctx is canceled
@@ -51,6 +58,8 @@ type Server struct {
 	commands []string
 	signals  []string
 	forwards []string
+	ptys     []PTY
+	resizes  [][2]int // width, height
 
 	active atomic.Int64 // sessions currently open
 }
@@ -103,6 +112,20 @@ func (s *Server) Signals() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]string(nil), s.signals...)
+}
+
+// PTYs returns the pseudo-terminal requests received so far.
+func (s *Server) PTYs() []PTY {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]PTY(nil), s.ptys...)
+}
+
+// Resizes returns the window-change requests as [width, height] pairs.
+func (s *Server) Resizes() [][2]int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([][2]int(nil), s.resizes...)
 }
 
 // Forwards returns the host:port targets of direct-tcpip channels.
@@ -205,6 +228,15 @@ func (s *Server) handleSession(newCh ssh.NewChannel) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var done chan struct{}
+	var pty *PTY
+
+	start := func(command string) {
+		done = make(chan struct{})
+		go func() {
+			defer close(done)
+			s.run(ctx, ch, command, pty)
+		}()
+	}
 
 	for req := range reqs {
 		switch req.Type {
@@ -216,11 +248,37 @@ func (s *Server) handleSession(newCh ssh.NewChannel) {
 			}
 			req.Reply(true, nil)
 			s.record(&s.commands, p.Command)
-			done = make(chan struct{})
-			go func() {
-				defer close(done)
-				s.run(ctx, ch, p.Command)
-			}()
+			start(p.Command)
+		case "shell":
+			if done != nil {
+				req.Reply(false, nil)
+				continue
+			}
+			req.Reply(true, nil)
+			s.record(&s.commands, "")
+			start("")
+		case "pty-req":
+			var p struct {
+				Term                         string
+				Columns, Rows, Width, Height uint32
+				Modes                        string
+			}
+			if ssh.Unmarshal(req.Payload, &p) != nil {
+				req.Reply(false, nil)
+				continue
+			}
+			pty = &PTY{Term: p.Term, Width: int(p.Columns), Height: int(p.Rows)}
+			s.mu.Lock()
+			s.ptys = append(s.ptys, *pty)
+			s.mu.Unlock()
+			req.Reply(true, nil)
+		case "window-change":
+			var p struct{ Columns, Rows, Width, Height uint32 }
+			if ssh.Unmarshal(req.Payload, &p) == nil {
+				s.mu.Lock()
+				s.resizes = append(s.resizes, [2]int{int(p.Columns), int(p.Rows)})
+				s.mu.Unlock()
+			}
 		case "signal":
 			var p struct{ Signal string }
 			_ = ssh.Unmarshal(req.Payload, &p)
@@ -240,8 +298,8 @@ func (s *Server) handleSession(newCh ssh.NewChannel) {
 	ch.Close()
 }
 
-func (s *Server) run(ctx context.Context, ch ssh.Channel, command string) {
-	code := s.opts.Handler(ctx, &Exec{Command: command, Stdin: ch, Stdout: ch, Stderr: ch.Stderr()})
+func (s *Server) run(ctx context.Context, ch ssh.Channel, command string, pty *PTY) {
+	code := s.opts.Handler(ctx, &Exec{Command: command, Stdin: ch, Stdout: ch, Stderr: ch.Stderr(), PTY: pty})
 	status := struct{ Status uint32 }{uint32(code)}
 	_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(&status))
 	ch.Close()
@@ -257,6 +315,10 @@ func (s *Server) record(list *[]string, v string) {
 // which makes the test server behave like a real one.
 func ShellHandler(ctx context.Context, e *Exec) int {
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", e.Command)
+	if e.Command == "" {
+		// A shell request: run a shell that reads commands from stdin.
+		cmd = exec.CommandContext(ctx, "/bin/sh")
+	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = e.Stdin, e.Stdout, e.Stderr
 	cmd.WaitDelay = time.Second
 	err := cmd.Run()

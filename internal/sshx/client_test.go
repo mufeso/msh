@@ -17,6 +17,11 @@ func (r *recordingSession) Start(cmd string) error                   { r.started
 func (r *recordingSession) Wait() error                              { return nil }
 func (r *recordingSession) Signal(ssh.Signal) error                  { return nil }
 func (r *recordingSession) Close() error                             { return nil }
+func (r *recordingSession) RequestPty(string, int, int, ssh.TerminalModes) error {
+	return nil
+}
+func (r *recordingSession) Shell() error                { return nil }
+func (r *recordingSession) WindowChange(int, int) error { return nil }
 
 func TestSessionInterfaceIsFakeable(t *testing.T) {
 	var s Session = &recordingSession{}

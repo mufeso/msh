@@ -5,8 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"example.com/msh/internal/buildinfo"
@@ -51,6 +53,7 @@ func runCLICtx(t *testing.T, ctx context.Context, env map[string]string, args ..
 		},
 	}
 	c.root = ctx
+	c.term = &testTerminal{in: strings.NewReader(input(ctx)), out: &out, errOut: &errOut}
 	result := c.finish(c.run(args))
 	return out.String(), errOut.String(), result
 }
@@ -93,4 +96,28 @@ func TestVersionJSONRoundTrip(t *testing.T) {
 	if got != buildinfo.Get() {
 		t.Errorf("decoded %+v, want %+v", got, buildinfo.Get())
 	}
+}
+
+// testTerminal is a non-interactive Terminal backed by buffers.
+type testTerminal struct {
+	in     io.Reader
+	out    io.Writer
+	errOut io.Writer
+}
+
+func (t *testTerminal) Stdin() io.Reader  { return t.in }
+func (t *testTerminal) Stdout() io.Writer { return t.out }
+func (t *testTerminal) Stderr() io.Writer { return t.errOut }
+
+// inputKey carries test terminal input in a context.
+type inputKey struct{}
+
+// withInput returns a context whose test terminal reads input.
+func withInput(ctx context.Context, input string) context.Context {
+	return context.WithValue(ctx, inputKey{}, input)
+}
+
+func input(ctx context.Context) string {
+	s, _ := ctx.Value(inputKey{}).(string)
+	return s
 }

@@ -10,6 +10,7 @@ import (
 	"example.com/msh/internal/buildinfo"
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/signals"
 )
 
@@ -26,13 +27,16 @@ type cli struct {
 
 	// root is canceled by CTRL+C/SIGTERM; every operation derives from it.
 	root context.Context
+
+	// term is the local terminal for interactive sessions.
+	term interactive.Terminal
 }
 
 // Run executes msh with the given arguments (without the program name)
 // and returns the process exit code. ctx is the root context: canceling
 // it (CTRL+C) stops all work.
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx}
+	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx, term: interactive.StdTerminal()}
 	return int(c.finish(c.run(args)))
 }
 
@@ -108,4 +112,12 @@ func (c *cli) ctx() context.Context {
 		return context.Background()
 	}
 	return c.root
+}
+
+// terminal returns the terminal for interactive sessions.
+func (c *cli) terminal() interactive.Terminal {
+	if c.term == nil {
+		return interactive.StdTerminal()
+	}
+	return c.term
 }

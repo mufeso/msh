@@ -21,6 +21,11 @@ type Session interface {
 	Wait() error
 	Signal(sig ssh.Signal) error
 	Close() error
+
+	// Interactive sessions.
+	RequestPty(term string, height, width int, modes ssh.TerminalModes) error
+	Shell() error
+	WindowChange(height, width int) error
 }
 
 // WrapClient adapts an *ssh.Client to the Client interface.
