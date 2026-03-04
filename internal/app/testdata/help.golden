@@ -12,6 +12,7 @@ Commands:
   help          Show help for msh or for one command
   hosts         List and check inventory servers
   logs          Show or follow a log file on servers
+  script        Run a local script on servers without copying it
   task          List, show and run configured tasks
   version       Print version information
 
