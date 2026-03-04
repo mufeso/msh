@@ -31,3 +31,18 @@ func TestShellNeedsExactlyOneServer(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
 	}
 }
+
+func TestShellCommandRunsRemotely(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append([]string{"shell", "--host", "s1", "--command", "echo interactive-cmd; exit 4"}, fleet.args()...)
+	stdout, _, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != 4 || !contains(stdout, "interactive-cmd") {
+		t.Errorf("code = %v, stdout = %q", code, stdout)
+	}
+	if cmds := fleet.servers[0].Commands(); len(cmds) != 1 || cmds[0] != "echo interactive-cmd; exit 4" {
+		t.Errorf("remote commands = %q", cmds)
+	}
+	if len(fleet.servers[0].PTYs()) != 1 {
+		t.Error("no pseudo-terminal requested for the interactive command")
+	}
+}

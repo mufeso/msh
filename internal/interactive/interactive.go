@@ -31,12 +31,13 @@ func (stdTerminal) Stderr() io.Writer { return os.Stderr }
 
 // Options describe the session.
 type Options struct {
-	Term string // value for $TERM on the server
+	Term    string // value for $TERM on the server
+	Command string // remote command; "" starts the login shell
 }
 
 // Run opens a session on client, requests a pseudo-terminal, connects the
-// terminal's streams and starts the remote login shell. It blocks until
-// the session ends and returns the remote exit status.
+// terminal's streams and starts the remote login shell or command. It
+// blocks until the session ends and returns the remote exit status.
 func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int, error) {
 	sess, err := client.NewSession()
 	if err != nil {
@@ -49,7 +50,12 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 		return -1, err
 	}
 	sess.SetStdio(t.Stdin(), t.Stdout(), t.Stderr())
-	if err := sess.Shell(); err != nil {
+	if opts.Command == "" {
+		err = sess.Shell()
+	} else {
+		err = sess.Start(opts.Command)
+	}
+	if err != nil {
 		return -1, err
 	}
 	return exitStatus(sess.Wait())

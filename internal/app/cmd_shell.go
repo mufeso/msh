@@ -7,10 +7,14 @@ import (
 	"example.com/msh/internal/inventory"
 )
 
-const shellUsage = `Usage: msh shell --host NAME [flags]
+const shellUsage = `Usage: msh shell --host NAME [--command CMD] [flags]
 
-Opens an interactive login shell on one server, like "ssh user@server".
-msh exits with the remote shell's exit status.
+Opens an interactive login shell on one server, like "ssh user@server",
+or runs CMD there with a terminal, like "ssh -t user@server CMD".
+msh exits with the remote exit status.
+
+Example:
+  msh shell --host server01 --command "podman exec -it asdf /bin/bash"
 `
 
 func shellCommand() *command {
@@ -35,10 +39,11 @@ func runShell(c *cli, args []string) exitcode.Code {
 	f.opts.register(fs)
 	f.sel.register(fs)
 	f.ro.register(fs)
+	command := fs.String("command", "", "remote command to run interactively (default: login shell)")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	return c.interactiveSession(&f, interactive.Options{})
+	return c.interactiveSession(&f, interactive.Options{Command: *command})
 }
 
 // interactiveSession selects exactly one server, connects and runs an
