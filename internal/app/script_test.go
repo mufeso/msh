@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/exitcode"
 )
@@ -75,5 +78,58 @@ func TestScriptArguments(t *testing.T) {
 	}
 	if cmds := fleet.servers[0].Commands(); cmds[0] != `sh -s -- 'two words' '$(id)' a,b` {
 		t.Errorf("remote command = %q", cmds[0])
+	}
+}
+
+func TestLargeScriptArrivesIntact(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	var b strings.Builder
+	b.WriteString("#!/bin/sh\n")
+	for b.Len() < 1<<20 {
+		b.WriteString("# padding padding padding padding padding padding padding\n")
+	}
+	b.WriteString("echo end-of-large-script\n")
+	script := writeScript(t, "large.sh", b.String())
+	stdout, stderr, code := fleet.run(t, []string{"script", "run"}, "--host", "s1", "--file", script)
+	if exitcode.Code(code) != exitcode.OK || !contains(stdout, "end-of-large-script") {
+		t.Errorf("code = %d, stderr = %s, stdout tail = %q", code, stderr, stdout[max(0, len(stdout)-200):])
+	}
+}
+
+func TestScriptCancellationClosesSessions(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	script := writeScript(t, "slow.sh", "sleep 30\necho never\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	args := append([]string{"script", "run", "--all", "--file", script, "--command-timeout", "0s"}, fleet.args()...)
+	start := time.Now()
+	stdout, _, _ := runCLICtx(t, ctx, nil, args...)
+	if time.Since(start) > 5*time.Second {
+		t.Error("cancellation did not stop the scripts")
+	}
+	if contains(stdout, "never") {
+		t.Error("script finished despite cancellation")
+	}
+	for _, s := range fleet.servers {
+		if !s.WaitIdle(3 * time.Second) {
+			t.Error("a remote session is still open")
+		}
+	}
+}
+
+func TestScriptCreatesNoLocalTempFiles(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp) // os.TempDir would point here
+	script := writeScript(t, "x.sh", "echo hi\n")
+	if _, _, code := fleet.run(t, []string{"script", "run"}, "--host", "s1", "--file", script); exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d", code)
+	}
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("temporary files were created: %v", entries)
 	}
 }
