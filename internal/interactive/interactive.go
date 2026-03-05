@@ -48,7 +48,20 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 			return -1, err
 		}
 	}
-	sess.SetStdio(t.Stdin(), t.Stdout(), t.Stderr())
+	// Standard input is copied by our own goroutine through a pipe. If it
+	// were passed to SetStdio, Session.Wait would wait for that copy, and
+	// a terminal Read only returns on the next keypress. This goroutine is
+	// not waited for: it ends on EOF, on a write error after the session
+	// closed, or when msh exits.
+	sess.SetStdio(nil, t.Stdout(), t.Stderr())
+	stdin, err := sess.StdinPipe()
+	if err != nil {
+		return -1, err
+	}
+	go func() {
+		_, _ = io.Copy(stdin, t.Stdin())
+		_ = stdin.Close() // local EOF: the remote side reads EOF too
+	}()
 	if tty {
 		restore, err := t.MakeRaw()
 		if err != nil {

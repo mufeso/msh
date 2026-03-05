@@ -5,16 +5,16 @@ import (
 	"context"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/ssh"
-
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/sshtest"
 	"example.com/msh/internal/sshx"
+	"golang.org/x/crypto/ssh"
 )
 
 // fakeTerminal records what the session did to the local terminal.
@@ -79,5 +79,42 @@ func TestRawModeOnlyOnTerminals(t *testing.T) {
 		if len(srv.PTYs()) != wantPTY || term.raw != wantPTY || term.restored != term.raw {
 			t.Errorf("tty=%v: ptys=%d raw=%d restored=%d", tty, len(srv.PTYs()), term.raw, term.restored)
 		}
+	}
+}
+
+func TestRemoteExitDoesNotWaitForLocalInput(t *testing.T) {
+	_, client := connect(t, nil)
+	pr, pw := io.Pipe() // never written: like a terminal nobody types into
+	defer pw.Close()
+	term := &fakeTerminal{in: pr, tty: false}
+	done := make(chan int, 1)
+	go func() {
+		status, _ := Run(context.Background(), client, term, Options{Command: "echo bye; exit 3"})
+		done <- status
+	}()
+	select {
+	case status := <-done:
+		if status != 3 {
+			t.Errorf("status = %d, want 3", status)
+		}
+	case <-time.After(3 * time.Second):
+		buf := make([]byte, 1<<20)
+		n := runtime.Stack(buf, true)
+		t.Fatalf("Run waited for local stdin after the remote command exited\n%s", buf[:n])
+	}
+	if !strings.Contains(term.out.String(), "bye") {
+		t.Errorf("stdout = %q", term.out.String())
+	}
+}
+
+func TestLocalEOFEndsRemoteShell(t *testing.T) {
+	_, client := connect(t, nil)
+	term := &fakeTerminal{in: strings.NewReader("echo first\necho second\n"), tty: false}
+	status, err := Run(context.Background(), client, term, Options{})
+	if err != nil || status != 0 {
+		t.Fatalf("status = %d, err = %v", status, err)
+	}
+	if term.out.String() != "first\nsecond\n" {
+		t.Errorf("stdout = %q", term.out.String())
 	}
 }

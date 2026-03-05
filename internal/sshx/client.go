@@ -17,6 +17,10 @@ type Session interface {
 	// SetStdio connects the remote process's standard streams. It must be
 	// called before Start. A nil stdin means the remote side reads EOF.
 	SetStdio(stdin io.Reader, stdout, stderr io.Writer)
+	// StdinPipe returns a pipe connected to the remote standard input.
+	// Use it instead of SetStdio's stdin when the local reader may block
+	// forever (a terminal): Wait does not wait for writes to the pipe.
+	StdinPipe() (io.WriteCloser, error)
 	Start(cmd string) error
 	Wait() error
 	Signal(sig ssh.Signal) error

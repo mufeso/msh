@@ -319,9 +319,22 @@ func ShellHandler(ctx context.Context, e *Exec) int {
 		// A shell request: run a shell that reads commands from stdin.
 		cmd = exec.CommandContext(ctx, "/bin/sh")
 	}
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = e.Stdin, e.Stdout, e.Stderr
+	cmd.Stdout, cmd.Stderr = e.Stdout, e.Stderr
 	cmd.WaitDelay = time.Second
-	err := cmd.Run()
+	// Like sshd, the command's end must not depend on the client closing
+	// stdin: copy stdin in a goroutine that Wait does not wait for.
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return 255
+	}
+	if err := cmd.Start(); err != nil {
+		return 255
+	}
+	go func() {
+		_, _ = io.Copy(stdin, e.Stdin)
+		stdin.Close()
+	}()
+	err = cmd.Wait()
 	var exitErr *exec.ExitError
 	switch {
 	case err == nil:

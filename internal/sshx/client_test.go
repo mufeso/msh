@@ -32,3 +32,7 @@ func TestSessionInterfaceIsFakeable(t *testing.T) {
 		t.Errorf("started = %q", got)
 	}
 }
+
+func (r *recordingSession) StdinPipe() (io.WriteCloser, error) {
+	return nil, io.ErrClosedPipe
+}
