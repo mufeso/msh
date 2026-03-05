@@ -115,6 +115,9 @@ func (t *testTerminal) Stdin() io.Reader  { return t.in }
 func (t *testTerminal) Stdout() io.Writer { return t.out }
 func (t *testTerminal) Stderr() io.Writer { return t.errOut }
 func (t *testTerminal) IsTerminal() bool  { return t.tty }
+func (t *testTerminal) Size() (int, int, error) {
+	return 100, 30, nil
+}
 
 func (t *testTerminal) MakeRaw() (func(), error) {
 	t.mu.Lock()

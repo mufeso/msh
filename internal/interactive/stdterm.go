@@ -36,3 +36,8 @@ func (t *stdTerminal) MakeRaw() (restore func(), err error) {
 	}
 	return func() { _ = term.Restore(fd, state) }, nil
 }
+
+// Size returns the size of the terminal attached to stdout.
+func (t *stdTerminal) Size() (width, height int, err error) {
+	return term.GetSize(int(t.out.Fd()))
+}

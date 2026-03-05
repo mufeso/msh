@@ -23,6 +23,17 @@ type Terminal interface {
 	// MakeRaw puts the terminal into raw mode and returns a function
 	// that restores the previous mode.
 	MakeRaw() (restore func(), err error)
+	// Size returns the terminal's width and height in characters.
+	Size() (width, height int, err error)
+}
+
+// size returns the terminal size or 80x24 if it cannot be determined.
+func size(t Terminal) (width, height int) {
+	w, h, err := t.Size()
+	if err != nil || w <= 0 || h <= 0 {
+		return 80, 24
+	}
+	return w, h
 }
 
 // Options describe the session.
@@ -47,7 +58,8 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 	tty := t.IsTerminal() && !opts.NoTTY
 	if tty {
 		modes := ssh.TerminalModes{ssh.ECHO: 1, ssh.TTY_OP_ISPEED: 38400, ssh.TTY_OP_OSPEED: 38400}
-		if err := sess.RequestPty(opts.Term, 24, 80, modes); err != nil {
+		w, h := size(t)
+		if err := sess.RequestPty(opts.Term, h, w, modes); err != nil {
 			return -1, err
 		}
 	}

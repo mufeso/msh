@@ -24,12 +24,14 @@ type fakeTerminal struct {
 	tty      bool
 	raw      int
 	restored int
+	w, h     int
 }
 
-func (f *fakeTerminal) Stdin() io.Reader  { return f.in }
-func (f *fakeTerminal) Stdout() io.Writer { return &f.out }
-func (f *fakeTerminal) Stderr() io.Writer { return &f.err }
-func (f *fakeTerminal) IsTerminal() bool  { return f.tty }
+func (f *fakeTerminal) Stdin() io.Reader        { return f.in }
+func (f *fakeTerminal) Stdout() io.Writer       { return &f.out }
+func (f *fakeTerminal) Stderr() io.Writer       { return &f.err }
+func (f *fakeTerminal) IsTerminal() bool        { return f.tty }
+func (f *fakeTerminal) Size() (int, int, error) { return f.w, f.h, nil }
 func (f *fakeTerminal) MakeRaw() (func(), error) {
 	f.raw++
 	return func() { f.restored++ }, nil
@@ -131,5 +133,28 @@ func TestNoTTYKeepsStderrSeparate(t *testing.T) {
 	}
 	if term.out.String() != "out\n" || term.err.String() != "err\n" {
 		t.Errorf("stdout = %q, stderr = %q", term.out.String(), term.err.String())
+	}
+}
+
+func TestPTYUsesTerminalSize(t *testing.T) {
+	srv, client := connect(t, nil)
+	term := &fakeTerminal{in: strings.NewReader("exit\n"), tty: true, w: 132, h: 43}
+	if _, err := Run(context.Background(), client, term, Options{Term: "screen"}); err != nil {
+		t.Fatal(err)
+	}
+	ptys := srv.PTYs()
+	if len(ptys) != 1 || ptys[0].Width != 132 || ptys[0].Height != 43 || ptys[0].Term != "screen" {
+		t.Errorf("pty = %+v", ptys)
+	}
+}
+
+func TestPTYDefaultSize(t *testing.T) {
+	srv, client := connect(t, nil)
+	term := &fakeTerminal{in: strings.NewReader("exit\n"), tty: true}
+	if _, err := Run(context.Background(), client, term, Options{Term: "xterm"}); err != nil {
+		t.Fatal(err)
+	}
+	if p := srv.PTYs(); len(p) != 1 || p[0].Width != 80 || p[0].Height != 24 {
+		t.Errorf("pty = %+v", p)
 	}
 }

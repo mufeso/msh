@@ -83,6 +83,9 @@ func (c *cli) interactiveSession(f *shellFlags, iopts interactive.Options) exitc
 func (c *cli) runInteractive(stack *sshStack, server inventory.Server, iopts interactive.Options) exitcode.Code {
 	if iopts.Term == "" {
 		iopts.Term = "xterm-256color"
+		if v, ok := c.lookupEnv("TERM"); ok && v != "" {
+			iopts.Term = v
+		}
 	}
 	client, err := stack.dialer.Connect(c.ctx(), server)
 	if err != nil {
