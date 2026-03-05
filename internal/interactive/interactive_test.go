@@ -118,3 +118,18 @@ func TestLocalEOFEndsRemoteShell(t *testing.T) {
 		t.Errorf("stdout = %q", term.out.String())
 	}
 }
+
+func TestNoTTYKeepsStderrSeparate(t *testing.T) {
+	srv, client := connect(t, nil)
+	term := &fakeTerminal{in: strings.NewReader(""), tty: true}
+	status, err := Run(context.Background(), client, term, Options{Command: "echo out; echo err >&2", NoTTY: true})
+	if err != nil || status != 0 {
+		t.Fatalf("status = %d, err = %v", status, err)
+	}
+	if len(srv.PTYs()) != 0 || term.raw != 0 {
+		t.Error("a PTY or raw mode was used despite NoTTY")
+	}
+	if term.out.String() != "out\n" || term.err.String() != "err\n" {
+		t.Errorf("stdout = %q, stderr = %q", term.out.String(), term.err.String())
+	}
+}

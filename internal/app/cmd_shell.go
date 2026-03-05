@@ -40,10 +40,11 @@ func runShell(c *cli, args []string) exitcode.Code {
 	f.sel.register(fs)
 	f.ro.register(fs)
 	command := fs.String("command", "", "remote command to run interactively (default: login shell)")
+	noTTY := fs.Bool("no-tty", false, "do not request a pseudo-terminal; keep remote stderr separate")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	return c.interactiveSession(&f, interactive.Options{Command: *command})
+	return c.interactiveSession(&f, interactive.Options{Command: *command, NoTTY: *noTTY})
 }
 
 // interactiveSession selects exactly one server, connects and runs an

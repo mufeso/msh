@@ -29,6 +29,7 @@ type Terminal interface {
 type Options struct {
 	Term    string // value for $TERM on the server
 	Command string // remote command; "" starts the login shell
+	NoTTY   bool   // never request a pseudo-terminal (keeps stderr separate)
 }
 
 // Run opens a session on client, requests a pseudo-terminal, connects the
@@ -41,7 +42,9 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 	}
 	defer sess.Close()
 
-	tty := t.IsTerminal()
+	// With a PTY, the remote side writes stdout and stderr to the same
+	// terminal. Without one, stderr arrives on its own stream.
+	tty := t.IsTerminal() && !opts.NoTTY
 	if tty {
 		modes := ssh.TerminalModes{ssh.ECHO: 1, ssh.TTY_OP_ISPEED: 38400, ssh.TTY_OP_OSPEED: 38400}
 		if err := sess.RequestPty(opts.Term, 24, 80, modes); err != nil {
