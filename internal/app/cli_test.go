@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"example.com/msh/internal/buildinfo"
@@ -53,7 +54,7 @@ func runCLICtx(t *testing.T, ctx context.Context, env map[string]string, args ..
 		},
 	}
 	c.root = ctx
-	c.term = &testTerminal{in: strings.NewReader(input(ctx)), out: &out, errOut: &errOut}
+	c.term = &testTerminal{in: strings.NewReader(input(ctx)), out: &out, errOut: &errOut, tty: true}
 	result := c.finish(c.run(args))
 	return out.String(), errOut.String(), result
 }
@@ -98,16 +99,33 @@ func TestVersionJSONRoundTrip(t *testing.T) {
 	}
 }
 
-// testTerminal is a non-interactive Terminal backed by buffers.
+// testTerminal is a fake Terminal backed by buffers.
 type testTerminal struct {
 	in     io.Reader
 	out    io.Writer
 	errOut io.Writer
+	tty    bool
+
+	mu       sync.Mutex
+	raw      int // MakeRaw calls
+	restored int // restore calls
 }
 
 func (t *testTerminal) Stdin() io.Reader  { return t.in }
 func (t *testTerminal) Stdout() io.Writer { return t.out }
 func (t *testTerminal) Stderr() io.Writer { return t.errOut }
+func (t *testTerminal) IsTerminal() bool  { return t.tty }
+
+func (t *testTerminal) MakeRaw() (func(), error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.raw++
+	return func() {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		t.restored++
+	}, nil
+}
 
 // inputKey carries test terminal input in a context.
 type inputKey struct{}

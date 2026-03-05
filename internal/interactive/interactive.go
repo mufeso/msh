@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 
 	"golang.org/x/crypto/ssh"
 
@@ -18,16 +17,13 @@ type Terminal interface {
 	Stdin() io.Reader
 	Stdout() io.Writer
 	Stderr() io.Writer
+
+	// IsTerminal reports whether the streams are an interactive terminal.
+	IsTerminal() bool
+	// MakeRaw puts the terminal into raw mode and returns a function
+	// that restores the previous mode.
+	MakeRaw() (restore func(), err error)
 }
-
-// StdTerminal returns the process's standard streams.
-func StdTerminal() Terminal { return stdTerminal{} }
-
-type stdTerminal struct{}
-
-func (stdTerminal) Stdin() io.Reader  { return os.Stdin }
-func (stdTerminal) Stdout() io.Writer { return os.Stdout }
-func (stdTerminal) Stderr() io.Writer { return os.Stderr }
 
 // Options describe the session.
 type Options struct {
@@ -45,11 +41,22 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 	}
 	defer sess.Close()
 
-	modes := ssh.TerminalModes{ssh.ECHO: 1, ssh.TTY_OP_ISPEED: 38400, ssh.TTY_OP_OSPEED: 38400}
-	if err := sess.RequestPty(opts.Term, 24, 80, modes); err != nil {
-		return -1, err
+	tty := t.IsTerminal()
+	if tty {
+		modes := ssh.TerminalModes{ssh.ECHO: 1, ssh.TTY_OP_ISPEED: 38400, ssh.TTY_OP_OSPEED: 38400}
+		if err := sess.RequestPty(opts.Term, 24, 80, modes); err != nil {
+			return -1, err
+		}
 	}
 	sess.SetStdio(t.Stdin(), t.Stdout(), t.Stderr())
+	if tty {
+		restore, err := t.MakeRaw()
+		if err != nil {
+			return -1, err
+		}
+		// Whatever happens next, the user gets their terminal back.
+		defer restore()
+	}
 	if opts.Command == "" {
 		err = sess.Shell()
 	} else {
