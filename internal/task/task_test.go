@@ -39,3 +39,10 @@ func TestValidateShape(t *testing.T) {
 		t.Error("default safety must be read-only")
 	}
 }
+
+func TestScriptTasksCannotBeInteractive(t *testing.T) {
+	tk := Task{Script: "echo\n", Interactive: true}
+	if err := tk.validateShape(); err == nil {
+		t.Error("interactive script task accepted")
+	}
+}

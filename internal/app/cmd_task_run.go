@@ -8,6 +8,7 @@ import (
 	"example.com/msh/internal/cliflag"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/task"
 )
 
@@ -123,8 +124,8 @@ func (c *cli) runTaskOn(f *taskRunFlags, name string) exitcode.Code {
 		return exitcode.Config
 	}
 	if inv.Interactive {
-		c.errorf("task %q is interactive; interactive sessions are not available yet", t.Name)
-		return exitcode.Usage
+		sf := shellFlags{opts: f.opts, sel: f.sel, ro: f.ro}
+		return c.interactiveSession(&sf, interactive.Options{Command: inv.Command})
 	}
 	return c.runRemote(remoteRun{
 		opts: &f.opts, sel: &f.sel, ro: &f.ro, name: "task " + t.Name,

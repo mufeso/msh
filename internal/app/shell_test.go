@@ -46,3 +46,27 @@ func TestShellCommandRunsRemotely(t *testing.T) {
 		t.Error("no pseudo-terminal requested for the interactive command")
 	}
 }
+
+func TestInteractiveTask(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := fleetConfig(t, `  message:
+    description: Follow a log filtered by a pattern
+    interpreter: sh
+    command: "printf 'boot\nsshd: accepted\nkernel\nsshd: closed\n' | grep --line-buffered -- {{pattern}}"
+    arguments:
+      - name: pattern
+        required: true
+    interactive: true
+`)
+	args := append([]string{"c", "message", "s1", "sshd", "--config", cfg}, fleet.args()...)
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "sshd: accepted") || contains(stdout, "kernel") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if len(fleet.servers[0].PTYs()) != 1 {
+		t.Error("interactive task did not request a PTY")
+	}
+}

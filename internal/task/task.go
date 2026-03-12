@@ -119,5 +119,8 @@ func (t *Task) validateShape() error {
 	if t.Mode() == ModeDirect && t.Interpreter != "" {
 		return errors.New("argv tasks run without an interpreter; remove \"interpreter\"")
 	}
+	if t.Mode() == ModeScript && t.Interactive {
+		return errors.New("script tasks cannot be interactive: standard input carries the script")
+	}
 	return nil
 }
