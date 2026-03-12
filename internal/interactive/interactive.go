@@ -25,6 +25,9 @@ type Terminal interface {
 	MakeRaw() (restore func(), err error)
 	// Size returns the terminal's width and height in characters.
 	Size() (width, height int, err error)
+	// Resizes delivers a value whenever the size changes. stop ends the
+	// watching and closes the channel.
+	Resizes() (changes <-chan struct{}, stop func())
 }
 
 // size returns the terminal size or 80x24 if it cannot be determined.
@@ -93,7 +96,23 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 	if err != nil {
 		return -1, err
 	}
+
+	if tty {
+		changes, stop := t.Resizes()
+		defer stop()
+		go forwardResizes(t, sess, changes)
+	}
 	return exitStatus(sess.Wait())
+}
+
+// forwardResizes sends the new size to the server after every change.
+// It returns when the changes channel is closed (stop was called).
+func forwardResizes(t Terminal, sess sshx.Session, changes <-chan struct{}) {
+	for range changes {
+		w, h := size(t)
+		// Errors are ignored: the session may be ending.
+		_ = sess.WindowChange(h, w)
+	}
 }
 
 // exitStatus converts the result of Session.Wait into an exit status.

@@ -25,6 +25,7 @@ type fakeTerminal struct {
 	raw      int
 	restored int
 	w, h     int
+	resizes  chan struct{}
 }
 
 func (f *fakeTerminal) Stdin() io.Reader        { return f.in }
@@ -32,6 +33,12 @@ func (f *fakeTerminal) Stdout() io.Writer       { return &f.out }
 func (f *fakeTerminal) Stderr() io.Writer       { return &f.err }
 func (f *fakeTerminal) IsTerminal() bool        { return f.tty }
 func (f *fakeTerminal) Size() (int, int, error) { return f.w, f.h, nil }
+func (f *fakeTerminal) Resizes() (<-chan struct{}, func()) {
+	if f.resizes == nil {
+		f.resizes = make(chan struct{})
+	}
+	return f.resizes, func() {}
+}
 func (f *fakeTerminal) MakeRaw() (func(), error) {
 	f.raw++
 	return func() { f.restored++ }, nil
@@ -156,5 +163,28 @@ func TestPTYDefaultSize(t *testing.T) {
 	}
 	if p := srv.PTYs(); len(p) != 1 || p[0].Width != 80 || p[0].Height != 24 {
 		t.Errorf("pty = %+v", p)
+	}
+}
+
+func TestResizeSendsWindowChange(t *testing.T) {
+	srv, client := connect(t, sshtest.Blocking(""))
+	term := &fakeTerminal{in: strings.NewReader(""), tty: true, w: 80, h: 24, resizes: make(chan struct{})}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		Run(ctx, client, term, Options{Term: "xterm", Command: "wait"})
+	}()
+	// Wait for the session, then "resize the window".
+	deadline := time.Now().Add(3 * time.Second)
+	for len(srv.PTYs()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	term.w, term.h = 200, 50
+	term.resizes <- struct{}{}
+	for len(srv.Resizes()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if r := srv.Resizes(); len(r) != 1 || r[0] != [2]int{200, 50} {
+		t.Errorf("window changes = %v", r)
 	}
 }

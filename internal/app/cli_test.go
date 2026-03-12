@@ -118,6 +118,10 @@ func (t *testTerminal) IsTerminal() bool  { return t.tty }
 func (t *testTerminal) Size() (int, int, error) {
 	return 100, 30, nil
 }
+func (t *testTerminal) Resizes() (<-chan struct{}, func()) {
+	ch := make(chan struct{})
+	return ch, func() { close(ch) }
+}
 
 func (t *testTerminal) MakeRaw() (func(), error) {
 	t.mu.Lock()
