@@ -3,6 +3,7 @@ package interactive
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net"
 	"runtime"
@@ -186,5 +187,32 @@ func TestResizeSendsWindowChange(t *testing.T) {
 	}
 	if r := srv.Resizes(); len(r) != 1 || r[0] != [2]int{200, 50} {
 		t.Errorf("window changes = %v", r)
+	}
+}
+
+func TestCancellationHangsUpAndRestores(t *testing.T) {
+	srv, client := connect(t, sshtest.Blocking("ready\n"))
+	term := &fakeTerminal{in: strings.NewReader(""), tty: true}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		cancel()
+	}()
+	start := time.Now()
+	_, err := Run(ctx, client, term, Options{Term: "xterm", Command: "wait"})
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("err = %v", err)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Error("cancellation was not prompt")
+	}
+	if term.raw != 1 || term.restored != 1 {
+		t.Errorf("raw = %d, restored = %d: the terminal must be restored", term.raw, term.restored)
+	}
+	if sig := srv.Signals(); len(sig) == 0 || sig[0] != "HUP" {
+		t.Errorf("server signals = %v, want HUP", sig)
+	}
+	if !srv.WaitIdle(2 * time.Second) {
+		t.Error("session still open")
 	}
 }

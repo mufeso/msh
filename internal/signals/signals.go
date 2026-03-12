@@ -1,4 +1,4 @@
-// Package signals turns SIGINT (CTRL+C) and SIGTERM into context
+// Package signals turns SIGINT (CTRL+C), SIGTERM and SIGHUP into context
 // cancellation.
 //
 // The first signal cancels the root context: every operation derived
@@ -29,7 +29,9 @@ func Context(parent context.Context, stderr io.Writer) (ctx context.Context, sto
 	// Buffered: signal.Notify does not block, so an unbuffered channel
 	// could miss a signal.
 	sigs := make(chan os.Signal, 2)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	// SIGHUP: the terminal was closed. In raw mode (interactive sessions)
+	// CTRL+C does not produce SIGINT; the keystroke goes to the server.
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	ctx, stopWatch := Watch(parent, sigs, stderr, os.Exit)
 	return ctx, func() {
 		signal.Stop(sigs)

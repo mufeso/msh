@@ -102,7 +102,20 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 		defer stop()
 		go forwardResizes(t, sess, changes)
 	}
-	return exitStatus(sess.Wait())
+
+	done := make(chan error, 1)
+	go func() { done <- sess.Wait() }()
+	select {
+	case err := <-done:
+		return exitStatus(err)
+	case <-ctx.Done():
+		// Like a closed terminal: hang up the remote side, close the
+		// session (which makes Wait return), and wait for the goroutine.
+		_ = sess.Signal(ssh.SIGHUP)
+		_ = sess.Close()
+		<-done
+		return -1, ctx.Err()
+	}
 }
 
 // forwardResizes sends the new size to the server after every change.

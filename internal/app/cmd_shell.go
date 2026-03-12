@@ -1,6 +1,9 @@
 package app
 
 import (
+	"context"
+	"errors"
+
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
@@ -95,6 +98,9 @@ func (c *cli) runInteractive(stack *sshStack, server inventory.Server, iopts int
 	defer client.Close()
 
 	status, err := interactive.Run(c.ctx(), client, c.terminal(), iopts)
+	if errors.Is(err, context.Canceled) {
+		return exitcode.Canceled
+	}
 	if err != nil {
 		c.errorf("%s: %v", server.Name, err)
 		return exitcode.Connection
