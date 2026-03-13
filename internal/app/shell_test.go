@@ -70,3 +70,34 @@ func TestInteractiveTask(t *testing.T) {
 		t.Error("interactive task did not request a PTY")
 	}
 }
+
+func TestShellForwardsTermAndSize(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append([]string{"shell", "--host", "s1", "--command", "exit 0"}, fleet.args()...)
+	if _, stderr, code := runCLICtx(t, context.Background(), map[string]string{"TERM": "screen-256color"}, args...); code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	p := fleet.servers[0].PTYs()
+	if len(p) != 1 || p[0].Term != "screen-256color" || p[0].Width != 100 || p[0].Height != 30 {
+		t.Errorf("pty = %+v", p)
+	}
+}
+
+func TestShellThroughBastion(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, bastion: true})
+	args := append([]string{"shell", "--host", "s1", "--command", "echo hello-via-jump"}, fleet.args()...)
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || !contains(stdout, "hello-via-jump") {
+		t.Errorf("code = %v, stdout = %q, stderr = %q", code, stdout, stderr)
+	}
+}
+
+func TestShellConnectionError(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	fleet.servers[0].Close()
+	args := append([]string{"shell", "--host", "s1"}, fleet.args()...)
+	_, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.Connection || !contains(stderr, "TCP connection failed") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
