@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"os"
@@ -40,6 +41,13 @@ func runCLIEnv(t *testing.T, env map[string]string, args ...string) (stdout, std
 // CTRL+C.
 func runCLICtx(t *testing.T, ctx context.Context, env map[string]string, args ...string) (stdout, stderr string, code exitcode.Code) {
 	t.Helper()
+	return runCLIWith(t, ctx, env, nil, args...)
+}
+
+// runCLIWith is the most general helper: configure lets a test replace
+// dependencies of the cli (lookPath, tmux runner, ...).
+func runCLIWith(t *testing.T, ctx context.Context, env map[string]string, configure func(*cli), args ...string) (stdout, stderr string, code exitcode.Code) {
+	t.Helper()
 	vars := map[string]string{"HOME": t.TempDir()}
 	for k, v := range env {
 		vars[k] = v
@@ -55,6 +63,10 @@ func runCLICtx(t *testing.T, ctx context.Context, env map[string]string, args ..
 	}
 	c.root = ctx
 	c.term = &testTerminal{in: strings.NewReader(input(ctx)), out: &out, errOut: &errOut, tty: true}
+	c.lookPath = func(string) (string, error) { return "", errors.New("no executables in tests") }
+	if configure != nil {
+		configure(c)
+	}
 	result := c.finish(c.run(args))
 	return out.String(), errOut.String(), result
 }

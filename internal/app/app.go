@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 
 	"example.com/msh/internal/buildinfo"
 	"example.com/msh/internal/config"
@@ -30,13 +31,19 @@ type cli struct {
 
 	// term is the local terminal for interactive sessions.
 	term interactive.Terminal
+
+	// lookPath finds executables (exec.LookPath); tests replace it.
+	lookPath func(file string) (string, error)
 }
 
 // Run executes msh with the given arguments (without the program name)
 // and returns the process exit code. ctx is the root context: canceling
 // it (CTRL+C) stops all work.
 func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	c := &cli{stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx, term: interactive.StdTerminal()}
+	c := &cli{
+		stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx,
+		term: interactive.StdTerminal(), lookPath: exec.LookPath,
+	}
 	return int(c.finish(c.run(args)))
 }
 

@@ -11,6 +11,7 @@ import (
 )
 
 const shellUsage = `Usage: msh shell --host NAME [--command CMD] [flags]
+       msh shell (--group NAME | --all | ...) --tmux [flags]
 
 Opens an interactive login shell on one server, like "ssh user@server",
 or runs CMD there with a terminal, like "ssh -t user@server CMD".
@@ -34,6 +35,7 @@ type shellFlags struct {
 	opts commonOptions
 	sel  selectionOptions
 	ro   remoteOptions
+	tmux tmuxOptions
 }
 
 func runShell(c *cli, args []string) exitcode.Code {
@@ -42,6 +44,7 @@ func runShell(c *cli, args []string) exitcode.Code {
 	f.opts.register(fs)
 	f.sel.register(fs)
 	f.ro.register(fs)
+	f.tmux.register(fs)
 	command := fs.String("command", "", "remote command to run interactively (default: login shell)")
 	noTTY := fs.Bool("no-tty", false, "do not request a pseudo-terminal; keep remote stderr separate")
 	if code, ok := parseFlags(fs, args); !ok {
@@ -70,8 +73,11 @@ func (c *cli) interactiveSession(f *shellFlags, iopts interactive.Options) exitc
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
+	if f.tmux.enabled {
+		return c.tmuxSessions(f, st, servers, iopts)
+	}
 	if len(servers) != 1 {
-		c.errorf("shell: the selection matches %d servers; an interactive session needs exactly one", len(servers))
+		c.errorf("shell: the selection matches %d servers; an interactive session needs exactly one (use --tmux for one pane per server)", len(servers))
 		return exitcode.Usage
 	}
 	stack, code := c.newSSH(&f.opts, &f.ro, st)
