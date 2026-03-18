@@ -35,7 +35,10 @@ func (c *cli) tmuxSessions(f *shellFlags, st *setup, servers []inventory.Server,
 		c.errorf("shell --tmux needs an interactive terminal")
 		return exitcode.Usage
 	}
-	c.verbosef(&f.opts, "using %s", path)
+	runner := c.tmuxRunner(path)
+	if v, err := tmux.Version(c.ctx(), runner); err == nil {
+		c.verbosef(&f.opts, "using %s (%s)", path, v)
+	}
 	fmt.Fprintf(c.stdout, "tmux would open %d panes:\n", len(servers))
 	for _, s := range servers {
 		fmt.Fprintf(c.stdout, "  %s\n", s.Name)

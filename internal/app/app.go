@@ -13,6 +13,7 @@ import (
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/signals"
+	"example.com/msh/internal/tmux"
 )
 
 // cli carries everything a command needs. Commands are methods-like
@@ -34,6 +35,10 @@ type cli struct {
 
 	// lookPath finds executables (exec.LookPath); tests replace it.
 	lookPath func(file string) (string, error)
+
+	// newTmux returns the tmux runner for a tmux binary path. Tests
+	// replace it with an in-memory fake.
+	newTmux func(path string) tmux.Runner
 }
 
 // Run executes msh with the given arguments (without the program name)
@@ -127,4 +132,13 @@ func (c *cli) terminal() interactive.Terminal {
 		return interactive.StdTerminal()
 	}
 	return c.term
+}
+
+// tmuxRunner returns the runner for the tmux binary at path.
+func (c *cli) tmuxRunner(path string) tmux.Runner {
+	if c.newTmux != nil {
+		return c.newTmux(path)
+	}
+	t := c.terminal()
+	return tmux.ExecRunner{Path: path, Stdin: t.Stdin(), Stdout: t.Stdout(), Stderr: t.Stderr()}
 }
