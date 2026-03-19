@@ -36,3 +36,17 @@ func TestTmuxPreconditions(t *testing.T) {
 		t.Errorf("plan: code = %v, stdout = %q", code, stdout)
 	}
 }
+
+func TestPaneArgv(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 2, bastion: true})
+	stdout, stderr, code := runTmux(t, fleet, true, "shell", "--all", "--tmux", "--command", "top -d 1")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"shell --host s1", "--inventory " + fleet.inventory, "--known-hosts " + fleet.known,
+		"--identity " + fleet.identity, "--bastion jump", "--command 'top -d 1'", "press Enter"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+}

@@ -41,7 +41,7 @@ func (c *cli) tmuxSessions(f *shellFlags, st *setup, servers []inventory.Server,
 	}
 	fmt.Fprintf(c.stdout, "tmux would open %d panes:\n", len(servers))
 	for _, s := range servers {
-		fmt.Fprintf(c.stdout, "  %s\n", s.Name)
+		fmt.Fprintf(c.stdout, "  %s: %s\n", s.Name, paneCommand(c.paneArgv(f, st, s, iopts)))
 	}
 	return exitcode.OK
 }
