@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/exitcode"
@@ -13,11 +14,13 @@ import (
 
 // tmuxOptions are the tmux flags of "msh shell".
 type tmuxOptions struct {
-	enabled bool
+	enabled  bool
+	detached bool
 }
 
 func (o *tmuxOptions) register(fs *flag.FlagSet) {
 	fs.BoolVar(&o.enabled, "tmux", false, "open one tmux pane per selected server")
+	fs.BoolVar(&o.detached, "tmux-detached", false, "create the tmux session but do not attach to it")
 }
 
 // tmuxSessions opens one interactive session per server in tmux panes.
@@ -31,17 +34,32 @@ func (c *cli) tmuxSessions(f *shellFlags, st *setup, servers []inventory.Server,
 		c.errorf("%v", err)
 		return errs.ExitCode(errs.KindOf(err))
 	}
-	if !c.terminal().IsTerminal() {
-		c.errorf("shell --tmux needs an interactive terminal")
+	if !f.tmux.detached && !c.terminal().IsTerminal() {
+		c.errorf("shell --tmux needs an interactive terminal (or use --tmux-detached)")
 		return exitcode.Usage
 	}
 	runner := c.tmuxRunner(path)
 	if v, err := tmux.Version(c.ctx(), runner); err == nil {
 		c.verbosef(&f.opts, "using %s (%s)", path, v)
 	}
-	fmt.Fprintf(c.stdout, "tmux would open %d panes:\n", len(servers))
+	session := fmt.Sprintf("msh-%d", os.Getpid())
+	plan := tmux.Plan{Session: session, Owner: session}
 	for _, s := range servers {
-		fmt.Fprintf(c.stdout, "  %s: %s\n", s.Name, paneCommand(c.paneArgv(f, st, s, iopts)))
+		plan.Panes = append(plan.Panes, tmux.Pane{Title: s.Name, Command: paneCommand(c.paneArgv(f, st, s, iopts))})
+	}
+	if _, err := tmux.Launch(c.ctx(), runner, plan); err != nil {
+		c.errorf("%v", err)
+		return errs.ExitCode(errs.KindOf(err))
+	}
+	fmt.Fprintf(c.stderr, "msh: tmux session %q created\n", session)
+	if f.tmux.detached {
+		fmt.Fprintf(c.stdout, "%s\n", session)
+		return exitcode.OK
+	}
+	_, inside := c.lookupEnv("TMUX")
+	if err := tmux.Attach(c.ctx(), runner, session, inside); err != nil {
+		c.errorf("attaching to tmux: %v", err)
+		return exitcode.Tmux
 	}
 	return exitcode.OK
 }
