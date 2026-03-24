@@ -126,3 +126,19 @@ func TestInteractiveTaskWithTmux(t *testing.T) {
 		t.Errorf("calls = %v", fake.Calls())
 	}
 }
+
+func TestTmuxLayout(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	_, _, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-detached", "--tmux-layout", "even-vertical")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v", code)
+	}
+	layouts := fake.CallsTo("select-layout")
+	if last := layouts[len(layouts)-1]; last[len(last)-1] != "even-vertical" {
+		t.Errorf("final layout call = %v", last)
+	}
+	_, stderr, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-layout", "diagonal")
+	if code != exitcode.Usage || !contains(stderr, "unknown tmux layout") || len(fake.Calls()) > 1 {
+		t.Errorf("bad layout: code = %v, stderr = %q, calls = %v", code, stderr, fake.Calls())
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"example.com/msh/internal/errs"
 )
@@ -18,10 +19,19 @@ type Pane struct {
 	Command string // shell command line, already quoted
 }
 
+// Layouts are the tmux layouts msh accepts.
+var Layouts = []string{"tiled", "even-horizontal", "even-vertical", "main-horizontal", "main-vertical"}
+
+// ValidLayout reports whether name is one of Layouts.
+func ValidLayout(name string) bool {
+	return slices.Contains(Layouts, name)
+}
+
 // Plan describes a tmux session to create.
 type Plan struct {
 	Session string // session name
 	Owner   string // value for the @msh-owner option
+	Layout  string // final layout; "" means tiled
 	Panes   []Pane
 }
 
@@ -65,6 +75,13 @@ func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 		if _, err := r.Output(ctx, "select-layout", "-t", ids[0], "tiled"); err != nil {
 			return ids, errs.New(errs.KindTmuxStartup, "", err)
 		}
+	}
+	layout := plan.Layout
+	if layout == "" {
+		layout = "tiled"
+	}
+	if _, err := r.Output(ctx, "select-layout", "-t", ids[0], layout); err != nil {
+		return ids, errs.New(errs.KindTmuxStartup, "", err)
 	}
 	return ids, nil
 }

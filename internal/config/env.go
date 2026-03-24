@@ -27,6 +27,7 @@ const (
 	EnvOrdered         = "MSH_ORDERED"
 	EnvBastion         = "MSH_BASTION"
 	EnvAllowedLogPaths = "MSH_ALLOWED_LOG_PATHS"
+	EnvTmuxLayout      = "MSH_TMUX_LAYOUT"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -49,6 +50,7 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 	l.Output = str(EnvOutput)
 	l.Mode = str(EnvMode)
 	l.Bastion = str(EnvBastion)
+	l.TmuxLayout = str(EnvTmuxLayout)
 	if v := str(EnvAllowedLogPaths); v != nil {
 		l.AllowedLogPaths = strings.Split(*v, ":")
 	}

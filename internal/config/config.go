@@ -28,6 +28,7 @@ const (
 	KeyOrdered         = "ordered"
 	KeyBastion         = "bastion"
 	KeyAllowedLogPaths = "allowed_log_paths"
+	KeyTmuxLayout      = "tmux_layout"
 )
 
 // Execution modes.
@@ -67,6 +68,9 @@ type Settings struct {
 	// AllowedLogPaths are the directories "msh logs" may read from.
 	AllowedLogPaths []string `json:"allowed_log_paths"`
 
+	// TmuxLayout is the default layout for "msh shell --tmux".
+	TmuxLayout string `json:"tmux_layout"`
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string `json:"-"`
 }
@@ -82,6 +86,7 @@ func Defaults() Settings {
 		CommandTimeout:  60 * time.Second,
 		Mode:            ModeParallel,
 		AllowedLogPaths: []string{"/var/log"},
+		TmuxLayout:      "tiled",
 		Workers:         5,
 	}
 	s.Sources = map[string]string{}
@@ -96,7 +101,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
-		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths,
+		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths, KeyTmuxLayout,
 	}
 }
 
@@ -117,6 +122,7 @@ type Layer struct {
 	Bastion        *string   `json:"bastion,omitempty" yaml:"bastion,omitempty"`
 	// A nil slice means "not set"; an empty list allows nothing.
 	AllowedLogPaths []string `json:"allowed_log_paths,omitempty" yaml:"allowed_log_paths,omitempty"`
+	TmuxLayout      *string  `json:"tmux_layout,omitempty" yaml:"tmux_layout,omitempty"`
 }
 
 // Source is a named layer.
@@ -158,6 +164,7 @@ func (s *Settings) Apply(name string, l Layer) {
 		paths := append([]string(nil), l.AllowedLogPaths...)
 		set(s, name, KeyAllowedLogPaths, &s.AllowedLogPaths, &paths)
 	}
+	set(s, name, KeyTmuxLayout, &s.TmuxLayout, l.TmuxLayout)
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -207,6 +214,8 @@ func (s Settings) Value(key string) string {
 		return s.Bastion
 	case KeyAllowedLogPaths:
 		return strings.Join(s.AllowedLogPaths, ":")
+	case KeyTmuxLayout:
+		return s.TmuxLayout
 	default:
 		return ""
 	}
