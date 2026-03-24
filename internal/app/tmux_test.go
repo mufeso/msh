@@ -72,3 +72,14 @@ func TestPaneArgv(t *testing.T) {
 		t.Error("--tmux-detached attached anyway")
 	}
 }
+
+func TestTmuxOpensOnePanePerServer(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	_, stderr, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-detached")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if n := len(fake.CallsTo("new-session")) + len(fake.CallsTo("split-window")); n != 3 {
+		t.Errorf("%d panes opened, want 3", n)
+	}
+}

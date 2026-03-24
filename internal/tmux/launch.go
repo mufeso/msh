@@ -39,7 +39,24 @@ func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 	if _, err := r.Output(ctx, "set-option", "-t", "="+plan.Session, OwnerOption, plan.Owner); err != nil {
 		return nil, errs.New(errs.KindTmuxStartup, "", err)
 	}
-	return []string{id}, nil
+	ids := []string{id}
+	for _, p := range plan.Panes[1:] {
+		// CTRL+C stops launching new panes.
+		if err := ctx.Err(); err != nil {
+			return ids, errs.New(errs.KindCanceled, "", err)
+		}
+		paneID, err := r.Output(ctx, "split-window", "-d", "-t", ids[0], "-P", "-F", "#{pane_id}", p.Command)
+		if err != nil {
+			return ids, errs.New(errs.KindTmuxStartup, "", fmt.Errorf("opening pane for %s: %w", p.Title, err))
+		}
+		ids = append(ids, paneID)
+		// Re-tile after every split; otherwise the window runs out of
+		// space for further splits.
+		if _, err := r.Output(ctx, "select-layout", "-t", ids[0], "tiled"); err != nil {
+			return ids, errs.New(errs.KindTmuxStartup, "", err)
+		}
+	}
+	return ids, nil
 }
 
 // Attach connects the user to the session: switch-client when msh
