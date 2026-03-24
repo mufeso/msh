@@ -28,6 +28,7 @@ type taskRunFlags struct {
 	opts   commonOptions
 	sel    selectionOptions
 	ro     remoteOptions
+	tmux   tmuxOptions
 	yes    bool
 	args   cliflag.StringList
 	params map[string]string
@@ -39,6 +40,7 @@ func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet)
 	f.opts.register(fs)
 	f.sel.register(fs)
 	f.ro.register(fs)
+	f.tmux.register(fs)
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a task classified as changes or dangerous")
 	fs.Func("arg", "task argument `value`, in order (repeatable)", func(v string) error {
 		// fs.Func instead of cliflag.StringList: argument values may
@@ -124,7 +126,7 @@ func (c *cli) runTaskOn(f *taskRunFlags, name string) exitcode.Code {
 		return exitcode.Config
 	}
 	if inv.Interactive {
-		sf := shellFlags{opts: f.opts, sel: f.sel, ro: f.ro}
+		sf := shellFlags{opts: f.opts, sel: f.sel, ro: f.ro, tmux: f.tmux}
 		return c.interactiveSession(&sf, interactive.Options{Command: inv.Command})
 	}
 	return c.runRemote(remoteRun{

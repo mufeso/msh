@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
@@ -81,5 +83,46 @@ func TestTmuxOpensOnePanePerServer(t *testing.T) {
 	}
 	if n := len(fake.CallsTo("new-session")) + len(fake.CallsTo("split-window")); n != 3 {
 		t.Errorf("%d panes opened, want 3", n)
+	}
+}
+
+func TestPaneCommandOpensItsOwnSession(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	_, _, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-detached", "--command", "echo pane-ok")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v", code)
+	}
+	// Recover the argv of the second pane from its quoted command line by
+	// letting a shell split it, then run it in-process (without argv[0]).
+	split := fake.CallsTo("split-window")[0]
+	line := split[len(split)-1]
+	line = line[:strings.Index(line, "; status=$?")]
+	out, err := exec.Command("/bin/sh", "-c", `for a in `+line+`; do printf '%s\0' "$a"; done`).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, argv[1:]...)
+	if code != exitcode.OK || !contains(stdout, "pane-ok") {
+		t.Fatalf("pane command failed: code = %v, stderr = %s", code, stderr)
+	}
+	if cmds := fleet.servers[1].Commands(); len(cmds) != 1 || cmds[0] != "echo pane-ok" {
+		t.Errorf("s2 commands = %q (the second pane must talk to s2)", cmds)
+	}
+	if len(fleet.servers[0].Commands()) != 0 {
+		t.Error("the second pane contacted s1")
+	}
+}
+
+func TestInteractiveTaskWithTmux(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	cfg := fleetConfig(t, "  top:\n    argv: [top]\n    interactive: true\n")
+	_, stderr, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "task", "run", "top", "--all", "--tmux", "--tmux-detached", "--config", cfg)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	created := fake.CallsTo("new-session")
+	if len(created) != 1 || !contains(created[0][len(created[0])-1], "--command top") {
+		t.Errorf("calls = %v", fake.Calls())
 	}
 }

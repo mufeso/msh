@@ -60,3 +60,18 @@ func TestLaunchStopsOnCancel(t *testing.T) {
 		t.Errorf("err = %v, calls = %v", err, f.Calls())
 	}
 }
+
+func TestPaneTitles(t *testing.T) {
+	f := tmuxtest.NewFake()
+	ids, err := Launch(context.Background(), f, Plan{Session: "s", Owner: "o", Panes: []Pane{{Title: "web01", Command: "a"}, {Title: "web02", Command: "b"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	titles := map[string]string{}
+	for _, c := range f.CallsTo("select-pane") {
+		titles[c[2]] = c[4]
+	}
+	if titles[ids[0]] != "web01" || titles[ids[1]] != "web02" {
+		t.Errorf("titles = %v for panes %v", titles, ids)
+	}
+}

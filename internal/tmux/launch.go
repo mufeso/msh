@@ -40,6 +40,13 @@ func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 		return nil, errs.New(errs.KindTmuxStartup, "", err)
 	}
 	ids := []string{id}
+	if err := title(ctx, r, id, first.Title); err != nil {
+		return ids, err
+	}
+	// Show pane titles in the borders, so every pane names its server.
+	if _, err := r.Output(ctx, "set-option", "-t", "="+plan.Session, "pane-border-status", "top"); err != nil {
+		return ids, errs.New(errs.KindTmuxStartup, "", err)
+	}
 	for _, p := range plan.Panes[1:] {
 		// CTRL+C stops launching new panes.
 		if err := ctx.Err(); err != nil {
@@ -50,6 +57,9 @@ func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 			return ids, errs.New(errs.KindTmuxStartup, "", fmt.Errorf("opening pane for %s: %w", p.Title, err))
 		}
 		ids = append(ids, paneID)
+		if err := title(ctx, r, paneID, p.Title); err != nil {
+			return ids, err
+		}
 		// Re-tile after every split; otherwise the window runs out of
 		// space for further splits.
 		if _, err := r.Output(ctx, "select-layout", "-t", ids[0], "tiled"); err != nil {
@@ -67,4 +77,12 @@ func Attach(ctx context.Context, r Runner, session string, insideTmux bool) erro
 		return err
 	}
 	return r.Attach(ctx, "attach-session", "-t", "="+session)
+}
+
+// title sets a pane's title.
+func title(ctx context.Context, r Runner, paneID, t string) error {
+	if _, err := r.Output(ctx, "select-pane", "-t", paneID, "-T", t); err != nil {
+		return errs.New(errs.KindTmuxStartup, "", err)
+	}
+	return nil
 }
