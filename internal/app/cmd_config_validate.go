@@ -37,6 +37,9 @@ func runConfigValidate(c *cli, args []string) exitcode.Code {
 	if st == nil {
 		return code
 	}
+	if c.rejectCSV(&opts, "config validate") {
+		return exitcode.Usage
+	}
 
 	groups := map[string]struct{}{}
 	for _, s := range st.inv.Servers {

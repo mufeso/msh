@@ -14,15 +14,16 @@ type Format string
 const (
 	Text Format = "text"
 	JSON Format = "json"
+	CSV  Format = "csv"
 )
 
 // ParseFormat converts user input into a Format.
 func ParseFormat(s string) (Format, error) {
 	switch f := Format(s); f {
-	case Text, JSON:
+	case Text, JSON, CSV:
 		return f, nil
 	default:
-		return "", fmt.Errorf("invalid output format %q: must be text or json", s)
+		return "", fmt.Errorf("invalid output format %q: must be text, json or csv", s)
 	}
 }
 

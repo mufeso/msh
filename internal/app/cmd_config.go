@@ -76,21 +76,15 @@ func runConfigShow(c *cli, args []string) exitcode.Code {
 		views = append(views, settingView{Key: k, Value: s.Value(k), Source: s.Sources[k]})
 	}
 
-	var err error
-	if opts.format == output.JSON {
-		err = output.WriteJSON(c.stdout, views)
-	} else {
-		rows := make([][]string, 0, len(views))
-		for _, v := range views {
-			value := v.Value
-			if value == "" {
-				value = "-"
-			}
-			rows = append(rows, []string{v.Key, value, v.Source})
+	rows := make([][]string, 0, len(views))
+	for _, v := range views {
+		value := v.Value
+		if value == "" && opts.format == output.Text {
+			value = "-"
 		}
-		err = output.Table(c.stdout, []string{"KEY", "VALUE", "SOURCE"}, rows)
+		rows = append(rows, []string{v.Key, value, v.Source})
 	}
-	if err != nil {
+	if err := output.WriteRows(c.stdout, opts.format, []string{"KEY", "VALUE", "SOURCE"}, rows, views); err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO
 	}

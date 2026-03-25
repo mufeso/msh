@@ -34,6 +34,9 @@ func runTaskShow(c *cli, args []string) exitcode.Code {
 	if t == nil {
 		return code
 	}
+	if c.rejectCSV(&opts, "task show") {
+		return exitcode.Usage
+	}
 	if opts.format == output.JSON {
 		if err := output.WriteJSON(c.stdout, t); err != nil {
 			return exitcode.IO

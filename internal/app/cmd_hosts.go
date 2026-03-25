@@ -94,20 +94,13 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 
 // writeServers prints servers as a table or as JSON.
 func (c *cli) writeServers(format output.Format, servers []inventory.Server) error {
-	if format == output.JSON {
-		// Encode an empty slice as [] rather than null.
-		if servers == nil {
-			servers = []inventory.Server{}
-		}
-		return output.WriteJSON(c.stdout, servers)
-	}
 	rows := make([][]string, 0, len(servers))
 	for _, s := range servers {
 		rows = append(rows, []string{
 			s.Name, s.Address, strconv.Itoa(s.Port), s.User, strings.Join(s.Groups, ","), via(s.Bastion),
 		})
 	}
-	return output.Table(c.stdout, []string{"NAME", "ADDRESS", "PORT", "USER", "GROUPS", "VIA"}, rows)
+	return output.WriteRows(c.stdout, format, []string{"NAME", "ADDRESS", "PORT", "USER", "GROUPS", "VIA"}, rows, servers)
 }
 
 // via shows the bastion name or "direct".

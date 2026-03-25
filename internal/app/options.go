@@ -50,7 +50,7 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.Int("port", d.Port, "default SSH `port` for servers without one")
 	fs.String("identity", "", "private key `file`")
 	fs.String("known-hosts", "", "known_hosts `file`")
-	fs.String("output", d.Output, "output `format`: text or json")
+	fs.String("output", d.Output, "output `format`: text, json or csv")
 	fs.Duration("connect-timeout", d.ConnectTimeout, "TCP connect and SSH handshake `timeout` per server")
 	fs.Duration("command-timeout", d.CommandTimeout, "remote command `timeout` per server (0 = none)")
 	fs.Duration("timeout", d.Timeout, "global `timeout` for the whole run (0 = none)")
@@ -115,4 +115,14 @@ func (c *cli) verbosef(opts *commonOptions, format string, a ...any) {
 	if opts.verbose {
 		fmt.Fprintf(c.stderr, "msh: "+format+"\n", a...)
 	}
+}
+
+// rejectCSV reports a usage error for commands whose output is a single
+// object rather than rows.
+func (c *cli) rejectCSV(opts *commonOptions, command string) bool {
+	if opts.format == output.CSV {
+		c.errorf("%s: --output csv is not supported (use json)", command)
+		return true
+	}
+	return false
 }

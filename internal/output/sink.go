@@ -1,9 +1,12 @@
 package output
 
 import (
+	"encoding/csv"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"time"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/runner"
@@ -23,10 +26,14 @@ type SinkOptions struct {
 
 // NewSink returns the sink for a format.
 func NewSink(w io.Writer, format Format, opts SinkOptions) Sink {
-	if format == JSON {
+	switch format {
+	case JSON:
 		return &jsonSink{w: w}
+	case CSV:
+		return &csvSink{w: csv.NewWriter(w)}
+	default:
+		return &textSink{w: w, prefix: opts.Prefix}
 	}
-	return &textSink{w: w, prefix: opts.Prefix}
 }
 
 // textSink prints human-readable output immediately.
@@ -122,4 +129,46 @@ func NewSummaryView(s runner.Summary) SummaryView {
 		s.Problems = []string{}
 	}
 	return SummaryView{Summary: s, DurationMS: s.Duration.Milliseconds()}
+}
+
+// csvHeader names the columns of CSV run output.
+var csvHeader = []string{"server", "address", "status", "exit_code", "duration_ms", "started", "error", "stdout", "stderr"}
+
+// csvSink writes one CSV row per result as soon as it arrives.
+type csvSink struct {
+	w      *csv.Writer
+	header bool
+}
+
+func (s *csvSink) writeHeader() error {
+	if s.header {
+		return nil
+	}
+	s.header = true
+	return s.w.Write(csvHeader)
+}
+
+func (s *csvSink) Write(r executor.Result) error {
+	if err := s.writeHeader(); err != nil {
+		return err
+	}
+	v := NewResultView(r)
+	row := []string{
+		v.Server, v.Address, v.Status, strconv.Itoa(v.ExitCode), strconv.FormatInt(v.DurationMS, 10),
+		v.Started.Format(time.RFC3339), v.Error, v.Stdout, v.Stderr,
+	}
+	if err := s.w.Write(row); err != nil {
+		return err
+	}
+	// Flush every row so the file grows while servers finish.
+	s.w.Flush()
+	return s.w.Error()
+}
+
+func (s *csvSink) Close(runner.Summary) error {
+	if err := s.writeHeader(); err != nil {
+		return err
+	}
+	s.w.Flush()
+	return s.w.Error()
 }

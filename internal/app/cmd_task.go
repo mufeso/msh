@@ -89,22 +89,15 @@ func runTaskList(c *cli, args []string) exitcode.Code {
 	}
 
 	tasks := st.tasks.List()
-	var err error
-	if opts.format == output.JSON {
-		summaries := make([]taskSummary, 0, len(tasks))
-		for _, t := range tasks {
-			summaries = append(summaries, summarize(t))
-		}
-		err = output.WriteJSON(c.stdout, summaries)
-	} else {
-		rows := make([][]string, 0, len(tasks))
-		for _, t := range tasks {
-			s := summarize(t)
-			rows = append(rows, []string{s.Name, strings.Join(s.Aliases, ","), s.Mode, s.Safety, s.Description})
-		}
-		err = output.Table(c.stdout, []string{"NAME", "ALIASES", "MODE", "SAFETY", "DESCRIPTION"}, rows)
+	summaries := make([]taskSummary, 0, len(tasks))
+	rows := make([][]string, 0, len(tasks))
+	for _, t := range tasks {
+		s := summarize(t)
+		summaries = append(summaries, s)
+		rows = append(rows, []string{s.Name, strings.Join(s.Aliases, ","), s.Mode, s.Safety, s.Description})
 	}
-	if err != nil {
+	headers := []string{"NAME", "ALIASES", "MODE", "SAFETY", "DESCRIPTION"}
+	if err := output.WriteRows(c.stdout, opts.format, headers, rows, summaries); err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO
 	}

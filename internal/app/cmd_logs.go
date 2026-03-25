@@ -77,8 +77,8 @@ func runLogs(c *cli, args []string) exitcode.Code {
 	if !*follow {
 		return c.runRemote(run)
 	}
-	if opts.format == output.JSON {
-		c.errorf("logs: --follow streams text; it cannot be combined with --output json")
+	if opts.format != output.Text {
+		c.errorf("logs: --follow streams text; it cannot be combined with --output %s", opts.format)
 		return exitcode.Usage
 	}
 	// Following has no natural end: no command timeout unless the user
