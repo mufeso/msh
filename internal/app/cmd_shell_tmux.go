@@ -40,6 +40,7 @@ func (c *cli) tmuxSessions(f *shellFlags, st *setup, servers []inventory.Server,
 		return errs.ExitCode(errs.KindOf(err))
 	}
 	if !f.tmux.detached && !c.terminal().IsTerminal() {
+		// Checked before anything is created, so nothing needs cleanup.
 		c.errorf("shell --tmux needs an interactive terminal (or use --tmux-detached)")
 		return exitcode.Usage
 	}

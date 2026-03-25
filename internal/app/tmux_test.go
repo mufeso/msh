@@ -158,3 +158,16 @@ func TestTmuxSessionName(t *testing.T) {
 		t.Errorf("invalid name: code = %v", code)
 	}
 }
+
+func TestTmuxFailureLeavesNothingBehind(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	fake := tmuxtest.NewFake("users-own-session")
+	fake.FailOn = "split-window"
+	_, stderr, code, _ := runTmuxFake(t, fleet, true, fake, "shell", "--all", "--tmux", "--tmux-detached")
+	if code != exitcode.Tmux {
+		t.Errorf("code = %v, stderr = %s", code, stderr)
+	}
+	if got := fake.Sessions(); len(got) != 1 || got[0] != "users-own-session" {
+		t.Errorf("sessions after failure = %v", got)
+	}
+}

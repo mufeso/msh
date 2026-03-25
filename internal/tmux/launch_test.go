@@ -99,3 +99,45 @@ func TestSessionNames(t *testing.T) {
 		t.Errorf("tokens %q %q", a, b)
 	}
 }
+
+func TestFailedLaunchRemovesOnlyItsSession(t *testing.T) {
+	f := tmuxtest.NewFake("someone-else")
+	f.FailOn = "split-window"
+	_, err := Launch(context.Background(), f, Plan{Session: "mine", Owner: "run-7", Panes: []Pane{{Command: "a"}, {Command: "b"}}})
+	if err == nil {
+		t.Fatal("Launch succeeded despite a failing split")
+	}
+	if f.HasSession("mine") {
+		t.Error("the half-built session was not removed")
+	}
+	if !f.HasSession("someone-else") {
+		t.Error("an unrelated session was removed")
+	}
+}
+
+func TestKillOwnedChecksMarker(t *testing.T) {
+	f := tmuxtest.NewFake()
+	f.Output(context.Background(), "new-session", "-d", "-s", "x")
+	f.Output(context.Background(), "set-option", "-t", "=x", OwnerOption, "other-run")
+	if err := KillOwned(context.Background(), f, "x", "my-run"); err == nil || !f.HasSession("x") {
+		t.Errorf("killed a session owned by another run: err = %v", err)
+	}
+	if err := KillOwned(context.Background(), f, "x", "other-run"); err != nil || f.HasSession("x") {
+		t.Errorf("owner could not kill: err = %v", err)
+	}
+}
+
+func TestCancelDuringLaunchCleansUp(t *testing.T) {
+	f := tmuxtest.NewFake()
+	ctx, cancel := context.WithCancel(context.Background())
+	// Cancel as soon as the session exists (simulating CTRL+C mid-way).
+	f.OnCall = func(args []string) {
+		if args[0] == "select-pane" {
+			cancel()
+		}
+	}
+	_, err := Launch(ctx, f, Plan{Session: "s", Owner: "o", Panes: []Pane{{Command: "a"}, {Command: "b"}, {Command: "c"}}})
+	if err == nil || f.HasSession("s") {
+		t.Errorf("err = %v, sessions = %v", err, f.Sessions())
+	}
+}

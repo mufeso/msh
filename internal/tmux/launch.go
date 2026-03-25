@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"time"
 
 	"example.com/msh/internal/errs"
 )
@@ -65,8 +66,9 @@ type Plan struct {
 }
 
 // Launch creates a new detached session for plan and returns the pane
-// IDs in plan order. It never modifies an existing session.
-func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
+// IDs in plan order. It never modifies an existing session. If it fails
+// after the session was created, it removes that session again.
+func Launch(ctx context.Context, r Runner, plan Plan) (ids []string, err error) {
 	if len(plan.Panes) == 0 {
 		return nil, errors.New("no panes to open")
 	}
@@ -81,10 +83,22 @@ func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 	if err != nil {
 		return nil, errs.New(errs.KindTmuxStartup, "", fmt.Errorf("creating session %q: %w", plan.Session, err))
 	}
+	// From here on the session is ours: remove it if anything fails. The
+	// deferred function sees the final value of the named result err.
+	defer func() {
+		if err != nil {
+			_ = KillOwned(ctx, r, plan.Session, plan.Owner)
+		}
+	}()
 	if _, err := r.Output(ctx, "set-option", "-t", "="+plan.Session, OwnerOption, plan.Owner); err != nil {
+		// Without the marker KillOwned would refuse; kill directly, since
+		// new-session just created this exact session for us.
+		cctx, cancel := cleanupContext(ctx)
+		defer cancel()
+		_, _ = r.Output(cctx, "kill-session", "-t", "="+plan.Session)
 		return nil, errs.New(errs.KindTmuxStartup, "", err)
 	}
-	ids := []string{id}
+	ids = []string{id}
 	if err := title(ctx, r, id, first.Title); err != nil {
 		return ids, err
 	}
@@ -137,4 +151,27 @@ func title(ctx context.Context, r Runner, paneID, t string) error {
 		return errs.New(errs.KindTmuxStartup, "", err)
 	}
 	return nil
+}
+
+// KillOwned kills the session only if its owner marker equals owner, so
+// msh can never destroy a session it did not create. It works even when
+// ctx is already canceled (CTRL+C), using a short separate timeout.
+func KillOwned(ctx context.Context, r Runner, session, owner string) error {
+	cctx, cancel := cleanupContext(ctx)
+	defer cancel()
+	got, err := r.Output(cctx, "show-options", "-v", "-t", "="+session, OwnerOption)
+	if err != nil {
+		return err
+	}
+	if got != owner {
+		return fmt.Errorf("session %q is not owned by this msh run; leaving it alone", session)
+	}
+	_, err = r.Output(cctx, "kill-session", "-t", "="+session)
+	return err
+}
+
+// cleanupContext keeps ctx's values but not its cancellation, and adds
+// a short timeout: cleanup must run after CTRL+C, but not forever.
+func cleanupContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 }

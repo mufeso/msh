@@ -13,6 +13,8 @@ import (
 type Fake struct {
 	// FailOn makes the named tmux command (e.g. "split-window") fail.
 	FailOn string
+	// OnCall, if set, is called (without the lock) after each command.
+	OnCall func(args []string)
 
 	mu       sync.Mutex
 	calls    [][]string
@@ -33,7 +35,15 @@ func NewFake(existing ...string) *Fake {
 }
 
 // Output implements tmux.Runner.
-func (f *Fake) Output(_ context.Context, args ...string) (string, error) {
+func (f *Fake) Output(ctx context.Context, args ...string) (string, error) {
+	out, err := f.output(args)
+	if f.OnCall != nil {
+		f.OnCall(args)
+	}
+	return out, err
+}
+
+func (f *Fake) output(args []string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, append([]string(nil), args...))
