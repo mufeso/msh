@@ -12,18 +12,19 @@ type Format string
 
 // Supported formats.
 const (
-	Text Format = "text"
-	JSON Format = "json"
-	CSV  Format = "csv"
+	Text  Format = "text"
+	JSON  Format = "json"
+	CSV   Format = "csv"
+	JSONL Format = "jsonl" // one JSON object per line, streamed
 )
 
 // ParseFormat converts user input into a Format.
 func ParseFormat(s string) (Format, error) {
 	switch f := Format(s); f {
-	case Text, JSON, CSV:
+	case Text, JSON, CSV, JSONL:
 		return f, nil
 	default:
-		return "", fmt.Errorf("invalid output format %q: must be text, json or csv", s)
+		return "", fmt.Errorf("invalid output format %q: must be text, json, csv or jsonl", s)
 	}
 }
 
@@ -35,4 +36,20 @@ func WriteJSON(w io.Writer, v any) error {
 	// are instead of escaping them as \u003c etc.
 	enc.SetEscapeHTML(false)
 	return enc.Encode(v)
+}
+
+// WriteJSONLine writes v as one compact JSON line.
+func WriteJSONLine(w io.Writer, v any) error {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	return enc.Encode(v) // Encode appends exactly one newline
+}
+
+// WriteObject writes a single value as indented JSON or as one JSONL
+// line.
+func WriteObject(w io.Writer, f Format, v any) error {
+	if f == JSONL {
+		return WriteJSONLine(w, v)
+	}
+	return WriteJSON(w, v)
 }

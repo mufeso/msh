@@ -18,6 +18,13 @@ func WriteRows[T any](w io.Writer, f Format, headers []string, rows [][]string, 
 			items = []T{} // [] instead of null
 		}
 		return WriteJSON(w, items)
+	case JSONL:
+		for _, item := range items {
+			if err := WriteJSONLine(w, item); err != nil {
+				return err
+			}
+		}
+		return nil
 	case CSV:
 		cw := csv.NewWriter(w)
 		if err := cw.Write(headers); err != nil {

@@ -50,7 +50,7 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.Int("port", d.Port, "default SSH `port` for servers without one")
 	fs.String("identity", "", "private key `file`")
 	fs.String("known-hosts", "", "known_hosts `file`")
-	fs.String("output", d.Output, "output `format`: text, json or csv")
+	fs.String("output", d.Output, "output `format`: text, json, csv or jsonl")
 	fs.Duration("connect-timeout", d.ConnectTimeout, "TCP connect and SSH handshake `timeout` per server")
 	fs.Duration("command-timeout", d.CommandTimeout, "remote command `timeout` per server (0 = none)")
 	fs.Duration("timeout", d.Timeout, "global `timeout` for the whole run (0 = none)")

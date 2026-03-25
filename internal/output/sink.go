@@ -31,6 +31,8 @@ func NewSink(w io.Writer, format Format, opts SinkOptions) Sink {
 		return &jsonSink{w: w}
 	case CSV:
 		return &csvSink{w: csv.NewWriter(w)}
+	case JSONL:
+		return &jsonlSink{w: w}
 	default:
 		return &textSink{w: w, prefix: opts.Prefix}
 	}
@@ -171,4 +173,28 @@ func (s *csvSink) Close(runner.Summary) error {
 	}
 	s.w.Flush()
 	return s.w.Error()
+}
+
+// jsonlSink writes one line per result immediately and a summary line at
+// the end. The "type" field tells the two kinds apart.
+type jsonlSink struct {
+	w io.Writer
+}
+
+type jsonlResult struct {
+	Type string `json:"type"`
+	ResultView
+}
+
+type jsonlSummary struct {
+	Type string `json:"type"`
+	SummaryView
+}
+
+func (s *jsonlSink) Write(r executor.Result) error {
+	return WriteJSONLine(s.w, jsonlResult{Type: "result", ResultView: NewResultView(r)})
+}
+
+func (s *jsonlSink) Close(sum runner.Summary) error {
+	return WriteJSONLine(s.w, jsonlSummary{Type: "summary", SummaryView: NewSummaryView(sum)})
 }

@@ -58,8 +58,8 @@ func runConfigValidate(c *cli, args []string) exitcode.Code {
 	}
 
 	var err error
-	if opts.format == output.JSON {
-		err = output.WriteJSON(c.stdout, sum)
+	if opts.format != output.Text {
+		err = output.WriteObject(c.stdout, opts.format, sum)
 	} else {
 		configFile := sum.ConfigFile
 		if configFile == "" {

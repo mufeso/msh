@@ -39,9 +39,9 @@ func (s Settings) Validate() error {
 		verr.add(KeyPort, "%d is out of range 1-65535", s.Port)
 	}
 	switch s.Output {
-	case "text", "json", "csv":
+	case "text", "json", "csv", "jsonl":
 	default:
-		verr.add(KeyOutput, "%q is not one of text, json, csv", s.Output)
+		verr.add(KeyOutput, "%q is not one of text, json, csv, jsonl", s.Output)
 	}
 	if s.ConnectTimeout <= 0 {
 		verr.add(KeyConnectTimeout, "must be greater than 0")

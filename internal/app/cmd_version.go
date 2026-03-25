@@ -34,8 +34,8 @@ func runVersion(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	format, err := output.ParseFormat(*outputName)
-	if err != nil {
-		c.errorf("--output: %v", err)
+	if err != nil || format == output.CSV {
+		c.errorf("--output: version supports text, json and jsonl")
 		return exitcode.Usage
 	}
 
@@ -43,8 +43,8 @@ func runVersion(c *cli, args []string) exitcode.Code {
 	switch {
 	case *short:
 		fmt.Fprintln(c.stdout, info.Version)
-	case format == output.JSON:
-		err = output.WriteJSON(c.stdout, info)
+	case format != output.Text:
+		err = output.WriteObject(c.stdout, format, info)
 	default:
 		err = output.KeyValues(c.stdout, []output.Pair{
 			{Key: "Name", Value: info.Name},

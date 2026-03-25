@@ -112,9 +112,9 @@ func (t *Task) validateShape() error {
 		return fmt.Errorf("safety %q must be read-only, changes or dangerous", t.Safety)
 	}
 	switch t.Output {
-	case "", "text", "json", "csv":
+	case "", "text", "json", "csv", "jsonl":
 	default:
-		return fmt.Errorf("output %q must be text, json or csv", t.Output)
+		return fmt.Errorf("output %q must be text, json, csv or jsonl", t.Output)
 	}
 	if t.Mode() == ModeDirect && t.Interpreter != "" {
 		return errors.New("argv tasks run without an interpreter; remove \"interpreter\"")
