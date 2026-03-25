@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -61,5 +62,39 @@ func TestHostsListJSONL(t *testing.T) {
 	stdout, _, _ := runCLI(t, "hosts", "list", "--inventory", "testdata/inventory.yaml", "--output", "jsonl")
 	if n := strings.Count(stdout, "\n"); n != 3 || !strings.HasPrefix(stdout, `{"name":"web01"`) {
 		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestMachineOutputStaysCleanWithVerbose(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	for _, format := range []string{"json", "csv", "jsonl"} {
+		stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--verbose", "--output", format, "--command", "echo x")
+		if exitcode.Code(code) != exitcode.OK {
+			t.Fatalf("%s: code = %d", format, code)
+		}
+		if !contains(stderr, "loading inventory") {
+			t.Errorf("%s: diagnostics missing from stderr", format)
+		}
+		if contains(stdout, "loading inventory") || contains(stdout, "msh:") {
+			t.Errorf("%s: diagnostics leaked into stdout:\n%s", format, stdout)
+		}
+		var err error
+		switch format {
+		case "json":
+			var v map[string]any
+			err = json.Unmarshal([]byte(stdout), &v)
+		case "csv":
+			_, err = csv.NewReader(strings.NewReader(stdout)).ReadAll()
+		case "jsonl":
+			for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+				var v map[string]any
+				if err = json.Unmarshal([]byte(line), &v); err != nil {
+					break
+				}
+			}
+		}
+		if err != nil {
+			t.Errorf("%s: stdout does not parse: %v", format, err)
+		}
 	}
 }
