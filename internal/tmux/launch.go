@@ -2,8 +2,12 @@ package tmux
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
+	"regexp"
 	"slices"
 
 	"example.com/msh/internal/errs"
@@ -17,6 +21,31 @@ const OwnerOption = "@msh-owner"
 type Pane struct {
 	Title   string // shown in the pane border (the server name)
 	Command string // shell command line, already quoted
+}
+
+// sessionNameRE limits session names to characters that are safe as a
+// tmux target (":" and "." have special meanings there).
+var sessionNameRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// ValidSessionName reports whether name can be used as a session name.
+func ValidSessionName(name string) bool {
+	return sessionNameRE.MatchString(name)
+}
+
+// RandomToken returns 8 random hex characters.
+func RandomToken() string {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("%08x", os.Getpid())
+	}
+	return hex.EncodeToString(b)
+}
+
+// HasSession reports whether a session with exactly this name exists.
+func HasSession(ctx context.Context, r Runner, name string) bool {
+	// "=" makes tmux match the name exactly instead of by prefix.
+	_, err := r.Output(ctx, "has-session", "-t", "="+name)
+	return err == nil
 }
 
 // Layouts are the tmux layouts msh accepts.
@@ -40,6 +69,12 @@ type Plan struct {
 func Launch(ctx context.Context, r Runner, plan Plan) ([]string, error) {
 	if len(plan.Panes) == 0 {
 		return nil, errors.New("no panes to open")
+	}
+	if !ValidSessionName(plan.Session) {
+		return nil, errs.New(errs.KindUsage, "", fmt.Errorf("invalid tmux session name %q (use letters, digits, - and _)", plan.Session))
+	}
+	if HasSession(ctx, r, plan.Session) {
+		return nil, errs.New(errs.KindTmuxStartup, "", fmt.Errorf("a tmux session named %q already exists; msh never reuses or modifies existing sessions", plan.Session))
 	}
 	first := plan.Panes[0]
 	id, err := r.Output(ctx, "new-session", "-d", "-s", plan.Session, "-n", "msh", "-P", "-F", "#{pane_id}", first.Command)

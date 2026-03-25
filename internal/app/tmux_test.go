@@ -142,3 +142,19 @@ func TestTmuxLayout(t *testing.T) {
 		t.Errorf("bad layout: code = %v, stderr = %q, calls = %v", code, stderr, fake.Calls())
 	}
 }
+
+func TestTmuxSessionName(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	stdout, _, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-detached", "--tmux-session", "fleet")
+	if code != exitcode.OK || !fake.HasSession("fleet") || stdout != "fleet\n" {
+		t.Errorf("code = %v, stdout = %q, sessions = %v", code, stdout, fake.Sessions())
+	}
+	_, stderr, code, fake := runTmuxFake(t, fleet, true, tmuxtest.NewFake("fleet"), "shell", "--all", "--tmux", "--tmux-detached", "--tmux-session", "fleet")
+	if code != exitcode.Tmux || !contains(stderr, "already exists") || len(fake.CallsTo("kill-session")) != 0 {
+		t.Errorf("existing: code = %v, stderr = %q, calls = %v", code, stderr, fake.Calls())
+	}
+	_, _, code, _ = runTmuxFake(t, fleet, true, tmuxtest.NewFake(), "shell", "--all", "--tmux", "--tmux-session", "a:b")
+	if code != exitcode.Usage {
+		t.Errorf("invalid name: code = %v", code)
+	}
+}

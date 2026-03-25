@@ -75,3 +75,27 @@ func TestPaneTitles(t *testing.T) {
 		t.Errorf("titles = %v for panes %v", titles, ids)
 	}
 }
+
+func TestLaunchRefusesExistingSession(t *testing.T) {
+	f := tmuxtest.NewFake("work")
+	_, err := Launch(context.Background(), f, Plan{Session: "work", Owner: "o", Panes: []Pane{{Command: "x"}}})
+	if err == nil || len(f.CallsTo("new-session")) != 0 {
+		t.Errorf("err = %v, calls = %v", err, f.Calls())
+	}
+}
+
+func TestSessionNames(t *testing.T) {
+	for _, ok := range []string{"fleet", "msh-1a2b", "web_01"} {
+		if !ValidSessionName(ok) {
+			t.Errorf("%q rejected", ok)
+		}
+	}
+	for _, bad := range []string{"", "a:b", "a.b", "a b", "x;y", "$(id)"} {
+		if ValidSessionName(bad) {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if a, b := RandomToken(), RandomToken(); a == b || len(a) != 8 {
+		t.Errorf("tokens %q %q", a, b)
+	}
+}
