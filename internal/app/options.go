@@ -3,9 +3,11 @@ package app
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"example.com/msh/internal/config"
+	"example.com/msh/internal/logging"
 	"example.com/msh/internal/output"
 )
 
@@ -13,6 +15,10 @@ import (
 type commonOptions struct {
 	configPath string
 	verbose    bool
+	logFormat  string
+
+	// log is created on first use by cli.log.
+	log *slog.Logger
 
 	// fs is kept so that settingsLayer can see which flags were set.
 	fs *flag.FlagSet
@@ -45,6 +51,14 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	d := config.Defaults()
 	fs.StringVar(&o.configPath, "config", "", "configuration `file`")
 	fs.BoolVar(&o.verbose, "verbose", false, "print diagnostics to stderr")
+	o.logFormat = logging.FormatText
+	fs.Func("log-format", "diagnostics `format` on stderr: text or json", func(v string) error {
+		if !logging.ValidFormat(v) {
+			return fmt.Errorf("must be text or json")
+		}
+		o.logFormat = v
+		return nil
+	})
 	fs.String("inventory", "", "inventory `file`")
 	fs.String("user", "", "default SSH `user` for servers without one")
 	fs.Int("port", d.Port, "default SSH `port` for servers without one")
@@ -112,9 +126,16 @@ func durationPtr(d time.Duration) *config.Duration {
 // verbosef prints a diagnostic to stderr when verbose is enabled.
 // Diagnostics never go to stdout, so they cannot corrupt JSON output.
 func (c *cli) verbosef(opts *commonOptions, format string, a ...any) {
-	if opts.verbose {
-		fmt.Fprintf(c.stderr, "msh: "+format+"\n", a...)
+	c.log(opts).Debug(fmt.Sprintf(format, a...))
+}
+
+// log returns the diagnostic logger for this command, creating it on
+// first use.
+func (c *cli) log(opts *commonOptions) *slog.Logger {
+	if opts.log == nil {
+		opts.log = logging.New(c.stderr, opts.logFormat, opts.verbose)
 	}
+	return opts.log
 }
 
 // rejectCSV reports a usage error for commands whose output is a single
