@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"example.com/msh/internal/config"
+	"example.com/msh/internal/errs"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
@@ -57,6 +58,9 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 
 	ctx, cancel := c.runContext(st)
 	defer cancel()
+	opts := c.runnerOptions(st, r.ro)
+	c.log(r.opts).Debug("run starting", "command", r.name, "servers", len(servers),
+		"mode", st.settings.Mode, "workers", opts.Workers, "ordered", opts.Ordered)
 	code = c.runAndReport(r.opts, r.ro, func(emit func(executor.Result)) runner.Report {
 		if r.quietOutput {
 			inner := emit
@@ -65,7 +69,7 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 				inner(res)
 			}
 		}
-		return runner.Run(ctx, stack.executor, servers, r.req, c.runnerOptions(st, r.ro), emit)
+		return runner.Run(ctx, stack.executor, servers, r.req, opts, emit)
 	})
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		c.errorf("global timeout of %s expired", st.settings.Timeout)
@@ -86,14 +90,21 @@ func (c *cli) runContext(st *setup) (context.Context, context.CancelFunc) {
 // arrives, and returns the exit code the results imply.
 func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emit func(executor.Result)) runner.Report) exitcode.Code {
 	sink := output.NewSink(c.stdout, opts.format, output.SinkOptions{Prefix: ro.prefix})
+	log := c.log(opts)
 	var writeErr error
 	report := work(func(r executor.Result) {
+		// Only metadata is logged: never stdout, stderr or the command.
+		log.Debug("result", "server", r.Server, "status", string(r.Status), "exit_code", r.ExitCode,
+			"duration_ms", r.Duration.Milliseconds(), "error_kind", errs.KindOf(r.Err).String())
 		// Keep the first write error, but keep running: the servers are
 		// already working and their results still count.
 		if err := sink.Write(r); err != nil && writeErr == nil {
 			writeErr = err
 		}
 	})
+	s := report.Summary
+	log.Debug("run finished", "total", s.Total, "ok", s.OK, "failed", s.Failed, "error", s.Error,
+		"timeout", s.Timeout, "canceled", s.Canceled, "duration_ms", s.Duration.Milliseconds())
 	if err := sink.Close(report.Summary); err != nil && writeErr == nil {
 		writeErr = err
 	}
