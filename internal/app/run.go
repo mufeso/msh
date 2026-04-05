@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/errs"
@@ -112,7 +113,27 @@ func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emi
 		c.errorf("writing output: %v", writeErr)
 		return exitcode.IO
 	}
+	if ro.report != "" {
+		if err := writeReport(ro.report, report); err != nil {
+			c.errorf("%v", errs.New(errs.KindFileWrite, "", err))
+			return errs.ExitCode(errs.KindFileWrite)
+		}
+		log.Debug("report written", "path", ro.report)
+	}
 	return exitCodeForResults(report.Results)
+}
+
+// writeReport writes the run as JSON, atomically and readable only by
+// the owner (results may contain sensitive output).
+func writeReport(path string, report runner.Report) error {
+	views := make([]output.ResultView, 0, len(report.Results))
+	for _, r := range report.Results { // selection order
+		views = append(views, output.NewResultView(r))
+	}
+	doc := output.NewRunView(views, output.NewSummaryView(report.Summary))
+	return output.WriteFileAtomic(path, 0o600, func(w io.Writer) error {
+		return output.WriteJSON(w, doc)
+	})
 }
 
 // runnerOptions turns the settings into runner options. Sequential mode

@@ -22,6 +22,7 @@ type remoteOptions struct {
 	insecureIgnoreHostKey bool
 	failFast              bool
 	prefix                bool
+	report                string // write a JSON report of the run to this file
 }
 
 func (o *remoteOptions) register(fs *flag.FlagSet) {
@@ -29,6 +30,7 @@ func (o *remoteOptions) register(fs *flag.FlagSet) {
 		"UNSAFE: do not verify server host keys")
 	fs.BoolVar(&o.failFast, "fail-fast", false, "stop starting new servers after the first one that does not succeed")
 	fs.BoolVar(&o.prefix, "prefix", false, "text output: prefix every line with the server name")
+	fs.StringVar(&o.report, "report", "", "also write the complete run as JSON to this `file` (mode 0600)")
 }
 
 // sshStack is the SSH machinery for one run.
