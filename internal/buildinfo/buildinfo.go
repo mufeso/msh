@@ -10,6 +10,7 @@ package buildinfo
 import (
 	"fmt"
 	"runtime"
+	"runtime/debug"
 )
 
 // Name is the executable name; LongName is what the name stands for.
@@ -18,9 +19,12 @@ const (
 	LongName = "My Parallel SSH"
 )
 
+// defaultVersion is the version of builds without -ldflags.
+const defaultVersion = "0.1.0-dev"
+
 // Values replaced at build time.
 var (
-	Version = "0.1.0-dev"
+	Version = defaultVersion
 	Commit  = "unknown"
 	Date    = "unknown"
 )
@@ -38,9 +42,11 @@ type Info struct {
 	Platform  string `json:"platform"`
 }
 
-// Get returns the build information of the running binary.
+// Get returns the build information of the running binary. Values set
+// with -ldflags win; missing ones come from the build information the Go
+// toolchain embeds in every binary.
 func Get() Info {
-	return Info{
+	info := Info{
 		Name:      Name,
 		Version:   Version,
 		Commit:    Commit,
@@ -48,6 +54,37 @@ func Get() Info {
 		GoVersion: runtime.Version(),
 		Platform:  runtime.GOOS + "/" + runtime.GOARCH,
 	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		info = withBuildInfo(info, bi)
+	}
+	return info
+}
+
+// withBuildInfo fills defaulted fields from bi. It is a pure function so
+// that tests can pass any BuildInfo.
+func withBuildInfo(info Info, bi *debug.BuildInfo) Info {
+	if info.Version == defaultVersion && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		info.Version = bi.Main.Version
+	}
+	settings := map[string]string{}
+	for _, s := range bi.Settings {
+		settings[s.Key] = s.Value
+	}
+	if info.Commit == "unknown" {
+		if rev := settings["vcs.revision"]; rev != "" {
+			if len(rev) > 12 {
+				rev = rev[:12]
+			}
+			if settings["vcs.modified"] == "true" {
+				rev += "-dirty"
+			}
+			info.Commit = rev
+		}
+	}
+	if info.Date == "unknown" && settings["vcs.time"] != "" {
+		info.Date = settings["vcs.time"]
+	}
+	return info
 }
 
 // Banner returns "msh — My Parallel SSH".

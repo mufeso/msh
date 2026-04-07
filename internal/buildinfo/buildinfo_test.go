@@ -1,6 +1,7 @@
 package buildinfo
 
 import (
+	"runtime/debug"
 	"strings"
 	"testing"
 )
@@ -23,5 +24,26 @@ func TestStringContainsAllFields(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("String() = %q, missing %q", got, want)
 		}
+	}
+}
+
+func TestWithBuildInfo(t *testing.T) {
+	base := Info{Version: defaultVersion, Commit: "unknown", Date: "unknown"}
+	bi := &debug.BuildInfo{
+		Main: debug.Module{Version: "v1.4.0"},
+		Settings: []debug.BuildSetting{
+			{Key: "vcs.revision", Value: "0123456789abcdef0123"},
+			{Key: "vcs.time", Value: "2026-10-23T10:00:00Z"},
+			{Key: "vcs.modified", Value: "true"},
+		},
+	}
+	got := withBuildInfo(base, bi)
+	if got.Version != "v1.4.0" || got.Commit != "0123456789ab-dirty" || got.Date != "2026-10-23T10:00:00Z" {
+		t.Errorf("got %+v", got)
+	}
+
+	ldflags := Info{Version: "2.0.0", Commit: "abc", Date: "today"}
+	if got := withBuildInfo(ldflags, bi); got != ldflags {
+		t.Errorf("-ldflags values must win: %+v", got)
 	}
 }
