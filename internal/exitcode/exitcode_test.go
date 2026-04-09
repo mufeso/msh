@@ -27,3 +27,16 @@ func TestString(t *testing.T) {
 		t.Errorf("Code(42).String() = %q, want unknown", got)
 	}
 }
+
+func TestAllIsComplete(t *testing.T) {
+	seen := map[Code]bool{}
+	for _, d := range All() {
+		if d.Meaning == "" || d.Code.String() == "unknown" {
+			t.Errorf("bad entry %+v", d)
+		}
+		seen[d.Code] = true
+	}
+	if len(seen) != 11 {
+		t.Errorf("%d codes documented, want 11", len(seen))
+	}
+}

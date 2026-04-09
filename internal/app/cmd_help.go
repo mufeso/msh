@@ -29,6 +29,14 @@ func runHelp(c *cli, args []string) exitcode.Code {
 			fmt.Fprint(c.stdout, shortcutsHelp())
 			return exitcode.OK
 		}
+		if args[0] == "exit-codes" {
+			fmt.Fprintln(c.stdout, "Exit codes of msh (when servers differ: canceled > timeout > error > failed > ok):")
+			for _, d := range exitcode.All() {
+				fmt.Fprintf(c.stdout, "  %3d  %-10s %s\n", int(d.Code), d.Code, d.Meaning)
+			}
+			fmt.Fprintln(c.stdout, "msh shell passes the remote exit status through, like ssh.")
+			return exitcode.OK
+		}
 		cmd, ok := lookup(args[0])
 		if !ok {
 			c.errorf("unknown command %q", args[0])

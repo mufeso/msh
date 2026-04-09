@@ -81,3 +81,10 @@ func checkOutput(t *testing.T, stream, got, want string) {
 		t.Errorf("%s = %q, want it to contain %q", stream, got, want)
 	}
 }
+
+func TestHelpExitCodes(t *testing.T) {
+	stdout, _, code := runCLI(t, "help", "exit-codes")
+	if code != exitcode.OK || !strings.Contains(stdout, "130  canceled") || !strings.Contains(stdout, "  4  connection") {
+		t.Errorf("code = %v, stdout:\n%s", code, stdout)
+	}
+}

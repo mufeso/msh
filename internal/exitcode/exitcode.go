@@ -63,3 +63,26 @@ func (c Code) String() string {
 		return "unknown"
 	}
 }
+
+// Description is a documented exit code.
+type Description struct {
+	Code    Code
+	Meaning string
+}
+
+// All returns every exit code with its meaning, in numeric order.
+func All() []Description {
+	return []Description{
+		{OK, "every selected server succeeded"},
+		{Failure, "a remote command ran and exited non-zero"},
+		{Usage, "invalid command-line input"},
+		{Config, "invalid configuration, inventory, task or task arguments"},
+		{Connection, "DNS, TCP, SSH handshake, authentication, host key or bastion failure"},
+		{Timeout, "a connection, command or the global timeout expired"},
+		{Transfer, "a script could not be transferred"},
+		{Tmux, "tmux is unavailable or failed"},
+		{IO, "a local file could not be read or written"},
+		{Internal, "an unexpected internal error (a bug in msh)"},
+		{Canceled, "interrupted by CTRL+C, SIGTERM or SIGHUP"},
+	}
+}
