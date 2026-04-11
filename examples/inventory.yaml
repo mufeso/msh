@@ -1,0 +1,56 @@
+# Example msh inventory. All names and addresses are placeholders from the
+# documentation ranges (RFC 5737) and example.com; replace them.
+defaults:
+  port: 22
+  user: admin
+  connect_timeout: 10s
+  command_timeout: 60s
+  mode: parallel
+  workers: 5
+  known_hosts_file: "~/.ssh/known_hosts"
+
+bastions:
+  - name: production-bastion
+    address: bastion.example.com
+    user: jumpuser
+    port: 22
+
+servers:
+  - name: web01
+    address: 192.0.2.10
+    groups: [web, production]
+    tags:
+      environment: production
+      role: web
+
+  - name: web02
+    address: 192.0.2.11
+    groups: [web, production]
+    tags:
+      environment: production
+      role: web
+
+  - name: db01
+    address: db01.example.com
+    user: dbadmin
+    groups: [database, production]
+    tags:
+      environment: production
+      role: db
+
+  - name: app01
+    address: 10.10.20.15
+    user: appadmin
+    bastion: production-bastion
+    groups: [app, production]
+    tags:
+      environment: production
+      role: app
+
+  - name: test01
+    address: 198.51.100.20
+    port: 2222
+    groups: [web, staging]
+    tags:
+      environment: staging
+      role: web
