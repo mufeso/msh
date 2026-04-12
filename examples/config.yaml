@@ -1,0 +1,58 @@
+# Example msh configuration. Copy to ~/.config/msh/config.yaml.
+inventory: ~/.config/msh/inventory.yaml
+connect_timeout: 10s
+command_timeout: 2m
+workers: 10
+output: text
+allowed_log_paths:
+  - /var/log
+tmux_layout: tiled
+
+tasks:
+  message:
+    description: Follow the messages log and filter by pattern
+    aliases: [msg]
+    interpreter: bash
+    command: "tail -100f /var/log/messages | grep --line-buffered -- {{pattern}}"
+    arguments:
+      - name: pattern
+        required: true
+    interactive: true
+
+  service-status:
+    description: Show the status of a systemd service
+    argv: [systemctl, status, --no-pager, "{{service}}"]
+    arguments:
+      - name: service
+        required: true
+        pattern: "[A-Za-z0-9@._-]+"
+
+  restart-service:
+    description: Restart a systemd service
+    argv: [sudo, systemctl, restart, "{{service}}"]
+    arguments:
+      - name: service
+        required: true
+        pattern: "[A-Za-z0-9@._-]+"
+    safety: changes
+    timeout: 2m
+
+  top-memory:
+    description: Show the processes using the most memory
+    interpreter: sh
+    command: "ps aux --sort=-%mem | head -n {{count}}"
+    arguments:
+      - name: count
+        default: "10"
+        pattern: "[0-9]{1,3}"
+
+  security-summary:
+    description: Collect a security summary
+    interpreter: bash
+    script: |
+      set -e
+      echo "Host: $(hostname)"
+      echo "Kernel: $(uname -r)"
+      systemctl --failed --no-legend || true
+      tail -n 100 /var/log/secure 2>/dev/null || echo "no /var/log/secure"
+    timeout: 5m
