@@ -11,6 +11,7 @@ import (
 const configUsage = `Usage: msh config <subcommand> [flags]
 
 Subcommands:
+  init      Write a starter configuration and inventory
   show      Show effective settings and where each value came from
   validate  Validate the configuration and the inventory
 
@@ -37,6 +38,8 @@ func runConfig(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	switch args[0] {
+	case "init":
+		return runConfigInit(c, args[1:])
 	case "show":
 		return runConfigShow(c, args[1:])
 	case "validate":
