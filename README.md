@@ -1,52 +1,144 @@
 # msh — My Parallel SSH
 
-msh is a command-line SSH fleet-management tool for Linux servers. It is
-being built step by step as a Go learning project.
+msh is a command-line SSH fleet-management tool for Linux servers. It
+runs commands, reusable tasks, local scripts and interactive sessions on
+one or many servers, sequentially or in parallel, directly or through a
+bastion, with verified host keys and clean CTRL+C handling.
 
-## Current features
+It is written in Go using the standard library plus
+`golang.org/x/crypto/ssh`, `golang.org/x/term` and `gopkg.in/yaml.v3`.
 
-- `msh exec --host/--group/--tag/--all --command CMD` — run a command over
-  SSH (direct or through a bastion) on many servers, sequentially or in
-  parallel (`--mode`, `--workers`, `--ordered`, `--timeout`, `--fail-fast`).
-- `msh task list|show|run`, `msh c TASK SERVER ARGS...` — reusable tasks.
-
-- `msh hosts list` — list inventory servers, selected by `--host`,
-  `--group`, `--tag` or `--all`, as a table or JSON.
-- `msh config show` — effective settings and where each value came from.
-- `msh config validate` — validate the configuration and inventory.
-- `msh version`, `msh --version`, `msh --help`.
-
-Documentation: [configuration](docs/configuration.md), [tasks](docs/tasks.md),
-[bastions](docs/bastion.md), [concurrency](docs/concurrency.md),
-[exit codes](docs/exit-codes.md).
-
-## Layout
-
-```
-cmd/msh/             the executable (tiny main package)
-internal/app/        command-line interface
-internal/buildinfo/  name, version, commit, build date
-internal/cliflag/    custom flag types
-internal/config/     settings, layers and precedence
-internal/decode/     strict JSON/YAML decoding
-internal/exitcode/   documented exit codes
-internal/inventory/  servers and selection
-internal/output/     text tables and JSON
-scripts/check.sh     runs every quality check
-```
-
-## Build and test
+## Quick start
 
 ```bash
-gofmt -w .
-go vet ./...
-go test ./...
-go build -o msh ./cmd/msh
+make build && sudo install -m 0755 msh /usr/local/bin/msh
+msh config init                  # ~/.config/msh/{config,inventory}.yaml
+$EDITOR ~/.config/msh/inventory.yaml
+msh config validate
+msh hosts check                  # SSH connectivity and authentication
+msh uptime --all
 ```
 
-Or: `./scripts/check.sh --race`
+## Selecting servers
 
-## Layered steps
+Every remote command accepts:
 
-Each `stepNNN` directory contains the complete project at that step. The
-file `.step` explains what changed and which Go concept it introduces.
+| Flag | Selects |
+|------|---------|
+| `--host web01,web02` | servers by name (repeatable) |
+| `--group web` | members of a group (repeatable) |
+| `--tag environment=production` | filters by tag (repeatable, all must match) |
+| `--all` | every server |
+
+## Commands
+
+```bash
+# Inventory
+msh hosts list [--group web] [--output json|csv|jsonl]
+msh hosts check
+
+# Arbitrary commands (run by the remote user's shell)
+msh exec --host server01 --command "uname -a"
+msh exec --group web --command "uptime"
+msh exec --all --command "df -h" --mode parallel --workers 10 --ordered
+
+# Tasks (see docs/tasks.md)
+msh task list
+msh task show message
+msh task run message --host server01 --arg sshd
+msh task run restart-service --group web --param service=nginx --yes
+msh c message server01 sshd
+
+# Local scripts: a file with many commands, streamed to the servers
+msh script run --host server01 --file ./check.sh
+msh script run --group web --file ./health-check.py --interpreter python3
+msh script run --all --file examples/scripts/health-check.sh --arg nginx
+
+# Built-in read-only shortcuts (msh help shortcuts)
+msh ping --all
+msh uname --all
+msh uptime --group production
+msh disk | memory | services | failed-units | selinux | kernel ...
+
+# Logs
+msh logs --host server01 --file /var/log/messages --lines 50
+msh logs --group web --file /var/log/secure --follow
+
+# Interactive sessions
+msh shell --host server01
+msh shell --host server01 --command "podman exec -it asdf /bin/bash"
+msh shell --group web --tmux [--tmux-session fleet] [--tmux-layout tiled]
+
+# Configuration and version
+msh config init | show | validate
+msh version
+msh --help
+msh --version
+```
+
+## Execution
+
+- `--mode parallel` (default) runs up to `--workers` servers at a time
+  (default 5); `--mode sequential` runs one at a time.
+- Results stream in completion order; `--ordered` prints them in selection
+  order.
+- `--command-timeout` limits each server, `--connect-timeout` each
+  connection, `--timeout` the whole run.
+- `--fail-fast` stops starting servers after the first problem.
+- CTRL+C stops everything cleanly and exits 130.
+
+## Output
+
+`--output text|json|csv|jsonl`, `--prefix` for greppable text lines,
+`--report FILE` for a JSON record of the run. Diagnostics go to stderr
+(`--verbose`, `--log-format json`). See docs/output.md.
+
+## Bastions
+
+```yaml
+bastions:
+  - name: production-bastion
+    address: bastion.example.com
+    user: jumpuser
+servers:
+  - name: app01
+    address: 10.10.20.15
+    bastion: production-bastion
+```
+
+`--bastion NAME` (or `none`) overrides the route. msh tunnels through the
+bastion with direct-tcpip and never falls back to a direct connection.
+See docs/bastion.md.
+
+## Safety
+
+Host keys are always verified, only key and agent authentication is used,
+no passwords are stored, task arguments cannot inject shell syntax,
+changing tasks need `--yes`, scripts never touch the remote disk, and
+secrets never appear in output or logs. See docs/security.md.
+
+## Exit codes
+
+0 ok · 1 remote failure · 2 usage · 3 config · 4 connection · 5 timeout ·
+6 transfer · 7 tmux · 8 file I/O · 70 internal · 130 canceled
+(`msh help exit-codes`).
+
+## Documentation
+
+[install](docs/install.md) · [configuration](docs/configuration.md) ·
+[tasks](docs/tasks.md) · [scripts](docs/scripts.md) ·
+[bastions](docs/bastion.md) · [interactive](docs/interactive.md) ·
+[tmux](docs/tmux.md) · [output](docs/output.md) ·
+[concurrency](docs/concurrency.md) · [shutdown](docs/shutdown.md) ·
+[exit codes](docs/exit-codes.md) · [security](docs/security.md) ·
+[examples](examples/)
+
+## Development
+
+```bash
+./scripts/check.sh --race      # gofmt, vet, tests, race tests, build
+make dist VERSION=1.0.0        # release binaries and SHA256SUMS
+```
+
+Tests need no servers: they start in-process SSH servers (including
+bastions) on 127.0.0.1 with throwaway keys, and a fake tmux.
