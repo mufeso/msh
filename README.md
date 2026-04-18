@@ -131,7 +131,7 @@ secrets never appear in output or logs. See docs/security.md.
 [tmux](docs/tmux.md) · [output](docs/output.md) ·
 [concurrency](docs/concurrency.md) · [shutdown](docs/shutdown.md) ·
 [exit codes](docs/exit-codes.md) · [security](docs/security.md) ·
-[examples](examples/)
+[learning path](docs/learning-path.md) · [examples](examples/)
 
 ## Development
 
