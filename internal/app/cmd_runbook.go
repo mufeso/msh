@@ -12,6 +12,7 @@ const runbookUsage = `Usage: msh runbook <subcommand> [flags]
 
 Subcommands:
   list    List configured runbooks
+  show    Show the steps of one runbook
 
 Runbooks are defined under "runbooks:" in the configuration file.
 `
@@ -38,6 +39,8 @@ func runRunbook(c *cli, args []string) exitcode.Code {
 	switch args[0] {
 	case "list":
 		return runRunbookList(c, args[1:])
+	case "show":
+		return runRunbookShow(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, runbookUsage)
 		return exitcode.OK

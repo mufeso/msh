@@ -49,3 +49,20 @@ func TestRunbookList(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestRunbookShow(t *testing.T) {
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, stderr, code := runCLI(t, "runbook", "show", "greet", "--config", cfg)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"1. first", "task: hello", "2. second", "command: echo second | cat"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	_, stderr, code = runCLI(t, "runbook", "show", "gret", "--config", cfg)
+	if code != exitcode.Usage || !contains(stderr, `Did you mean "greet"?`) {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
