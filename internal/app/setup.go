@@ -11,6 +11,7 @@ import (
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
+	"example.com/msh/internal/runbook"
 	"example.com/msh/internal/task"
 )
 
@@ -20,6 +21,7 @@ type setup struct {
 	settings   config.Settings      // fully resolved and validated
 	inv        *inventory.Inventory // nil unless the command needs servers
 	tasks      *task.Set            // tasks from the configuration file
+	runbooks   *runbook.Set         // runbooks from the configuration file
 }
 
 // load resolves settings and, if needInventory is true, loads the
@@ -39,6 +41,7 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 
 	var fileLayer *config.Source
 	var taskDefs map[string]task.Task
+	var runbookDefs map[string]runbook.Runbook
 	path, explicit := c.configPath(opts)
 	if path != "" {
 		file, err := configfile.Load(path)
@@ -48,6 +51,7 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 			st.configFile = path
 			fileLayer = &config.Source{Name: config.SourceFile, Layer: file.Layer}
 			taskDefs = file.Tasks
+			runbookDefs = file.Runbooks
 		case !explicit && errors.Is(err, fs.ErrNotExist):
 			c.verbosef(opts, "no configuration file at %s", path)
 		default:
@@ -61,6 +65,13 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 		return nil, exitcode.Config
 	}
 	st.tasks = tasks
+	// Runbooks reference tasks, so they are validated after them.
+	runbooks, err := runbook.NewSet(runbookDefs, tasks)
+	if err != nil {
+		c.errorf("%s: %v", path, err)
+		return nil, exitcode.Config
+	}
+	st.runbooks = runbooks
 
 	envLayer, err := config.EnvLayer(c.lookupEnv)
 	if err != nil {

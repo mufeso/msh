@@ -6,18 +6,21 @@
 //
 //	configfile -> config
 //	configfile -> task -> config
+//	configfile -> runbook -> task
 package configfile
 
 import (
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/decode"
+	"example.com/msh/internal/runbook"
 	"example.com/msh/internal/task"
 )
 
 // File is the content of a configuration file.
 type File struct {
 	config.Layer `yaml:",inline"`
-	Tasks        map[string]task.Task `json:"tasks,omitempty" yaml:"tasks,omitempty"`
+	Tasks        map[string]task.Task       `json:"tasks,omitempty" yaml:"tasks,omitempty"`
+	Runbooks     map[string]runbook.Runbook `json:"runbooks,omitempty" yaml:"runbooks,omitempty"`
 }
 
 // Load reads a configuration file (.yaml, .yml or .json).
