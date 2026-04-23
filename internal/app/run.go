@@ -9,6 +9,7 @@ import (
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/runner"
 )
@@ -30,32 +31,15 @@ type remoteRun struct {
 // shortcuts) goes through here, so they all share the same SSH, bastion,
 // timeout, cancellation and output behavior.
 func (c *cli) runRemote(r remoteRun) exitcode.Code {
-	if err := r.sel.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
-	if r.sel.isEmpty() {
-		c.errorf("%s: select servers with --host, --group, --tag or --all", r.name)
-		return exitcode.Usage
-	}
-	st, code := c.load(r.opts, true)
-	if st == nil {
+	p, code := c.prepareRun(r.name, r.opts, r.sel, r.ro)
+	if p == nil {
 		return code
 	}
-	servers, err := st.inv.Select(r.sel.selector())
-	if err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
+	defer p.stack.Close()
+	st, servers, stack := p.st, p.servers, p.stack
 	if r.req.Timeout == 0 && !r.unlimited {
 		r.req.Timeout = st.settings.CommandTimeout
 	}
-
-	stack, code := c.newSSH(r.opts, r.ro, st)
-	if stack == nil {
-		return code
-	}
-	defer stack.Close()
 
 	ctx, cancel := c.runContext(st)
 	defer cancel()
@@ -76,6 +60,51 @@ func (c *cli) runRemote(r remoteRun) exitcode.Code {
 		c.errorf("global timeout of %s expired", st.settings.Timeout)
 	}
 	return code
+}
+
+// prepared is a run that is ready to start.
+type prepared struct {
+	st      *setup
+	servers []inventory.Server
+	stack   *sshStack
+}
+
+// selectServers validates the selection, loads settings and the inventory
+// and returns the selected servers. On failure it prints the error and
+// returns a nil setup and the exit code.
+func (c *cli) selectServers(name string, opts *commonOptions, sel *selectionOptions) (*setup, []inventory.Server, exitcode.Code) {
+	if err := sel.validate(); err != nil {
+		c.errorf("%v", err)
+		return nil, nil, exitcode.Usage
+	}
+	if sel.isEmpty() {
+		c.errorf("%s: select servers with --host, --group, --tag or --all", name)
+		return nil, nil, exitcode.Usage
+	}
+	st, code := c.load(opts, true)
+	if st == nil {
+		return nil, nil, code
+	}
+	servers, err := st.inv.Select(sel.selector())
+	if err != nil {
+		c.errorf("%v", err)
+		return nil, nil, exitcode.Usage
+	}
+	return st, servers, exitcode.OK
+}
+
+// prepareRun selects servers and builds the SSH stack. The caller closes
+// the stack.
+func (c *cli) prepareRun(name string, opts *commonOptions, sel *selectionOptions, ro *remoteOptions) (*prepared, exitcode.Code) {
+	st, servers, code := c.selectServers(name, opts, sel)
+	if st == nil {
+		return nil, code
+	}
+	stack, code := c.newSSH(opts, ro, st)
+	if stack == nil {
+		return nil, code
+	}
+	return &prepared{st: st, servers: servers, stack: stack}, exitcode.OK
 }
 
 // runContext returns the context for a whole run: the CLI context,

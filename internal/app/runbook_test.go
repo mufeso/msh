@@ -66,3 +66,22 @@ func TestRunbookShow(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestRunbookDryRunContactsNobody(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "greet", "--all", "--dry-run"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"2 steps on 2 servers", "Servers: s1, s2", "$ echo hello", "$ sh -c 'echo second | cat'"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	for _, s := range fleet.servers {
+		if len(s.Commands()) != 0 {
+			t.Error("--dry-run contacted a server")
+		}
+	}
+}
