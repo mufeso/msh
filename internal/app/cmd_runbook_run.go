@@ -73,7 +73,7 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, servers []inventory.
 	ctx, cancel := c.runContext(st)
 	defer cancel()
 	return c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
-		return runner.Run(ctx, engine, servers, executor.Request{}, runner.Options{Workers: 1}, emit)
+		return runner.Run(ctx, engine, servers, executor.Request{}, c.runnerOptions(st, &f.ro), emit)
 	})
 }
 

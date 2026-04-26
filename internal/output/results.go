@@ -23,6 +23,9 @@ type ResultView struct {
 	Error           string    `json:"error,omitempty"`
 	Started         time.Time `json:"started"`
 	DurationMS      int64     `json:"duration_ms"`
+
+	// Steps is set for runbooks only.
+	Steps []executor.StepResult `json:"steps,omitempty"`
 }
 
 // NewResultView converts a result into its view.
@@ -38,6 +41,7 @@ func NewResultView(r executor.Result) ResultView {
 		StderrTruncated: r.StderrTruncated,
 		Started:         r.Started.UTC(),
 		DurationMS:      r.Duration.Milliseconds(),
+		Steps:           r.Steps,
 	}
 	if r.Err != nil {
 		v.Error = r.Err.Error()

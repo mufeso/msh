@@ -1,11 +1,13 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/output"
 )
 
 // writeConfig writes a configuration file for a test.
@@ -121,5 +123,26 @@ func TestRunbookStopsOnFailure(t *testing.T) {
 	}
 	if contains(stdout, "never") || !contains(stdout, "--- step fail: failed (exit 3)") {
 		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestRunbookJSONSteps(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "greet", "--all", "--workers", "3", "--output", "json"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	var run output.RunView
+	if err := json.Unmarshal([]byte(stdout), &run); err != nil {
+		t.Fatal(err)
+	}
+	if len(run.Results) != 3 {
+		t.Fatalf("results = %d", len(run.Results))
+	}
+	for _, r := range run.Results {
+		if len(r.Steps) != 2 || r.Steps[0].Name != "first" || r.Steps[1].Stdout != "second\n" {
+			t.Errorf("steps = %+v", r.Steps)
+		}
 	}
 }
