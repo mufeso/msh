@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/runbook"
+	"example.com/msh/internal/runner"
 )
 
 const runbookRunUsage = `Usage: msh runbook run NAME (--host NAME | --group NAME | --tag K=V | --all) [flags]
@@ -52,11 +54,27 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 		c.errorf("runbook %q: %v", rb.Name, err)
 		return exitcode.Usage
 	}
-	if !f.dryRun {
-		c.errorf("runbook run: only --dry-run is available in this step")
-		return exitcode.Usage
+	if f.dryRun {
+		return c.printRunbookPlan(&f.opts, rb, servers, plan)
 	}
-	return c.printRunbookPlan(&f.opts, rb, servers, plan)
+	return c.executeRunbook(&f, st, servers, plan)
+}
+
+// executeRunbook runs the plan on the servers. The engine is an Executor,
+// so the normal worker pool and output path do the rest.
+func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
+	stack, code := c.newSSH(&f.opts, &f.ro, st)
+	if stack == nil {
+		return code
+	}
+	defer stack.Close()
+
+	engine := &runbook.Engine{Exec: stack.executor, Steps: plan, DefaultTimeout: st.settings.CommandTimeout}
+	ctx, cancel := c.runContext(st)
+	defer cancel()
+	return c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
+		return runner.Run(ctx, engine, servers, executor.Request{}, runner.Options{Workers: 1}, emit)
+	})
 }
 
 // planView is the JSON shape of a dry run.

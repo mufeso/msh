@@ -70,7 +70,20 @@ const (
 	StatusTimeout  Status = "timeout"  // command or connection timed out
 	StatusCanceled Status = "canceled" // the user canceled the run
 	StatusError    Status = "error"    // the command could not be run
+	StatusSkipped  Status = "skipped"  // a runbook step that did not run
 )
+
+// StepResult is the outcome of one step of a runbook.
+type StepResult struct {
+	Name       string `json:"name"`
+	Status     Status `json:"status"`
+	ExitCode   int    `json:"exit_code"`
+	Attempts   int    `json:"attempts"`
+	Stdout     string `json:"stdout,omitempty"`
+	Stderr     string `json:"stderr,omitempty"`
+	Error      string `json:"error,omitempty"`
+	DurationMS int64  `json:"duration_ms"`
+}
 
 // Result is what happened when a command ran on one server.
 type Result struct {
@@ -83,6 +96,8 @@ type Result struct {
 	Stderr          string // captured standard error
 	StdoutTruncated bool   // stdout exceeded the output limit
 	StderrTruncated bool   // stderr exceeded the output limit
+
+	Steps []StepResult // per-step details of a runbook; nil for single commands
 
 	Err      error         // why Status is not StatusOK or StatusFailed
 	Started  time.Time     // when the attempt started

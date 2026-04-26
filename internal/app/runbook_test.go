@@ -85,3 +85,41 @@ func TestRunbookDryRunContactsNobody(t *testing.T) {
 		}
 	}
 }
+
+func TestRunbookRun(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "greet", "--all"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"=== s1: ok", "--- step first: ok", "hello\n", "--- step second: ok", "second\n"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	if len(fleet.servers[1].Commands()) != 2 {
+		t.Errorf("s2 commands = %q", fleet.servers[1].Commands())
+	}
+}
+
+func TestRunbookStopsOnFailure(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := writeConfig(t, `runbooks:
+  bad:
+    steps:
+      - name: fail
+        command: "exit 3"
+        read_only: true
+      - name: never
+        command: "echo never"
+        read_only: true
+`)
+	stdout, _, code := fleet.run(t, []string{"runbook", "run", "bad", "--host", "s1"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d", code)
+	}
+	if contains(stdout, "never") || !contains(stdout, "--- step fail: failed (exit 3)") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
