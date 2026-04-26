@@ -37,8 +37,10 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 			res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusSkipped, ExitCode: -1})
 			continue
 		}
-		r := e.runStep(ctx, server, ps)
-		res.Steps = append(res.Steps, stepResult(ps, r))
+		r, attempts := e.runStep(ctx, server, ps)
+		sr := stepResult(ps, r)
+		sr.Attempts = attempts
+		res.Steps = append(res.Steps, sr)
 		fmt.Fprintf(&stdout, "--- step %s: %s (exit %d)\n", ps.Step.Name, r.Status, r.ExitCode)
 		stdout.WriteString(r.Stdout)
 		stderr.WriteString(r.Stderr)
@@ -55,13 +57,38 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 	return res
 }
 
-// runStep runs one step.
-func (e *Engine) runStep(ctx context.Context, server inventory.Server, ps PlannedStep) executor.Result {
+// runStep runs one step, retrying as configured. It returns the last
+// result and the number of attempts.
+func (e *Engine) runStep(ctx context.Context, server inventory.Server, ps PlannedStep) (executor.Result, int) {
 	timeout := ps.Timeout
 	if timeout == 0 {
 		timeout = e.DefaultTimeout
 	}
-	return e.Exec.Run(ctx, server, executor.Request{Command: ps.Command, Stdin: ps.Stdin, Timeout: timeout})
+	req := executor.Request{Command: ps.Command, Stdin: ps.Stdin, Timeout: timeout}
+	var delay time.Duration
+	if ps.Step.RetryDelay != nil {
+		delay = time.Duration(*ps.Step.RetryDelay)
+	}
+	for attempt := 1; ; attempt++ {
+		r := e.Exec.Run(ctx, server, req)
+		if r.Status == executor.StatusOK || r.Status == executor.StatusCanceled ||
+			attempt > ps.Step.Retries || !wait(ctx, delay) {
+			return r, attempt
+		}
+	}
+}
+
+// wait sleeps for d and reports false if ctx ended first. NewTimer with
+// Stop releases the timer at once, unlike time.After.
+func wait(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // stepResult records the outcome of a step.

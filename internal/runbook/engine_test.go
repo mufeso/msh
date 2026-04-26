@@ -4,7 +4,9 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/inventory"
 )
@@ -66,5 +68,51 @@ func TestEngineStopsAtFirstFailure(t *testing.T) {
 	}
 	if r.Steps[2].Status != executor.StatusSkipped {
 		t.Errorf("step c = %+v", r.Steps[2])
+	}
+}
+
+func retrying(cmd string, retries int, delay time.Duration) PlannedStep {
+	d := config.Duration(delay)
+	return PlannedStep{Step: Step{Name: cmd, Retries: retries, RetryDelay: &d}, Command: cmd}
+}
+
+func TestRetriesUntilSuccess(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"x": {executor.StatusFailed, executor.StatusFailed, executor.StatusOK}}}
+	r := (&Engine{Exec: ex, Steps: []PlannedStep{retrying("x", 5, time.Millisecond)}}).Run(context.Background(), srv, executor.Request{})
+	if r.Status != executor.StatusOK || r.Steps[0].Attempts != 3 {
+		t.Errorf("result = %+v", r)
+	}
+}
+
+func TestRetriesAreLimited(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"x": {executor.StatusFailed}}}
+	r := (&Engine{Exec: ex, Steps: []PlannedStep{retrying("x", 2, time.Millisecond)}}).Run(context.Background(), srv, executor.Request{})
+	if r.Status != executor.StatusFailed || len(ex.calls) != 3 {
+		t.Errorf("status = %s, calls = %d", r.Status, len(ex.calls))
+	}
+}
+
+func TestCancelStopsRetryWait(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"x": {executor.StatusFailed}}}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+	}()
+	start := time.Now()
+	(&Engine{Exec: ex, Steps: []PlannedStep{retrying("x", 5, time.Hour)}}).Run(ctx, srv, executor.Request{})
+	if time.Since(start) > 2*time.Second {
+		t.Error("the retry delay ignored cancellation")
+	}
+	if len(ex.calls) != 1 {
+		t.Errorf("calls = %d", len(ex.calls))
+	}
+}
+
+func TestCanceledStepIsNotRetried(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"x": {executor.StatusCanceled}}}
+	(&Engine{Exec: ex, Steps: []PlannedStep{retrying("x", 5, time.Millisecond)}}).Run(context.Background(), srv, executor.Request{})
+	if len(ex.calls) != 1 {
+		t.Errorf("calls = %d", len(ex.calls))
 	}
 }
