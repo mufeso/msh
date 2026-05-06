@@ -35,4 +35,7 @@ type Runbook struct {
 	Name        string `json:"name" yaml:"-"` // the key in the "runbooks:" map
 	Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	Steps       []Step `json:"steps" yaml:"steps"`
+
+	// Timeout limits the total time on each server.
+	Timeout *config.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }

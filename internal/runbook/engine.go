@@ -20,6 +20,7 @@ type Engine struct {
 	Exec           executor.Executor
 	Steps          []PlannedStep
 	DefaultTimeout time.Duration // used by steps without their own timeout
+	ServerTimeout  time.Duration // total limit per server; 0 = none
 }
 
 var _ executor.Executor = (*Engine)(nil)
@@ -29,6 +30,11 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 	res := executor.Result{
 		Server: server.Name, Address: server.Address,
 		Status: executor.StatusOK, Started: time.Now(),
+	}
+	if e.ServerTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, e.ServerTimeout)
+		defer cancel()
 	}
 	var stdout, stderr strings.Builder
 	stopped := false

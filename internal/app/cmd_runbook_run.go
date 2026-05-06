@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
@@ -57,12 +58,12 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	if f.dryRun {
 		return c.printRunbookPlan(&f.opts, rb, servers, plan)
 	}
-	return c.executeRunbook(&f, st, servers, plan)
+	return c.executeRunbook(&f, st, rb, servers, plan)
 }
 
 // executeRunbook runs the plan on the servers. The engine is an Executor,
 // so the normal worker pool and output path do the rest.
-func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
+func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
 	stack, code := c.newSSH(&f.opts, &f.ro, st)
 	if stack == nil {
 		return code
@@ -70,6 +71,9 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, servers []inventory.
 	defer stack.Close()
 
 	engine := &runbook.Engine{Exec: stack.executor, Steps: plan, DefaultTimeout: st.settings.CommandTimeout}
+	if rb.Timeout != nil {
+		engine.ServerTimeout = time.Duration(*rb.Timeout)
+	}
 	ctx, cancel := c.runContext(st)
 	defer cancel()
 	return c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {

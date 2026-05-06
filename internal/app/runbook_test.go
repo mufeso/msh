@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
@@ -143,6 +144,43 @@ func TestRunbookJSONSteps(t *testing.T) {
 	for _, r := range run.Results {
 		if len(r.Steps) != 2 || r.Steps[0].Name != "first" || r.Steps[1].Stdout != "second\n" {
 			t.Errorf("steps = %+v", r.Steps)
+		}
+	}
+}
+
+func TestRunbookTimeouts(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := writeConfig(t, `runbooks:
+  step-limit:
+    steps:
+      - name: slow
+        command: "sleep 5"
+        read_only: true
+        timeout: 200ms
+      - name: after
+        command: "echo after"
+        read_only: true
+  total-limit:
+    timeout: 300ms
+    steps:
+      - name: one
+        command: "sleep 5"
+        read_only: true
+      - name: two
+        command: "echo two"
+        read_only: true
+`)
+	for _, name := range []string{"step-limit", "total-limit"} {
+		start := time.Now()
+		stdout, _, code := fleet.run(t, []string{"runbook", "run", name, "--host", "s1"}, "--config", cfg)
+		if exitcode.Code(code) != exitcode.Timeout {
+			t.Errorf("%s: code = %d\n%s", name, code, stdout)
+		}
+		if time.Since(start) > 4*time.Second {
+			t.Errorf("%s: timeout not enforced", name)
+		}
+		if contains(stdout, "after\n") || contains(stdout, "two\n") {
+			t.Errorf("%s: a later step ran:\n%s", name, stdout)
 		}
 	}
 }
