@@ -116,3 +116,26 @@ func TestCanceledStepIsNotRetried(t *testing.T) {
 		t.Errorf("calls = %d", len(ex.calls))
 	}
 }
+
+func TestContinueOnError(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"opt": {executor.StatusFailed}}}
+	steps := plan("opt", "next")
+	steps[0].Step.ContinueOnError = true
+	r := (&Engine{Exec: ex, Steps: steps}).Run(context.Background(), srv, executor.Request{})
+	if r.Status != executor.StatusOK || len(ex.calls) != 2 {
+		t.Errorf("result = %+v, calls = %v", r, ex.calls)
+	}
+	if r.Steps[0].Status != executor.StatusFailed {
+		t.Errorf("the failure must stay visible: %+v", r.Steps[0])
+	}
+}
+
+func TestContinueOnErrorDoesNotIgnoreCancel(t *testing.T) {
+	ex := &scriptedExec{answers: map[string][]executor.Status{"opt": {executor.StatusCanceled}}}
+	steps := plan("opt", "next")
+	steps[0].Step.ContinueOnError = true
+	r := (&Engine{Exec: ex, Steps: steps}).Run(context.Background(), srv, executor.Request{})
+	if r.Status != executor.StatusCanceled || len(ex.calls) != 1 {
+		t.Errorf("result = %+v, calls = %v", r, ex.calls)
+	}
+}

@@ -44,7 +44,8 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 		fmt.Fprintf(&stdout, "--- step %s: %s (exit %d)\n", ps.Step.Name, r.Status, r.ExitCode)
 		stdout.WriteString(r.Stdout)
 		stderr.WriteString(r.Stderr)
-		if r.Status != executor.StatusOK {
+		tolerated := ps.Step.ContinueOnError && r.Status != executor.StatusCanceled
+		if r.Status != executor.StatusOK && !tolerated {
 			stopped = true
 			res.Status, res.ExitCode = r.Status, r.ExitCode
 			if r.Err != nil {
