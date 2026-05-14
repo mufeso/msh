@@ -11,6 +11,7 @@ import (
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/runbook"
 	"example.com/msh/internal/runner"
+	"example.com/msh/internal/task"
 )
 
 const runbookRunUsage = `Usage: msh runbook run NAME (--host NAME | --group NAME | --tag K=V | --all) [flags]
@@ -25,6 +26,7 @@ type runbookRunFlags struct {
 	sel    selectionOptions
 	ro     remoteOptions
 	dryRun bool
+	yes    bool
 }
 
 func runRunbookRun(c *cli, args []string) exitcode.Code {
@@ -34,6 +36,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	f.sel.register(fs)
 	f.ro.register(fs)
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print the plan without connecting to any server")
+	fs.BoolVar(&f.yes, "yes", false, "confirm running a runbook classified as changes or dangerous")
 	names, code, ok := parseInterspersed(fs, args)
 	if !ok {
 		return code
@@ -55,8 +58,13 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 		c.errorf("runbook %q: %v", rb.Name, err)
 		return exitcode.Usage
 	}
+	safety := rb.Safety(st.tasks)
 	if f.dryRun {
-		return c.printRunbookPlan(&f.opts, rb, servers, plan)
+		return c.printRunbookPlan(&f.opts, rb, safety, servers, plan)
+	}
+	if safety != task.SafetyReadOnly && !f.yes {
+		c.errorf("runbook %q is classified %q; review it with --dry-run, then add --yes to run it", rb.Name, safety)
+		return exitcode.Usage
 	}
 	return c.executeRunbook(&f, st, rb, servers, plan)
 }
@@ -84,6 +92,7 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 // planView is the JSON shape of a dry run.
 type planView struct {
 	Runbook string         `json:"runbook"`
+	Safety  string         `json:"safety"`
 	Servers []string       `json:"servers"`
 	Steps   []planStepView `json:"steps"`
 }
@@ -95,8 +104,8 @@ type planStepView struct {
 }
 
 // printRunbookPlan prints what a run would do.
-func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
-	view := planView{Runbook: rb.Name}
+func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety task.Safety, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
+	view := planView{Runbook: rb.Name, Safety: string(safety)}
 	for _, s := range servers {
 		view.Servers = append(view.Servers, s.Name)
 	}
@@ -113,6 +122,7 @@ func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, servers
 		return exitcode.OK
 	}
 	fmt.Fprintf(c.stdout, "Runbook %s: %d steps on %d servers (dry run, nothing was executed)\n", rb.Name, len(plan), len(servers))
+	fmt.Fprintf(c.stdout, "Safety:  %s\n", safety)
 	fmt.Fprintf(c.stdout, "Servers: %s\n", strings.Join(view.Servers, ", "))
 	for i, s := range view.Steps {
 		fmt.Fprintf(c.stdout, "  %d. %s\n     $ %s\n", i+1, s.Name, s.Command)

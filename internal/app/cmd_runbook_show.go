@@ -44,6 +44,7 @@ func runRunbookShow(c *cli, args []string) exitcode.Code {
 		return exitcode.OK
 	}
 	fmt.Fprint(c.stdout, describeRunbook(rb))
+	fmt.Fprintf(c.stdout, "Safety:      %s\n", rb.Safety(st.tasks))
 	return exitcode.OK
 }
 

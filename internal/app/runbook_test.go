@@ -184,3 +184,27 @@ func TestRunbookTimeouts(t *testing.T) {
 		}
 	}
 }
+
+func TestRunbookNeedsYes(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := writeConfig(t, `runbooks:
+  change:
+    steps:
+      - name: touch
+        command: "echo would change"
+`)
+	_, stderr, code := fleet.run(t, []string{"runbook", "run", "change", "--host", "s1"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, "--yes") {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+	if len(fleet.servers[0].Commands()) != 0 {
+		t.Error("a changing runbook ran without --yes")
+	}
+	if _, _, code := fleet.run(t, []string{"runbook", "run", "change", "--host", "s1", "--yes"}, "--config", cfg); exitcode.Code(code) != exitcode.OK {
+		t.Errorf("with --yes: code = %d", code)
+	}
+	stdout, _, _ := fleet.run(t, []string{"runbook", "run", "change", "--host", "s1", "--dry-run"}, "--config", cfg)
+	if !contains(stdout, "Safety:  changes") {
+		t.Errorf("dry run = %q", stdout)
+	}
+}
