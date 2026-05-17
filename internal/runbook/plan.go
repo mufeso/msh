@@ -43,9 +43,39 @@ func (rb *Runbook) renderStep(s Step, tasks *task.Set, values task.Values) (task
 	if !ok {
 		return task.Invocation{}, fmt.Errorf("unknown task %q", s.Task)
 	}
-	bound, err := t.Bind(s.Args, s.Params)
+	args := make([]string, len(s.Args))
+	for i, v := range s.Args {
+		expanded, err := rb.helper().ExpandPlain(v, values)
+		if err != nil {
+			return task.Invocation{}, err
+		}
+		args[i] = expanded
+	}
+	params := make(map[string]string, len(s.Params))
+	for k, v := range s.Params {
+		expanded, err := rb.helper().ExpandPlain(v, values)
+		if err != nil {
+			return task.Invocation{}, err
+		}
+		params[k] = expanded
+	}
+	bound, err := t.Bind(args, params)
 	if err != nil {
 		return task.Invocation{}, err
 	}
 	return t.Render(bound)
+}
+
+// helper returns the argument helper task.
+func (rb *Runbook) helper() *task.Task {
+	if rb.inputs != nil {
+		return rb.inputs
+	}
+	return &task.Task{Name: rb.Name, Arguments: rb.Arguments}
+}
+
+// Bind validates the run's argument values: required arguments, defaults
+// and patterns, exactly as for tasks.
+func (rb *Runbook) Bind(positional []string, named map[string]string) (task.Values, error) {
+	return rb.helper().Bind(positional, named)
 }

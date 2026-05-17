@@ -27,6 +27,8 @@ type runbookRunFlags struct {
 	ro     remoteOptions
 	dryRun bool
 	yes    bool
+	args   []string
+	params map[string]string
 }
 
 func runRunbookRun(c *cli, args []string) exitcode.Code {
@@ -37,6 +39,19 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	f.ro.register(fs)
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print the plan without connecting to any server")
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a runbook classified as changes or dangerous")
+	f.params = map[string]string{}
+	fs.Func("arg", "runbook argument `value`, in order (repeatable)", func(v string) error {
+		f.args = append(f.args, v)
+		return nil
+	})
+	fs.Func("param", "named runbook argument `name=value` (repeatable)", func(v string) error {
+		name, value, ok := strings.Cut(v, "=")
+		if !ok || name == "" {
+			return fmt.Errorf("%q is not in name=value form", v)
+		}
+		f.params[name] = value
+		return nil
+	})
 	names, code, ok := parseInterspersed(fs, args)
 	if !ok {
 		return code
@@ -53,7 +68,12 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	if rb == nil {
 		return code
 	}
-	plan, err := rb.Plan(st.tasks, nil)
+	values, err := rb.Bind(f.args, f.params)
+	if err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
+	}
+	plan, err := rb.Plan(st.tasks, values)
 	if err != nil {
 		c.errorf("runbook %q: %v", rb.Name, err)
 		return exitcode.Usage

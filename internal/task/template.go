@@ -48,6 +48,13 @@ func (t *Task) expand(tmpl string, values Values, quote func(string) string) (st
 	return b.String(), nil
 }
 
+// ExpandPlain replaces placeholders in tmpl with the raw values, without
+// quoting. The result must be passed on as a value (for example a task
+// parameter that is quoted later), never to a shell directly.
+func (t *Task) ExpandPlain(tmpl string, values Values) (string, error) {
+	return t.expand(tmpl, values, func(s string) string { return s })
+}
+
 // validatePlaceholders checks that every placeholder in the task refers
 // to a defined argument and that script tasks contain none.
 func (t *Task) validatePlaceholders() error {

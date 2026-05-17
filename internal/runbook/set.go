@@ -55,6 +55,12 @@ func (rb *Runbook) validate(tasks *task.Set) error {
 	if len(rb.Steps) == 0 {
 		return errors.New("at least one step is required")
 	}
+	// A small helper task gives runbooks the same argument rules as tasks.
+	inputs, err := task.NewSet(map[string]task.Task{rb.Name: {Command: "true", Arguments: rb.Arguments}})
+	if err != nil {
+		return err
+	}
+	rb.inputs, _ = inputs.Get(rb.Name)
 	seen := map[string]bool{}
 	for i, s := range rb.Steps {
 		if s.Name == "" {
@@ -94,6 +100,17 @@ func (rb *Runbook) validateStep(s Step, tasks *task.Set) error {
 	if t.Interactive {
 		return fmt.Errorf("task %q is interactive; runbook steps run unattended", s.Task)
 	}
+	// Every {{name}} in params and args must be a runbook argument.
+	for _, v := range s.Params {
+		if _, err := rb.inputs.ExpandPlain(v, nil); err != nil {
+			return err
+		}
+	}
+	for _, v := range s.Args {
+		if _, err := rb.inputs.ExpandPlain(v, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -104,6 +121,7 @@ func (rb *Runbook) commandTask(s Step) task.Task {
 		Interpreter:      s.Interpreter,
 		Command:          s.Command,
 		AllowRedirection: s.AllowRedirection,
+		Arguments:        rb.Arguments,
 	}
 }
 

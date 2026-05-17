@@ -6,7 +6,10 @@
 // configuration file.
 package runbook
 
-import "example.com/msh/internal/config"
+import (
+	"example.com/msh/internal/config"
+	"example.com/msh/internal/task"
+)
 
 // Step is one action of a runbook. It runs either a configured task or a
 // shell command, never both.
@@ -38,4 +41,10 @@ type Runbook struct {
 
 	// Timeout limits the total time on each server.
 	Timeout *config.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+
+	// Arguments are the runbook's inputs, used in steps as {{name}}.
+	Arguments []task.Argument `json:"arguments,omitempty" yaml:"arguments,omitempty"`
+
+	// inputs validates and binds Arguments; it is set during validation.
+	inputs *task.Task
 }

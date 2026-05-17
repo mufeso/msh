@@ -208,3 +208,56 @@ func TestRunbookNeedsYes(t *testing.T) {
 		t.Errorf("dry run = %q", stdout)
 	}
 }
+
+const argumentRunbooks = `tasks:
+  show:
+    argv: [printf, "[%s]", "{{value}}"]
+    arguments:
+      - name: value
+        required: true
+runbooks:
+  args:
+    arguments:
+      - name: who
+        required: true
+        pattern: "[a-z ;$()]+"
+      - name: extra
+        default: fallback
+    steps:
+      - name: via-task
+        task: show
+        params: {value: "hello {{who}}"}
+      - name: via-command
+        command: "printf '<%s>' {{who}} {{extra}}"
+        read_only: true
+`
+
+func TestRunbookArguments(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := writeConfig(t, argumentRunbooks)
+	marker := "a b; (x) $(id)"
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "args", "--host", "s1", "--param", "who=" + marker}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"[hello " + marker + "]", "<" + marker + ">", "<fallback>"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	_, stderr, code = fleet.run(t, []string{"runbook", "run", "args", "--host", "s1"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, "is required") {
+		t.Errorf("missing argument: code = %d, stderr = %q", code, stderr)
+	}
+	_, stderr, code = fleet.run(t, []string{"runbook", "run", "args", "--host", "s1", "--arg", "BAD"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Usage || !contains(stderr, "does not match") {
+		t.Errorf("bad pattern: code = %d, stderr = %q", code, stderr)
+	}
+}
+
+func TestRunbookUnknownPlaceholderIsConfigError(t *testing.T) {
+	cfg := writeConfig(t, "tasks:\n  t:\n    argv: [echo, \"{{v}}\"]\n    arguments:\n      - name: v\nrunbooks:\n  r:\n    steps:\n      - name: s\n        task: t\n        params: {v: \"{{ghost}}\"}\n")
+	if _, _, code := runCLI(t, "runbook", "list", "--config", cfg); code != exitcode.Config {
+		t.Errorf("code = %v", code)
+	}
+}
