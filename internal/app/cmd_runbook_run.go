@@ -2,9 +2,11 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
@@ -27,6 +29,7 @@ type runbookRunFlags struct {
 	ro     remoteOptions
 	dryRun bool
 	yes    bool
+	resume bool
 	args   []string
 	params map[string]string
 }
@@ -39,6 +42,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	f.ro.register(fs)
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print the plan without connecting to any server")
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a runbook classified as changes or dangerous")
+	fs.BoolVar(&f.resume, "resume", false, "continue a failed run, skipping steps that already finished")
 	f.params = map[string]string{}
 	fs.Func("arg", "runbook argument `value`, in order (repeatable)", func(v string) error {
 		f.args = append(f.args, v)
@@ -102,11 +106,48 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 	if rb.Timeout != nil {
 		engine.ServerTimeout = time.Duration(*rb.Timeout)
 	}
+	tracker, code := c.runbookTracker(f, rb, plan)
+	if tracker == nil {
+		return code
+	}
+	engine.Progress = tracker
+
 	ctx, cancel := c.runContext(st)
 	defer cancel()
-	return c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
-		return runner.Run(ctx, engine, servers, executor.Request{}, c.runnerOptions(st, &f.ro), emit)
+	var succeeded bool
+	code = c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
+		report := runner.Run(ctx, engine, servers, executor.Request{}, c.runnerOptions(st, &f.ro), emit)
+		succeeded = report.Summary.Succeeded()
+		return report
 	})
+	if err := tracker.Err(); err != nil {
+		c.errorf("saving runbook progress: %v", err)
+	}
+	if succeeded {
+		if err := tracker.Finish(); err != nil {
+			c.errorf("removing runbook progress: %v", err)
+		}
+	} else {
+		fmt.Fprintf(c.stderr, "msh: to continue after fixing the problem, run it again with --resume\n")
+	}
+	return code
+}
+
+// runbookTracker opens the progress file of a run. On failure it prints
+// the error and returns nil and the exit code.
+func (c *cli) runbookTracker(f *runbookRunFlags, rb *runbook.Runbook, plan []runbook.PlannedStep) (*runbook.Tracker, exitcode.Code) {
+	dir := config.StateDir(c.lookupEnv)
+	if dir == "" {
+		c.errorf("cannot find a state directory: set HOME or XDG_STATE_HOME")
+		return nil, exitcode.Config
+	}
+	path := filepath.Join(dir, "runbooks", rb.Name+".json")
+	tracker, err := runbook.NewTracker(path, rb.Name, runbook.PlanHash(plan), f.resume)
+	if err != nil {
+		c.errorf("runbook %q: %v", rb.Name, err)
+		return nil, exitcode.Usage
+	}
+	return tracker, exitcode.OK
 }
 
 // planView is the JSON shape of a dry run.

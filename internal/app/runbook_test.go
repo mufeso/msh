@@ -261,3 +261,52 @@ func TestRunbookUnknownPlaceholderIsConfigError(t *testing.T) {
 		t.Errorf("code = %v", code)
 	}
 }
+
+func TestRunbookResume(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	dir := t.TempDir()
+	count := filepath.Join(dir, "count")
+	gate := filepath.Join(dir, "gate")
+	cfg := writeConfig(t, `runbooks:
+  r:
+    arguments:
+      - name: count
+      - name: gate
+    steps:
+      - name: once
+        command: "echo x >> {{count}}"
+        allow_redirection: true
+      - name: gated
+        command: "test -f {{gate}}"
+        read_only: true
+      - name: last
+        command: "echo finished"
+        read_only: true
+`)
+	env := map[string]string{"HOME": t.TempDir()}
+	args := append([]string{"runbook", "run", "r", "--all", "--yes", "--config", cfg, "--param", "count=" + count, "--param", "gate=" + gate}, fleet.args()...)
+
+	_, stderr, code := runCLIEnv(t, env, args...)
+	if code != exitcode.Failure || !contains(stderr, "--resume") {
+		t.Fatalf("first run: code = %v, stderr = %q", code, stderr)
+	}
+	if err := os.WriteFile(gate, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runCLIEnv(t, env, append(args, "--resume")...)
+	if code != exitcode.OK {
+		t.Fatalf("resume: code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "--- step once: already done") || !contains(stdout, "finished") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	data, _ := os.ReadFile(count)
+	if len(data) != 4 { // "x\n" once per server, not twice
+		t.Errorf("the first step ran again: %q", data)
+	}
+	// Success removed the state, so there is nothing left to resume.
+	_, stderr, code = runCLIEnv(t, env, append(args, "--resume")...)
+	if code != exitcode.Usage || !contains(stderr, "no saved progress") {
+		t.Errorf("after success: code = %v, stderr = %q", code, stderr)
+	}
+}

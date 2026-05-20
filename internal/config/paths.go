@@ -18,6 +18,19 @@ func DefaultConfigPath(lookup LookupFunc) string {
 	return ""
 }
 
+// StateDir returns the directory for data msh keeps between runs:
+// $XDG_STATE_HOME/msh, or $HOME/.local/state/msh. It returns "" if neither
+// variable is set.
+func StateDir(lookup LookupFunc) string {
+	if dir, ok := lookup("XDG_STATE_HOME"); ok && dir != "" {
+		return filepath.Join(dir, "msh")
+	}
+	if home, ok := lookup("HOME"); ok && home != "" {
+		return filepath.Join(home, ".local", "state", "msh")
+	}
+	return ""
+}
+
 // ExpandHome replaces a leading "~" or "~/" in path with home. Other
 // paths, including "~user/...", are returned unchanged.
 func ExpandHome(path, home string) string {

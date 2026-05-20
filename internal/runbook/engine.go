@@ -21,6 +21,7 @@ type Engine struct {
 	Steps          []PlannedStep
 	DefaultTimeout time.Duration // used by steps without their own timeout
 	ServerTimeout  time.Duration // total limit per server; 0 = none
+	Progress       Progress      // optional: skips finished steps, records new ones
 }
 
 var _ executor.Executor = (*Engine)(nil)
@@ -38,7 +39,16 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 	}
 	var stdout, stderr strings.Builder
 	stopped := false
-	for _, ps := range e.Steps {
+	done := 0
+	if e.Progress != nil {
+		done = e.Progress.Completed(server.Name)
+	}
+	for i, ps := range e.Steps {
+		if i < done {
+			fmt.Fprintf(&stdout, "--- step %s: already done\n", ps.Step.Name)
+			res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusSkipped, ExitCode: -1})
+			continue
+		}
 		if stopped {
 			res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusSkipped, ExitCode: -1})
 			continue
@@ -57,6 +67,10 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 			if r.Err != nil {
 				res.Err = fmt.Errorf("step %q: %w", ps.Step.Name, r.Err)
 			}
+			continue
+		}
+		if e.Progress != nil {
+			e.Progress.Mark(server.Name, i+1)
 		}
 	}
 	res.Stdout, res.Stderr = stdout.String(), stderr.String()
