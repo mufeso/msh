@@ -9,6 +9,7 @@ import (
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
+	"example.com/msh/internal/sshtest"
 )
 
 // writeConfig writes a configuration file for a test.
@@ -308,5 +309,37 @@ func TestRunbookResume(t *testing.T) {
 	_, stderr, code = runCLIEnv(t, env, append(args, "--resume")...)
 	if code != exitcode.Usage || !contains(stderr, "no saved progress") {
 		t.Errorf("after success: code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func TestRunbookEndToEndThroughBastion(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 3, bastion: true, handlers: map[int]sshtest.Handler{2: sshtest.Static("", "broken\n", 4)}})
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "greet", "--all", "--ordered", "--output", "json"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	var run output.RunView
+	if err := json.Unmarshal([]byte(stdout), &run); err != nil {
+		t.Fatal(err)
+	}
+	if run.Results[0].Status != "ok" || run.Results[1].Status != "failed" || run.Results[2].Status != "ok" {
+		t.Errorf("results = %+v", run.Results)
+	}
+	if s := run.Results[1].Steps; s[0].ExitCode != 4 || s[1].Status != "skipped" {
+		t.Errorf("s2 steps = %+v", s)
+	}
+	if run.Summary.Failed != 1 || len(fleet.bastion.Forwards()) < 5 {
+		t.Errorf("summary = %+v, forwards = %d", run.Summary, len(fleet.bastion.Forwards()))
+	}
+}
+
+func TestExampleRunbookDryRun(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "runbook", "run", "restart-web", "--all", "--dry-run", "--config", exampleConfig, "--inventory", exampleInventory, "--param", "service=httpd")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "sudo systemctl restart httpd") || !contains(stdout, "is-active httpd") {
+		t.Errorf("stdout = %q", stdout)
 	}
 }
