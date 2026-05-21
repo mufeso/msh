@@ -55,6 +55,9 @@ func (rb *Runbook) validate(tasks *task.Set) error {
 	if len(rb.Steps) == 0 {
 		return errors.New("at least one step is required")
 	}
+	if err := validateRollout(rb.Batch, rb.MaxFailures, rb.Canary); err != nil {
+		return err
+	}
 	// A small helper task gives runbooks the same argument rules as tasks.
 	inputs, err := task.NewSet(map[string]task.Task{rb.Name: {Command: "true", Arguments: rb.Arguments}})
 	if err != nil {
@@ -154,4 +157,26 @@ func (s *Set) Names() []string {
 		out = append(out, rb.Name)
 	}
 	return out
+}
+
+// validateRollout checks rollout settings from a file or from flags.
+func validateRollout(batch, maxFailures string, canary int) error {
+	if batch != "" {
+		a, err := ParseAmount(batch)
+		if err != nil {
+			return fmt.Errorf("batch: %w", err)
+		}
+		if a.Value == 0 {
+			return errors.New("batch must be greater than 0")
+		}
+	}
+	if maxFailures != "" {
+		if _, err := ParseAmount(maxFailures); err != nil {
+			return fmt.Errorf("max_failures: %w", err)
+		}
+	}
+	if canary < 0 {
+		return errors.New("canary must not be negative")
+	}
+	return nil
 }

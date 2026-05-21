@@ -45,6 +45,14 @@ type Runbook struct {
 	// Arguments are the runbook's inputs, used in steps as {{name}}.
 	Arguments []task.Argument `json:"arguments,omitempty" yaml:"arguments,omitempty"`
 
+	// Rollout settings; see Rollout.
+	Batch       string           `json:"batch,omitempty" yaml:"batch,omitempty"`               // servers per batch: "2" or "25%"
+	MaxFailures string           `json:"max_failures,omitempty" yaml:"max_failures,omitempty"` // failures tolerated: "0", "1", "10%"
+	Canary      int              `json:"canary,omitempty" yaml:"canary,omitempty"`             // size of a first, smaller batch
+	Pause       *config.Duration `json:"pause,omitempty" yaml:"pause,omitempty"`               // wait between batches
+	Stagger     *config.Duration `json:"stagger,omitempty" yaml:"stagger,omitempty"`           // gap between server starts
+	Approve     bool             `json:"approve,omitempty" yaml:"approve,omitempty"`           // ask before each next batch
+
 	// inputs validates and binds Arguments; it is set during validation.
 	inputs *task.Task
 }
