@@ -343,3 +343,24 @@ func TestExampleRunbookDryRun(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+const rollingRunbooks = `runbooks:
+  roll:
+    batch: 2
+    steps:
+      - name: work
+        command: "echo working"
+        read_only: true
+`
+
+func TestRollingRunbook(t *testing.T) {
+	fleet := newTestFleet(t, 5, nil)
+	cfg := writeConfig(t, rollingRunbooks)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--prefix"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "--- 5 servers: 5 ok") {
+		t.Errorf("one merged summary expected:\n%s", stdout)
+	}
+}

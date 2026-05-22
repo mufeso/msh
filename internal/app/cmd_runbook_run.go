@@ -112,11 +112,17 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 	}
 	engine.Progress = tracker
 
+	rollout, err := rb.NewRollout(len(servers))
+	if err != nil {
+		c.errorf("runbook %q: %v", rb.Name, err)
+		return exitcode.Usage
+	}
+
 	ctx, cancel := c.runContext(st)
 	defer cancel()
 	var succeeded bool
 	code = c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
-		report := runner.Run(ctx, engine, servers, executor.Request{}, c.runnerOptions(st, &f.ro), emit)
+		report := rollout.Run(ctx, engine, servers, c.runnerOptions(st, &f.ro), emit)
 		succeeded = report.Summary.Succeeded()
 		return report
 	})
