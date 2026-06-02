@@ -73,3 +73,42 @@ func TestRolloutRespectsWorkersInsideABatch(t *testing.T) {
 		t.Errorf("max concurrent = %d, want the batch size 3", got)
 	}
 }
+
+func TestRolloutStopsAfterFailure(t *testing.T) {
+	l := &timeline{fail: map[string]bool{"s2": true}}
+	report := Rollout{BatchSize: 2, MaxFailures: 0}.Run(context.Background(), l, fleet(6), runner.Options{Workers: 2}, nil)
+	s := report.Summary
+	if s.Total != 6 || s.OK != 1 || s.Failed != 1 || s.Skipped != 4 {
+		t.Fatalf("summary = %+v", s)
+	}
+	if l.index("start s3") != -1 {
+		t.Error("the next batch started after the limit was exceeded")
+	}
+	if got := report.Results[5]; got.Status != executor.StatusSkipped || got.Err == nil {
+		t.Errorf("s6 = %+v", got)
+	}
+}
+
+func TestRolloutToleratesFailuresUpToTheLimit(t *testing.T) {
+	l := &timeline{fail: map[string]bool{"s1": true, "s3": true}}
+	report := Rollout{BatchSize: 1, MaxFailures: 1}.Run(context.Background(), l, fleet(4), runner.Options{Workers: 1}, nil)
+	s := report.Summary
+	if s.Failed != 2 || s.OK != 1 || s.Skipped != 1 {
+		t.Errorf("summary = %+v", s)
+	}
+}
+
+func TestNewRolloutDefaults(t *testing.T) {
+	r, _ := (&Runbook{}).NewRollout(10)
+	if r.BatchSize != 0 || r.MaxFailures != -1 {
+		t.Errorf("no settings: %+v", r)
+	}
+	r, _ = (&Runbook{Batch: "25%"}).NewRollout(10)
+	if r.BatchSize != 3 || r.MaxFailures != 0 {
+		t.Errorf("batch: %+v", r)
+	}
+	r, _ = (&Runbook{Batch: "2", MaxFailures: "10%"}).NewRollout(25)
+	if r.MaxFailures != 3 {
+		t.Errorf("percent failures: %+v", r)
+	}
+}

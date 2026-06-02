@@ -364,3 +364,18 @@ func TestRollingRunbook(t *testing.T) {
 		t.Errorf("one merged summary expected:\n%s", stdout)
 	}
 }
+
+func TestRollingRunbookStopsOnFailure(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 5, handlers: map[int]sshtest.Handler{2: sshtest.Static("", "", 1)}})
+	cfg := writeConfig(t, rollingRunbooks)
+	stdout, _, code := fleet.run(t, []string{"runbook", "run", "roll", "--all"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d", code)
+	}
+	if !contains(stdout, "=== s3: skipped") || !contains(stdout, "rollout stopped: 1 failed servers (limit 0)") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if len(fleet.servers[3].Commands()) != 0 {
+		t.Error("a later batch ran")
+	}
+}

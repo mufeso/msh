@@ -16,6 +16,7 @@ type Summary struct {
 	Error    int      `json:"error"`
 	Timeout  int      `json:"timeout"`
 	Canceled int      `json:"canceled"`
+	Skipped  int      `json:"skipped"`
 	Problems []string `json:"problems"` // servers that did not succeed, in selection order
 
 	// Duration is the wall-clock time of the whole run. In parallel mode
@@ -30,7 +31,7 @@ func (s Summary) String() string {
 	for _, p := range []struct {
 		n     int
 		label string
-	}{{s.Failed, "failed"}, {s.Error, "error"}, {s.Timeout, "timeout"}, {s.Canceled, "canceled"}} {
+	}{{s.Failed, "failed"}, {s.Error, "error"}, {s.Timeout, "timeout"}, {s.Canceled, "canceled"}, {s.Skipped, "skipped"}} {
 		if p.n > 0 {
 			parts = append(parts, fmt.Sprintf("%d %s", p.n, p.label))
 		}
@@ -64,6 +65,8 @@ func Summarize(results []executor.Result) Summary {
 			s.Timeout++
 		case executor.StatusCanceled:
 			s.Canceled++
+		case executor.StatusSkipped:
+			s.Skipped++
 		default:
 			s.Error++
 		}

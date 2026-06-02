@@ -171,3 +171,15 @@ func newDeliverer(emit func(executor.Result), ordered bool) func(indexed) {
 		}
 	}
 }
+
+// Skipped is the result for a server deliberately left untouched.
+func Skipped(s inventory.Server, reason string) executor.Result {
+	return executor.Result{
+		Server:   s.Name,
+		Address:  s.Address,
+		Status:   executor.StatusSkipped,
+		ExitCode: -1,
+		Err:      errors.New(reason),
+		Started:  time.Now(),
+	}
+}

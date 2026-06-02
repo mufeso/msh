@@ -14,6 +14,7 @@ var statusPriority = []executor.Status{
 	executor.StatusTimeout,
 	executor.StatusError,
 	executor.StatusFailed,
+	executor.StatusSkipped,
 }
 
 // exitCodeForResults returns the process exit code for a set of results.
@@ -36,7 +37,7 @@ func exitCodeForStatus(st executor.Status) exitcode.Code {
 	switch st {
 	case executor.StatusOK:
 		return exitcode.OK
-	case executor.StatusFailed:
+	case executor.StatusFailed, executor.StatusSkipped:
 		return exitcode.Failure
 	case executor.StatusTimeout:
 		return exitcode.Timeout
