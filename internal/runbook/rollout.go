@@ -17,6 +17,11 @@ type Rollout struct {
 	MaxFailures int // failed servers tolerated before stopping; negative = no limit
 }
 
+// Groups returns the batches this rollout will use.
+func (r Rollout) Groups(servers []inventory.Server) [][]inventory.Server {
+	return Batches(servers, r.BatchSize)
+}
+
 // Run executes ex on all servers and returns one merged report, with the
 // results in selection order.
 func (r Rollout) Run(ctx context.Context, ex executor.Executor, servers []inventory.Server, opts runner.Options, emit func(executor.Result)) runner.Report {
@@ -24,7 +29,7 @@ func (r Rollout) Run(ctx context.Context, ex executor.Executor, servers []invent
 	results := make([]executor.Result, 0, len(servers))
 	failures := 0
 	stopReason := ""
-	for _, batch := range Batches(servers, r.BatchSize) {
+	for _, batch := range r.Groups(servers) {
 		if stopReason != "" {
 			results = append(results, skipBatch(batch, stopReason, emit)...)
 			continue

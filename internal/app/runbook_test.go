@@ -78,7 +78,7 @@ func TestRunbookDryRunContactsNobody(t *testing.T) {
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d, stderr = %s", code, stderr)
 	}
-	for _, want := range []string{"2 steps on 2 servers", "Servers: s1, s2", "$ echo hello", "$ sh -c 'echo second | cat'"} {
+	for _, want := range []string{"2 steps on 2 servers", "Batch 1: s1, s2", "$ echo hello", "$ sh -c 'echo second | cat'"} {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}
@@ -389,5 +389,16 @@ func TestRolloutFlags(t *testing.T) {
 	}
 	if _, stderr, code := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--batch", "many"}, "--config", cfg); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "batch:") {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}
+
+func TestDryRunShowsBatches(t *testing.T) {
+	fleet := newTestFleet(t, 5, nil)
+	cfg := writeConfig(t, rollingRunbooks)
+	stdout, _, _ := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--dry-run"}, "--config", cfg)
+	for _, want := range []string{"Batch 1: s1, s2", "Batch 3: s5", "Stops after more than 0 failed servers"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
 	}
 }

@@ -91,19 +91,24 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 		return exitcode.Usage
 	}
 	safety := rb.Safety(st.tasks)
+	rollout, err := rb.NewRollout(len(servers))
+	if err != nil {
+		c.errorf("runbook %q: %v", rb.Name, err)
+		return exitcode.Usage
+	}
 	if f.dryRun {
-		return c.printRunbookPlan(&f.opts, rb, safety, servers, plan)
+		return c.printRunbookPlan(&f.opts, rb, safety, rollout, servers, plan)
 	}
 	if safety != task.SafetyReadOnly && !f.yes {
 		c.errorf("runbook %q is classified %q; review it with --dry-run, then add --yes to run it", rb.Name, safety)
 		return exitcode.Usage
 	}
-	return c.executeRunbook(&f, st, rb, servers, plan)
+	return c.executeRunbook(&f, st, rb, rollout, servers, plan)
 }
 
 // executeRunbook runs the plan on the servers. The engine is an Executor,
 // so the normal worker pool and output path do the rest.
-func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
+func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook, rollout runbook.Rollout, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
 	stack, code := c.newSSH(&f.opts, &f.ro, st)
 	if stack == nil {
 		return code
@@ -119,12 +124,6 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 		return code
 	}
 	engine.Progress = tracker
-
-	rollout, err := rb.NewRollout(len(servers))
-	if err != nil {
-		c.errorf("runbook %q: %v", rb.Name, err)
-		return exitcode.Usage
-	}
 
 	ctx, cancel := c.runContext(st)
 	defer cancel()
@@ -166,10 +165,12 @@ func (c *cli) runbookTracker(f *runbookRunFlags, rb *runbook.Runbook, plan []run
 
 // planView is the JSON shape of a dry run.
 type planView struct {
-	Runbook string         `json:"runbook"`
-	Safety  string         `json:"safety"`
-	Servers []string       `json:"servers"`
-	Steps   []planStepView `json:"steps"`
+	Runbook     string         `json:"runbook"`
+	Safety      string         `json:"safety"`
+	Servers     []string       `json:"servers"`
+	Steps       []planStepView `json:"steps"`
+	Batches     [][]string     `json:"batches"`
+	MaxFailures int            `json:"max_failures"`
 }
 
 type planStepView struct {
@@ -179,8 +180,15 @@ type planStepView struct {
 }
 
 // printRunbookPlan prints what a run would do.
-func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety task.Safety, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
-	view := planView{Runbook: rb.Name, Safety: string(safety)}
+func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety task.Safety, rollout runbook.Rollout, servers []inventory.Server, plan []runbook.PlannedStep) exitcode.Code {
+	view := planView{Runbook: rb.Name, Safety: string(safety), MaxFailures: rollout.MaxFailures}
+	for _, batch := range rollout.Groups(servers) {
+		var names []string
+		for _, s := range batch {
+			names = append(names, s.Name)
+		}
+		view.Batches = append(view.Batches, names)
+	}
 	for _, s := range servers {
 		view.Servers = append(view.Servers, s.Name)
 	}
@@ -198,7 +206,12 @@ func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety 
 	}
 	fmt.Fprintf(c.stdout, "Runbook %s: %d steps on %d servers (dry run, nothing was executed)\n", rb.Name, len(plan), len(servers))
 	fmt.Fprintf(c.stdout, "Safety:  %s\n", safety)
-	fmt.Fprintf(c.stdout, "Servers: %s\n", strings.Join(view.Servers, ", "))
+	for i, names := range view.Batches {
+		fmt.Fprintf(c.stdout, "Batch %d: %s\n", i+1, strings.Join(names, ", "))
+	}
+	if rollout.MaxFailures >= 0 {
+		fmt.Fprintf(c.stdout, "Stops after more than %d failed servers\n", rollout.MaxFailures)
+	}
 	for i, s := range view.Steps {
 		fmt.Fprintf(c.stdout, "  %d. %s\n     $ %s\n", i+1, s.Name, s.Command)
 	}
