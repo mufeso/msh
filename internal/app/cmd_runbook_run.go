@@ -30,6 +30,7 @@ type runbookRunFlags struct {
 	dryRun bool
 	yes    bool
 	resume bool
+	over   runbook.Overrides
 	args   []string
 	params map[string]string
 }
@@ -43,6 +44,8 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print the plan without connecting to any server")
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a runbook classified as changes or dangerous")
 	fs.BoolVar(&f.resume, "resume", false, "continue a failed run, skipping steps that already finished")
+	fs.StringVar(&f.over.Batch, "batch", "", "servers per batch: a `number` or percentage, e.g. 2 or 25%")
+	fs.StringVar(&f.over.MaxFailures, "max-failures", "", "failed servers tolerated before stopping: a `number` or percentage")
 	f.params = map[string]string{}
 	fs.Func("arg", "runbook argument `value`, in order (repeatable)", func(v string) error {
 		f.args = append(f.args, v)
@@ -71,6 +74,11 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	rb, code := c.findRunbook(st, names[0])
 	if rb == nil {
 		return code
+	}
+	rb, err := rb.WithOverrides(f.over)
+	if err != nil {
+		c.errorf("%v", err)
+		return exitcode.Usage
 	}
 	values, err := rb.Bind(f.args, f.params)
 	if err != nil {

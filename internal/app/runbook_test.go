@@ -379,3 +379,15 @@ func TestRollingRunbookStopsOnFailure(t *testing.T) {
 		t.Error("a later batch ran")
 	}
 }
+
+func TestRolloutFlags(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 4, handlers: map[int]sshtest.Handler{1: sshtest.Static("", "", 1)}})
+	cfg := writeConfig(t, rollingRunbooks)
+	stdout, _, _ := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--batch", "25%", "--max-failures", "1"}, "--config", cfg)
+	if contains(stdout, "skipped") {
+		t.Errorf("one failure is within the limit:\n%s", stdout)
+	}
+	if _, stderr, code := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--batch", "many"}, "--config", cfg); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "batch:") {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}

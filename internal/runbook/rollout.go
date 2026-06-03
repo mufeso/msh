@@ -54,6 +54,27 @@ func skipBatch(batch []inventory.Server, reason string, emit func(executor.Resul
 	return out
 }
 
+// Overrides are rollout settings from the command line; empty values
+// keep the runbook's settings.
+type Overrides struct {
+	Batch       string
+	MaxFailures string
+}
+
+// WithOverrides returns a copy of the runbook with o applied.
+func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
+	if err := validateRollout(o.Batch, o.MaxFailures, 0); err != nil {
+		return nil, err
+	}
+	if o.Batch != "" {
+		rb.Batch = o.Batch
+	}
+	if o.MaxFailures != "" {
+		rb.MaxFailures = o.MaxFailures
+	}
+	return &rb, nil
+}
+
 // NewRollout resolves the runbook's settings for a selection of total
 // servers. Without batches there is no limit on failures, as for any
 // parallel run; with batches the default limit is 0.
