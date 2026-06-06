@@ -50,6 +50,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	fs.BoolVar(&f.resume, "resume", false, "continue a failed run, skipping steps that already finished")
 	fs.StringVar(&f.over.Batch, "batch", "", "servers per batch: a `number` or percentage, e.g. 2 or 25%")
 	fs.StringVar(&f.over.MaxFailures, "max-failures", "", "failed servers tolerated before stopping: a `number` or percentage")
+	fs.IntVar(&f.over.Canary, "canary", 0, "run a first batch of this many `servers`")
 	fs.DurationVar(&f.over.Pause, "pause", 0, "wait this `long` between batches")
 	fs.BoolVar(&f.approve, "approve", false, "ask before each next batch")
 	fs.BoolVar(&f.autoApprove, "auto-approve", false, "never ask, even if the runbook sets approve: true")

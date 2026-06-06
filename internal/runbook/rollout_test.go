@@ -138,3 +138,31 @@ func TestCancelDuringPause(t *testing.T) {
 		t.Errorf("summary = %+v", report.Summary)
 	}
 }
+
+func TestCanaryGroups(t *testing.T) {
+	tests := []struct {
+		r    Rollout
+		n    int
+		want string
+	}{
+		{Rollout{Canary: 1, BatchSize: 2}, 5, "s1|s2,s3|s4,s5"},
+		{Rollout{Canary: 1}, 4, "s1|s2,s3,s4"},
+		{Rollout{Canary: 9, BatchSize: 2}, 3, "s1,s2|s3"},
+		{Rollout{BatchSize: 2}, 3, "s1,s2|s3"},
+	}
+	for _, tt := range tests {
+		if got := shape(tt.r.Groups(fleet(tt.n))); got != tt.want {
+			t.Errorf("%+v: %q, want %q", tt.r, got, tt.want)
+		}
+	}
+}
+
+func TestCanaryFailureProtectsTheFleet(t *testing.T) {
+	l := &timeline{fail: map[string]bool{"s1": true}}
+	rb := Runbook{Canary: 1}
+	r, _ := rb.NewRollout(4)
+	report := r.Run(context.Background(), l, fleet(4), runner.Options{Workers: 4}, nil)
+	if report.Summary.Failed != 1 || report.Summary.Skipped != 3 {
+		t.Errorf("summary = %+v", report.Summary)
+	}
+}

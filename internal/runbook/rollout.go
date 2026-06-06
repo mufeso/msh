@@ -14,6 +14,7 @@ import (
 // Rollout runs servers batch by batch: a batch must finish before the
 // next starts, so only part of the fleet is affected at any moment.
 type Rollout struct {
+	Canary      int           // size of a smaller first batch; 0 = none
 	BatchSize   int           // 0 = everything in one batch
 	MaxFailures int           // failed servers tolerated before stopping; negative = no limit
 	Pause       time.Duration // wait between batches
@@ -25,7 +26,11 @@ type Rollout struct {
 
 // Groups returns the batches this rollout will use.
 func (r Rollout) Groups(servers []inventory.Server) [][]inventory.Server {
-	return Batches(servers, r.BatchSize)
+	if r.Canary <= 0 || r.Canary >= len(servers) {
+		return Batches(servers, r.BatchSize)
+	}
+	canary := servers[:r.Canary:r.Canary]
+	return append([][]inventory.Server{canary}, Batches(servers[r.Canary:], r.BatchSize)...)
 }
 
 // Run executes ex on all servers and returns one merged report, with the
@@ -80,11 +85,12 @@ type Overrides struct {
 	Batch       string
 	MaxFailures string
 	Pause       time.Duration
+	Canary      int
 }
 
 // WithOverrides returns a copy of the runbook with o applied.
 func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
-	if err := validateRollout(o.Batch, o.MaxFailures, 0); err != nil {
+	if err := validateRollout(o.Batch, o.MaxFailures, o.Canary); err != nil {
 		return nil, err
 	}
 	if o.Batch != "" {
@@ -92,6 +98,9 @@ func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
 	}
 	if o.MaxFailures != "" {
 		rb.MaxFailures = o.MaxFailures
+	}
+	if o.Canary > 0 {
+		rb.Canary = o.Canary
 	}
 	if o.Pause > 0 {
 		d := config.Duration(o.Pause)
@@ -104,7 +113,10 @@ func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
 // servers. Without batches there is no limit on failures, as for any
 // parallel run; with batches the default limit is 0.
 func (rb *Runbook) NewRollout(total int) (Rollout, error) {
-	r := Rollout{MaxFailures: -1}
+	r := Rollout{MaxFailures: -1, Canary: rb.Canary}
+	if rb.Canary > 0 {
+		r.MaxFailures = 0
+	}
 	if rb.Batch != "" {
 		a, err := ParseAmount(rb.Batch)
 		if err != nil {
