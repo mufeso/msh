@@ -112,3 +112,29 @@ func TestNewRolloutDefaults(t *testing.T) {
 		t.Errorf("percent failures: %+v", r)
 	}
 }
+
+func TestPauseBetweenBatches(t *testing.T) {
+	l := &timeline{}
+	start := time.Now()
+	Rollout{BatchSize: 1, MaxFailures: -1, Pause: 30 * time.Millisecond}.Run(context.Background(), l, fleet(3), runner.Options{Workers: 1}, nil)
+	if elapsed := time.Since(start); elapsed < 60*time.Millisecond {
+		t.Errorf("two pauses took only %v", elapsed)
+	}
+}
+
+func TestCancelDuringPause(t *testing.T) {
+	l := &timeline{}
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		cancel()
+	}()
+	start := time.Now()
+	report := Rollout{BatchSize: 1, MaxFailures: -1, Pause: time.Hour}.Run(ctx, l, fleet(3), runner.Options{Workers: 1}, nil)
+	if time.Since(start) > 2*time.Second {
+		t.Error("the pause ignored cancellation")
+	}
+	if report.Summary.OK != 1 || report.Summary.Skipped != 2 {
+		t.Errorf("summary = %+v", report.Summary)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/runner"
@@ -13,8 +14,9 @@ import (
 // Rollout runs servers batch by batch: a batch must finish before the
 // next starts, so only part of the fleet is affected at any moment.
 type Rollout struct {
-	BatchSize   int // 0 = everything in one batch
-	MaxFailures int // failed servers tolerated before stopping; negative = no limit
+	BatchSize   int           // 0 = everything in one batch
+	MaxFailures int           // failed servers tolerated before stopping; negative = no limit
+	Pause       time.Duration // wait between batches
 }
 
 // Groups returns the batches this rollout will use.
@@ -29,7 +31,10 @@ func (r Rollout) Run(ctx context.Context, ex executor.Executor, servers []invent
 	results := make([]executor.Result, 0, len(servers))
 	failures := 0
 	stopReason := ""
-	for _, batch := range r.Groups(servers) {
+	for i, batch := range r.Groups(servers) {
+		if stopReason == "" && i > 0 && r.Pause > 0 && !wait(ctx, r.Pause) {
+			stopReason = "rollout stopped: interrupted during the pause"
+		}
 		if stopReason != "" {
 			results = append(results, skipBatch(batch, stopReason, emit)...)
 			continue
@@ -64,6 +69,7 @@ func skipBatch(batch []inventory.Server, reason string, emit func(executor.Resul
 type Overrides struct {
 	Batch       string
 	MaxFailures string
+	Pause       time.Duration
 }
 
 // WithOverrides returns a copy of the runbook with o applied.
@@ -76,6 +82,10 @@ func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
 	}
 	if o.MaxFailures != "" {
 		rb.MaxFailures = o.MaxFailures
+	}
+	if o.Pause > 0 {
+		d := config.Duration(o.Pause)
+		rb.Pause = &d
 	}
 	return &rb, nil
 }
@@ -99,6 +109,9 @@ func (rb *Runbook) NewRollout(total int) (Rollout, error) {
 			return r, err
 		}
 		r.MaxFailures = a.Of(total)
+	}
+	if rb.Pause != nil {
+		r.Pause = time.Duration(*rb.Pause)
 	}
 	return r, nil
 }
