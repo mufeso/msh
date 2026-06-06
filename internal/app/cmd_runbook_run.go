@@ -31,6 +31,10 @@ type runbookRunFlags struct {
 	yes    bool
 	resume bool
 	over   runbook.Overrides
+
+	approve     bool
+	autoApprove bool
+
 	args   []string
 	params map[string]string
 }
@@ -47,6 +51,8 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	fs.StringVar(&f.over.Batch, "batch", "", "servers per batch: a `number` or percentage, e.g. 2 or 25%")
 	fs.StringVar(&f.over.MaxFailures, "max-failures", "", "failed servers tolerated before stopping: a `number` or percentage")
 	fs.DurationVar(&f.over.Pause, "pause", 0, "wait this `long` between batches")
+	fs.BoolVar(&f.approve, "approve", false, "ask before each next batch")
+	fs.BoolVar(&f.autoApprove, "auto-approve", false, "never ask, even if the runbook sets approve: true")
 	f.params = map[string]string{}
 	fs.Func("arg", "runbook argument `value`, in order (repeatable)", func(v string) error {
 		f.args = append(f.args, v)
@@ -103,6 +109,13 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	if safety != task.SafetyReadOnly && !f.yes {
 		c.errorf("runbook %q is classified %q; review it with --dry-run, then add --yes to run it", rb.Name, safety)
 		return exitcode.Usage
+	}
+	if (rb.Approve || f.approve) && !f.autoApprove {
+		if !c.terminal().IsTerminal() {
+			c.errorf("runbook %q asks for approval, which needs a terminal; use --auto-approve in scripts", rb.Name)
+			return exitcode.Usage
+		}
+		rollout.Approve = c.terminalApprover()
 	}
 	return c.executeRunbook(&f, st, rb, rollout, servers, plan)
 }

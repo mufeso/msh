@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -400,5 +401,41 @@ func TestDryRunShowsBatches(t *testing.T) {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}
+	}
+}
+
+func TestRolloutApproval(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	cfg := writeConfig(t, rollingRunbooks)
+	args := append([]string{"runbook", "run", "roll", "--all", "--batch", "1", "--approve", "--config", cfg}, fleet.args()...)
+
+	ctx := withInput(context.Background(), "y\nn\n")
+	stdout, stderr, code := runCLICtx(t, ctx, nil, args...)
+	if code != exitcode.Failure {
+		t.Errorf("code = %v", code)
+	}
+	if !contains(stderr, "Continue with batch 2/3 (s2)?") || !contains(stderr, "Continue with batch 3/3 (s3)?") {
+		t.Errorf("stderr = %q", stderr)
+	}
+	if !contains(stdout, "=== s3: skipped") || !contains(stdout, "not approved") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if len(fleet.servers[1].Commands()) != 1 || len(fleet.servers[2].Commands()) != 0 {
+		t.Error("approval did not control the batches")
+	}
+
+	if _, stderr, code := runCLICtx(t, context.Background(), nil, append(args, "--auto-approve")...); code != exitcode.OK || contains(stderr, "Continue") {
+		t.Errorf("--auto-approve: code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func TestApprovalNeedsTerminal(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	cfg := writeConfig(t, rollingRunbooks)
+	configure := func(c *cli) { c.term.(*testTerminal).tty = false }
+	args := append([]string{"runbook", "run", "roll", "--all", "--approve", "--config", cfg}, fleet.args()...)
+	_, stderr, code := runCLIWith(t, context.Background(), nil, configure, args...)
+	if code != exitcode.Usage || !contains(stderr, "--auto-approve") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }

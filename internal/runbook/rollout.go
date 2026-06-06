@@ -17,6 +17,10 @@ type Rollout struct {
 	BatchSize   int           // 0 = everything in one batch
 	MaxFailures int           // failed servers tolerated before stopping; negative = no limit
 	Pause       time.Duration // wait between batches
+
+	// Approve, if set, is asked before each batch after the first; next
+	// is 1-based. The rollout stops unless it returns true.
+	Approve func(ctx context.Context, next, total int, batch []inventory.Server) (bool, error)
 }
 
 // Groups returns the batches this rollout will use.
@@ -31,9 +35,15 @@ func (r Rollout) Run(ctx context.Context, ex executor.Executor, servers []invent
 	results := make([]executor.Result, 0, len(servers))
 	failures := 0
 	stopReason := ""
-	for i, batch := range r.Groups(servers) {
+	groups := r.Groups(servers)
+	for i, batch := range groups {
 		if stopReason == "" && i > 0 && r.Pause > 0 && !wait(ctx, r.Pause) {
 			stopReason = "rollout stopped: interrupted during the pause"
+		}
+		if stopReason == "" && i > 0 && r.Approve != nil {
+			if ok, err := r.Approve(ctx, i+1, len(groups), batch); err != nil || !ok {
+				stopReason = "rollout stopped: the next batch was not approved"
+			}
 		}
 		if stopReason != "" {
 			results = append(results, skipBatch(batch, stopReason, emit)...)
