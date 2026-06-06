@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -52,6 +54,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	fs.StringVar(&f.over.MaxFailures, "max-failures", "", "failed servers tolerated before stopping: a `number` or percentage")
 	fs.IntVar(&f.over.Canary, "canary", 0, "run a first batch of this many `servers`")
 	fs.DurationVar(&f.over.Pause, "pause", 0, "wait this `long` between batches")
+	fs.DurationVar(&f.over.Stagger, "stagger", 0, "wait this `long` between server starts")
 	fs.BoolVar(&f.approve, "approve", false, "ask before each next batch")
 	fs.BoolVar(&f.autoApprove, "auto-approve", false, "never ask, even if the runbook sets approve: true")
 	f.params = map[string]string{}
@@ -140,16 +143,25 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 	}
 	engine.Progress = tracker
 
+	var exec executor.Executor = engine
+	if rb.Stagger != nil {
+		exec = &runbook.Stagger{Exec: engine, Interval: time.Duration(*rb.Stagger)}
+	}
+
 	ctx, cancel := c.runContext(st)
 	defer cancel()
 	var succeeded bool
 	code = c.runAndReport(&f.opts, &f.ro, func(emit func(executor.Result)) runner.Report {
-		report := rollout.Run(ctx, engine, servers, c.runnerOptions(st, &f.ro), emit)
+		report := rollout.Run(ctx, exec, servers, c.runnerOptions(st, &f.ro), emit)
 		succeeded = report.Summary.Succeeded()
 		return report
 	})
 	if err := tracker.Err(); err != nil {
 		c.errorf("saving runbook progress: %v", err)
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		c.errorf("global timeout of %s expired", st.settings.Timeout)
+		code = exitcode.Timeout
 	}
 	if succeeded {
 		if err := tracker.Finish(); err != nil {

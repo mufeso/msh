@@ -439,3 +439,12 @@ func TestApprovalNeedsTerminal(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestGlobalTimeoutDuringPauseExitsTimeout(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	cfg := writeConfig(t, rollingRunbooks)
+	_, stderr, code := fleet.run(t, []string{"runbook", "run", "roll", "--all", "--batch", "1", "--pause", "1h", "--timeout", "300ms"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.Timeout || !contains(stderr, "global timeout") {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}

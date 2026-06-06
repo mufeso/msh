@@ -86,6 +86,7 @@ type Overrides struct {
 	MaxFailures string
 	Pause       time.Duration
 	Canary      int
+	Stagger     time.Duration
 }
 
 // WithOverrides returns a copy of the runbook with o applied.
@@ -101,6 +102,10 @@ func (rb Runbook) WithOverrides(o Overrides) (*Runbook, error) {
 	}
 	if o.Canary > 0 {
 		rb.Canary = o.Canary
+	}
+	if o.Stagger > 0 {
+		d := config.Duration(o.Stagger)
+		rb.Stagger = &d
 	}
 	if o.Pause > 0 {
 		d := config.Duration(o.Pause)

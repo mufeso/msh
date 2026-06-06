@@ -67,6 +67,37 @@ counts as `changes` unless it says `read_only: true`. Anything that is not
 read-only needs `--yes`. `--dry-run` prints the exact commands and connects
 to nothing.
 
+## Rolling execution
+
+Without rollout settings, all selected servers run together, limited by
+`--workers`. With them, msh works through the fleet in stages:
+
+```yaml
+runbooks:
+  restart-web:
+    canary: 1          # first, one server alone
+    batch: 25%         # then a quarter of the servers at a time
+    max_failures: 0    # stop after more than this many failed servers
+    pause: 30s         # wait between batches
+    stagger: 2s        # gap between server starts
+    approve: true      # ask before each next batch
+    steps: [...]
+```
+
+| Setting | Flag | Meaning |
+|---------|------|---------|
+| `batch` | `--batch` | servers per batch: a number or a percentage (rounded up) |
+| `canary` | `--canary` | size of a smaller first batch |
+| `max_failures` | `--max-failures` | a number or percentage; default 0 with `batch` or `canary`, otherwise no limit |
+| `pause` | `--pause` | wait between batches |
+| `stagger` | `--stagger` | gap between server starts |
+| `approve` | `--approve`, `--auto-approve` | ask on the terminal before each next batch |
+
+A batch must finish before the next starts. When the limit is exceeded,
+or an approval is refused, the remaining servers are not touched: they are
+reported with status `skipped` and the run exits non-zero. Then fix the
+problem and continue with `--resume`. `--dry-run` shows the batches.
+
 ## Resume
 
 msh records each server's finished steps in

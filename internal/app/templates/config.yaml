@@ -61,6 +61,10 @@ runbooks:
   restart-web:
     description: Restart a service and verify it
     timeout: 10m
+    canary: 1
+    batch: 25%
+    max_failures: 0
+    pause: 30s
     arguments:
       - name: service
         default: nginx
