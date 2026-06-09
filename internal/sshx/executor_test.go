@@ -118,3 +118,15 @@ func TestExecutorNoGoroutineLeak(t *testing.T) {
 		t.Errorf("goroutines: before %d, after %d", before, after)
 	}
 }
+
+func TestExecutorCommandIgnoringStdinSucceeds(t *testing.T) {
+	env := newTestEnv(t, sshtest.Options{Handler: sshtest.Static("done\n", "", 0)})
+	ex := &Executor{Connector: env.dialer(t)}
+	stdin := make([]byte, 4<<20) // more than the SSH window: writing must fail
+	for i := 0; i < 3; i++ {
+		r := ex.Run(context.Background(), env.server0(), executor.Request{Command: "x", Stdin: stdin})
+		if r.Status != executor.StatusOK || r.Stdout != "done\n" {
+			t.Fatalf("result = %+v", r)
+		}
+	}
+}

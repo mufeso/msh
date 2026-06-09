@@ -25,6 +25,7 @@ func commands() []*command {
 		cCommand(),
 		configCommand(),
 		execCommand(),
+		factsCommand(),
 		helpCommand(),
 		hostsCommand(),
 		logsCommand(),

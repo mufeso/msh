@@ -172,7 +172,10 @@ func classifyWait(res *executor.Result, host string, err error) {
 	var exitErr *ssh.ExitError
 	var missing *ssh.ExitMissingError
 	switch {
-	case err == nil:
+	case err == nil, errors.Is(err, io.EOF):
+		// io.EOF: the command exited 0 without reading all of its stdin,
+		// so sending the rest failed. Wait reports that error only after
+		// a successful exit status, and the command did succeed.
 		res.Status, res.ExitCode = executor.StatusOK, 0
 	case errors.As(err, &exitErr):
 		res.Status, res.ExitCode = executor.StatusFailed, exitErr.ExitStatus()

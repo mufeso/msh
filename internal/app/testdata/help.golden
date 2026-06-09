@@ -9,6 +9,7 @@ Commands:
   c             Short form of task run: msh c TASK SERVER
   config        Show and validate configuration
   exec          Run a command on servers
+  facts         Collect and show server facts
   help          Show help for msh or for one command
   hosts         List and check inventory servers
   logs          Show or follow a log file on servers

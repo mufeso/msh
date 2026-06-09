@@ -1,0 +1,61 @@
+package app
+
+import (
+	"context"
+	"encoding/json"
+	"io"
+	"testing"
+
+	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/facts"
+	"example.com/msh/internal/sshtest"
+)
+
+const rockyFacts = "os_id=rocky\nos_like=rhel fedora\nos_version=9.4\nkernel=5.14\narch=x86_64\ncpus=8\nmemory_mb=16000\ndisk_root_pct=91\npackage_manager=rpm\n"
+const ubuntuFacts = "os_id=ubuntu\nos_like=debian\nos_version=24.04\nkernel=6.8\narch=aarch64\ncpus=2\nmemory_mb=4000\ndisk_root_pct=40\npackage_manager=dpkg\n"
+
+// factHandler answers the facts script with output and runs everything
+// else in a real shell.
+func factHandler(output string) sshtest.Handler {
+	return func(ctx context.Context, e *sshtest.Exec) int {
+		if e.Command == facts.Command {
+			io.WriteString(e.Stdout, output)
+			return 0
+		}
+		return sshtest.ShellHandler(ctx, e)
+	}
+}
+
+// mixedFleet has s1 on Rocky and s2 on Ubuntu.
+func mixedFleet(t *testing.T) *testFleet {
+	t.Helper()
+	return newFleet(t, fleetOptions{servers: 2, handlers: map[int]sshtest.Handler{1: factHandler(rockyFacts), 2: factHandler(ubuntuFacts)}})
+}
+
+func TestFactsCommand(t *testing.T) {
+	fleet := mixedFleet(t)
+	stdout, stderr, code := fleet.run(t, []string{"facts"}, "--all", "--output", "json")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	var views []factsView
+	if err := json.Unmarshal([]byte(stdout), &views); err != nil {
+		t.Fatal(err)
+	}
+	if len(views) != 2 || views[0].Facts["os_family"] != "redhat" || views[1].Facts["os_family"] != "debian" {
+		t.Errorf("views = %+v", views)
+	}
+	stdout, _, _ = fleet.run(t, []string{"facts"}, "--all")
+	if !contains(stdout, "rocky") || !contains(stdout, "dpkg") {
+		t.Errorf("table = %q", stdout)
+	}
+}
+
+func TestFactsReportsUnreachableServers(t *testing.T) {
+	fleet := mixedFleet(t)
+	fleet.servers[1].Close()
+	stdout, stderr, code := fleet.run(t, []string{"facts"}, "--all")
+	if exitcode.Code(code) != exitcode.Connection || !contains(stderr, "s2") || !contains(stdout, "rocky") {
+		t.Errorf("code = %d, stderr = %q, stdout = %q", code, stderr, stdout)
+	}
+}
