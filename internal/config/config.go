@@ -29,6 +29,7 @@ const (
 	KeyBastion         = "bastion"
 	KeyAllowedLogPaths = "allowed_log_paths"
 	KeyTmuxLayout      = "tmux_layout"
+	KeyFactsTTL        = "facts_ttl"
 )
 
 // Execution modes.
@@ -71,6 +72,9 @@ type Settings struct {
 	// TmuxLayout is the default layout for "msh shell --tmux".
 	TmuxLayout string `json:"tmux_layout"`
 
+	// FactsTTL is how long collected facts stay valid (0 = no cache).
+	FactsTTL time.Duration `json:"facts_ttl"`
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string `json:"-"`
 }
@@ -87,6 +91,7 @@ func Defaults() Settings {
 		Mode:            ModeParallel,
 		AllowedLogPaths: []string{"/var/log"},
 		TmuxLayout:      "tiled",
+		FactsTTL:        time.Hour,
 		Workers:         5,
 	}
 	s.Sources = map[string]string{}
@@ -101,7 +106,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
-		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths, KeyTmuxLayout,
+		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths, KeyTmuxLayout, KeyFactsTTL,
 	}
 }
 
@@ -121,8 +126,9 @@ type Layer struct {
 	Ordered        *bool     `json:"ordered,omitempty" yaml:"ordered,omitempty"`
 	Bastion        *string   `json:"bastion,omitempty" yaml:"bastion,omitempty"`
 	// A nil slice means "not set"; an empty list allows nothing.
-	AllowedLogPaths []string `json:"allowed_log_paths,omitempty" yaml:"allowed_log_paths,omitempty"`
-	TmuxLayout      *string  `json:"tmux_layout,omitempty" yaml:"tmux_layout,omitempty"`
+	AllowedLogPaths []string  `json:"allowed_log_paths,omitempty" yaml:"allowed_log_paths,omitempty"`
+	TmuxLayout      *string   `json:"tmux_layout,omitempty" yaml:"tmux_layout,omitempty"`
+	FactsTTL        *Duration `json:"facts_ttl,omitempty" yaml:"facts_ttl,omitempty"`
 }
 
 // Source is a named layer.
@@ -165,6 +171,7 @@ func (s *Settings) Apply(name string, l Layer) {
 		set(s, name, KeyAllowedLogPaths, &s.AllowedLogPaths, &paths)
 	}
 	set(s, name, KeyTmuxLayout, &s.TmuxLayout, l.TmuxLayout)
+	setDuration(s, name, KeyFactsTTL, &s.FactsTTL, l.FactsTTL)
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -216,6 +223,8 @@ func (s Settings) Value(key string) string {
 		return strings.Join(s.AllowedLogPaths, ":")
 	case KeyTmuxLayout:
 		return s.TmuxLayout
+	case KeyFactsTTL:
+		return s.FactsTTL.String()
 	default:
 		return ""
 	}

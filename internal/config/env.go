@@ -28,6 +28,7 @@ const (
 	EnvBastion         = "MSH_BASTION"
 	EnvAllowedLogPaths = "MSH_ALLOWED_LOG_PATHS"
 	EnvTmuxLayout      = "MSH_TMUX_LAYOUT"
+	EnvFactsTTL        = "MSH_FACTS_TTL"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -66,6 +67,9 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 		return Layer{}, err
 	}
 	if l.Timeout, err = envDuration(str, EnvTimeout); err != nil {
+		return Layer{}, err
+	}
+	if l.FactsTTL, err = envDuration(str, EnvFactsTTL); err != nil {
 		return Layer{}, err
 	}
 	if l.Workers, err = envInt(str, EnvWorkers); err != nil {

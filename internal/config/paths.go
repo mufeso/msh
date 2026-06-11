@@ -18,6 +18,19 @@ func DefaultConfigPath(lookup LookupFunc) string {
 	return ""
 }
 
+// CacheDir returns the directory for data that can be rebuilt:
+// $XDG_CACHE_HOME/msh, or $HOME/.cache/msh. It returns "" if neither
+// variable is set.
+func CacheDir(lookup LookupFunc) string {
+	if dir, ok := lookup("XDG_CACHE_HOME"); ok && dir != "" {
+		return filepath.Join(dir, "msh")
+	}
+	if home, ok := lookup("HOME"); ok && home != "" {
+		return filepath.Join(home, ".cache", "msh")
+	}
+	return ""
+}
+
 // StateDir returns the directory for data msh keeps between runs:
 // $XDG_STATE_HOME/msh, or $HOME/.local/state/msh. It returns "" if neither
 // variable is set.

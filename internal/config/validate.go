@@ -49,6 +49,9 @@ func (s Settings) Validate() error {
 	if s.CommandTimeout < 0 {
 		verr.add(KeyCommandTimeout, "must not be negative (0 means no limit)")
 	}
+	if s.FactsTTL < 0 {
+		verr.add(KeyFactsTTL, "must not be negative (0 disables the cache)")
+	}
 	if s.Timeout < 0 {
 		verr.add(KeyTimeout, "must not be negative (0 means no limit)")
 	}

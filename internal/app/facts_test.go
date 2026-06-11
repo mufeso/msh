@@ -59,3 +59,18 @@ func TestFactsReportsUnreachableServers(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q, stdout = %q", code, stderr, stdout)
 	}
 }
+
+func TestFactsCacheAndRefresh(t *testing.T) {
+	fleet := mixedFleet(t)
+	env := map[string]string{"HOME": t.TempDir()}
+	args := append([]string{"facts", "--all"}, fleet.args()...)
+	runCLIEnv(t, env, args...)
+	runCLIEnv(t, env, args...)
+	if n := len(fleet.servers[0].Commands()); n != 1 {
+		t.Errorf("%d collections, want 1", n)
+	}
+	runCLIEnv(t, env, append(args, "--refresh")...)
+	if n := len(fleet.servers[0].Commands()); n != 2 {
+		t.Errorf("%d collections after --refresh, want 2", n)
+	}
+}

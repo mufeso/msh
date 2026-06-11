@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 
+	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/facts"
@@ -38,6 +39,7 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	opts.register(fs)
 	sel.register(fs)
 	ro.register(fs)
+	refresh := fs.Bool("refresh", false, "ignore cached facts")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -50,6 +52,7 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	ctx, cancel := c.runContext(p.st)
 	defer cancel()
 	g := c.gatherer(p.st, p.stack.executor)
+	g.Refresh = *refresh
 	found, failed := g.Gather(ctx, p.servers)
 
 	views := make([]factsView, 0, len(found))
@@ -72,7 +75,10 @@ func runFacts(c *cli, args []string) exitcode.Code {
 
 // gatherer builds a fact gatherer from the settings.
 func (c *cli) gatherer(st *setup, exec executor.Executor) *facts.Gatherer {
-	return &facts.Gatherer{Exec: exec, Workers: st.settings.Workers, Timeout: st.settings.CommandTimeout}
+	return &facts.Gatherer{
+		Exec: exec, Workers: st.settings.Workers, Timeout: st.settings.CommandTimeout,
+		CacheDir: config.CacheDir(c.lookupEnv), TTL: st.settings.FactsTTL,
+	}
 }
 
 // reportFailures prints servers that gave no data and returns the exit
