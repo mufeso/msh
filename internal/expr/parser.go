@@ -57,9 +57,23 @@ func Parse(src string) (*Expr, error) {
 	return &Expr{src: src, root: root}, nil
 }
 
+// maxDepth limits nesting of parentheses and "!". Each level is a function
+// call, so unlimited depth would let hostile input overflow the stack.
+const maxDepth = 64
+
 type parser struct {
 	tokens []token
 	pos    int
+	depth  int
+}
+
+// enter counts one more nesting level.
+func (p *parser) enter() error {
+	p.depth++
+	if p.depth > maxDepth {
+		return fmt.Errorf("position %d: expression nested too deeply", p.peek().pos+1)
+	}
+	return nil
 }
 
 func (p *parser) peek() token { return p.tokens[p.pos] }
@@ -107,6 +121,10 @@ func (p *parser) and() (node, error) {
 func (p *parser) unary() (node, error) {
 	if p.peek().kind == tokNot {
 		p.next()
+		if err := p.enter(); err != nil {
+			return nil, err
+		}
+		defer func() { p.depth-- }()
 		inner, err := p.unary()
 		if err != nil {
 			return nil, err
@@ -151,6 +169,10 @@ func (p *parser) primary() (node, error) {
 	case tokString, tokNumber:
 		return literalNode{t.text}, nil
 	case tokLParen:
+		if err := p.enter(); err != nil {
+			return nil, err
+		}
+		defer func() { p.depth-- }()
 		inner, err := p.or()
 		if err != nil {
 			return nil, err
