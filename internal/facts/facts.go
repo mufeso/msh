@@ -6,6 +6,8 @@ package facts
 import (
 	"slices"
 	"strings"
+
+	"example.com/msh/internal/inventory"
 )
 
 // Command is the remote command that reads Script from standard input.
@@ -79,4 +81,25 @@ func family(id, like, kernelName string) string {
 		return strings.ToLower(kernelName)
 	}
 	return "unknown"
+}
+
+// Env returns the names an expression can use for a server: its facts
+// (also as facts.NAME), name, address, user and tag.KEY.
+func Env(s inventory.Server, f Facts) func(string) (string, bool) {
+	return func(name string) (string, bool) {
+		switch name {
+		case "name":
+			return s.Name, true
+		case "address":
+			return s.Address, true
+		case "user":
+			return s.User, true
+		}
+		if key, ok := strings.CutPrefix(name, "tag."); ok {
+			v, ok := s.Tags[key]
+			return v, ok
+		}
+		v, ok := f[strings.TrimPrefix(name, "facts.")]
+		return v, ok
+	}
 }

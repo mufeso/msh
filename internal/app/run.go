@@ -3,12 +3,15 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/expr"
+	"example.com/msh/internal/facts"
 	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/runner"
@@ -104,7 +107,43 @@ func (c *cli) prepareRun(name string, opts *commonOptions, sel *selectionOptions
 	if stack == nil {
 		return nil, code
 	}
+	servers, code = c.applyWhere(sel, st, stack, servers)
+	if servers == nil {
+		stack.Close()
+		return nil, code
+	}
 	return &prepared{st: st, servers: servers, stack: stack}, exitcode.OK
+}
+
+// applyWhere keeps the servers matching --where. Servers whose facts can't
+// be collected are not selected, with a warning. On failure it prints the
+// error and returns nil and the exit code.
+func (c *cli) applyWhere(sel *selectionOptions, st *setup, stack *sshStack, servers []inventory.Server) ([]inventory.Server, exitcode.Code) {
+	if sel.where == "" {
+		return servers, exitcode.OK
+	}
+	e, err := expr.Parse(sel.where)
+	if err != nil {
+		c.errorf("--where: %v", err)
+		return nil, exitcode.Usage
+	}
+	ctx, cancel := c.runContext(st)
+	defer cancel()
+	found, failed := c.gatherer(st, stack.executor).Gather(ctx, servers)
+	for _, r := range failed {
+		fmt.Fprintf(c.stderr, "msh: warning: %s: no facts (%s), not selected\n", r.Server, r.Status)
+	}
+	var kept []inventory.Server
+	for _, s := range servers {
+		if f, ok := found[s.Name]; ok && e.Eval(facts.Env(s, f)) {
+			kept = append(kept, s)
+		}
+	}
+	if len(kept) == 0 {
+		c.errorf("%v", inventory.ErrNoMatch)
+		return nil, exitcode.Usage
+	}
+	return kept, exitcode.OK
 }
 
 // runContext returns the context for a whole run: the CLI context,

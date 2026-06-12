@@ -50,6 +50,7 @@ func runScript(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("script run", scriptUsage)
 	opts.register(fs)
 	sel.register(fs)
+	sel.registerWhere(fs)
 	ro.register(fs)
 	file := fs.String("file", "", "local script `path`")
 	interpName := fs.String("interpreter", "", "remote `interpreter`: sh, bash, python3 or perl")

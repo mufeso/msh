@@ -39,6 +39,7 @@ func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet)
 	fs := c.newFlagSet(name, usage)
 	f.opts.register(fs)
 	f.sel.register(fs)
+	f.sel.registerWhere(fs)
 	f.ro.register(fs)
 	f.tmux.register(fs)
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a task classified as changes or dangerous")
@@ -124,6 +125,10 @@ func (c *cli) runTaskOn(f *taskRunFlags, name string) exitcode.Code {
 	if err != nil {
 		c.errorf("task %q: %v", t.Name, err)
 		return exitcode.Config
+	}
+	if inv.Interactive && f.sel.where != "" {
+		c.errorf("task %q is interactive; --where is not supported for interactive sessions", t.Name)
+		return exitcode.Usage
 	}
 	if inv.Interactive {
 		sf := shellFlags{opts: f.opts, sel: f.sel, ro: f.ro, tmux: f.tmux}

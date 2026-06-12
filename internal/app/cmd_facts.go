@@ -38,6 +38,7 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("facts", factsUsage)
 	opts.register(fs)
 	sel.register(fs)
+	sel.registerWhere(fs)
 	ro.register(fs)
 	refresh := fs.Bool("refresh", false, "ignore cached facts")
 	if code, ok := parseFlags(fs, args); !ok {

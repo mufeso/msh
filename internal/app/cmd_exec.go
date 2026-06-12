@@ -33,6 +33,7 @@ func runExec(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("exec", execUsage)
 	opts.register(fs)
 	sel.register(fs)
+	sel.registerWhere(fs)
 	ro.register(fs)
 	command := fs.String("command", "", "command line to run")
 	local := fs.Bool("local", false, "run on this machine instead of remote servers")
@@ -46,6 +47,10 @@ func runExec(c *cli, args []string) exitcode.Code {
 	if *local {
 		if err := sel.validate(); err != nil {
 			c.errorf("%v", err)
+			return exitcode.Usage
+		}
+		if sel.where != "" {
+			c.errorf("exec: --where needs remote servers; it can't be combined with --local")
 			return exitcode.Usage
 		}
 		return c.execLocal(&opts, &ro, *command)

@@ -44,6 +44,7 @@ func runLogs(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("logs", logsUsage)
 	opts.register(fs)
 	sel.register(fs)
+	sel.registerWhere(fs)
 	ro.register(fs)
 	file := fs.String("file", "", "absolute `path` of the log file")
 	lines := fs.Int("lines", 50, "number of `lines` to show (1-100000)")

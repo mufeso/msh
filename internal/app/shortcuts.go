@@ -63,6 +63,7 @@ func (c *cli) runShortcut(sc shortcut, usage string, args []string, defaultAll b
 	fs := c.newFlagSet(sc.name, usage)
 	opts.register(fs)
 	sel.register(fs)
+	sel.registerWhere(fs)
 	ro.register(fs)
 	if code, ok := parseFlags(fs, args); !ok {
 		return code

@@ -74,3 +74,33 @@ func TestFactsCacheAndRefresh(t *testing.T) {
 		t.Errorf("%d collections after --refresh, want 2", n)
 	}
 }
+
+func TestWhere(t *testing.T) {
+	fleet := mixedFleet(t)
+	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--where", `os_family == "redhat"`, "--command", "echo picked")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "=== s1: ok") || contains(stdout, "=== s2") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	stdout, _, _ = fleet.run(t, []string{"exec"}, "--where", `cpus < 4 && name ~ "^s"`, "--command", "echo picked")
+	if !contains(stdout, "=== s2: ok") || contains(stdout, "=== s1") {
+		t.Errorf("--where alone: %q", stdout)
+	}
+}
+
+func TestWhereErrors(t *testing.T) {
+	fleet := mixedFleet(t)
+	if _, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--where", "a ==", "--command", "true"); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "--where") {
+		t.Errorf("bad expression: code = %d, stderr = %q", code, stderr)
+	}
+	if _, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--where", `os_id == "nope"`, "--command", "true"); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "no servers match") {
+		t.Errorf("no match: code = %d, stderr = %q", code, stderr)
+	}
+	fleet.servers[1].Close()
+	stdout, stderr, _ := fleet.run(t, []string{"exec"}, "--all", "--where", "cpus > 0", "--command", "true")
+	if !contains(stderr, "warning: s2") || contains(stdout, "=== s2") {
+		t.Errorf("unreachable: stdout = %q, stderr = %q", stdout, stderr)
+	}
+}

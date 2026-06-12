@@ -46,6 +46,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("runbook run", runbookRunUsage)
 	f.opts.register(fs)
 	f.sel.register(fs)
+	f.sel.registerWhere(fs)
 	f.ro.register(fs)
 	fs.BoolVar(&f.dryRun, "dry-run", false, "print the plan without connecting to any server")
 	fs.BoolVar(&f.yes, "yes", false, "confirm running a runbook classified as changes or dangerous")
@@ -106,6 +107,22 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	if err != nil {
 		c.errorf("runbook %q: %v", rb.Name, err)
 		return exitcode.Usage
+	}
+	if f.sel.where != "" {
+		// Filtering needs facts, so even a dry run may connect here.
+		stack, code := c.newSSH(&f.opts, &f.ro, st)
+		if stack == nil {
+			return code
+		}
+		defer stack.Close()
+		if servers, code = c.applyWhere(&f.sel, st, stack, servers); servers == nil {
+			return code
+		}
+		// Batch sizes given as a percentage refer to the filtered fleet.
+		if rollout, err = rb.NewRollout(len(servers)); err != nil {
+			c.errorf("runbook %q: %v", rb.Name, err)
+			return exitcode.Usage
+		}
 	}
 	if f.dryRun {
 		return c.printRunbookPlan(&f.opts, rb, safety, rollout, servers, plan)
