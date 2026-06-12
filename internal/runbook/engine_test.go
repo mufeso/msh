@@ -8,6 +8,8 @@ import (
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
+	"example.com/msh/internal/expr"
+	"example.com/msh/internal/facts"
 	"example.com/msh/internal/inventory"
 )
 
@@ -137,5 +139,41 @@ func TestContinueOnErrorDoesNotIgnoreCancel(t *testing.T) {
 	r := (&Engine{Exec: ex, Steps: steps}).Run(context.Background(), srv, executor.Request{})
 	if r.Status != executor.StatusCanceled || len(ex.calls) != 1 {
 		t.Errorf("result = %+v, calls = %v", r, ex.calls)
+	}
+}
+
+func TestWhen(t *testing.T) {
+	cond, err := expr.Parse(`os_family == "redhat"`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	steps := plan("always", "only-redhat")
+	steps[1].When = cond
+
+	ex := &scriptedExec{}
+	e := &Engine{Exec: ex, Steps: steps, Facts: map[string]facts.Facts{"s1": {"os_family": "debian"}}}
+	r := e.Run(context.Background(), srv, executor.Request{})
+	if r.Status != executor.StatusOK || len(ex.calls) != 1 || r.Steps[1].Status != executor.StatusSkipped {
+		t.Errorf("result = %+v, calls = %v", r, ex.calls)
+	}
+
+	ex = &scriptedExec{}
+	e = &Engine{Exec: ex, Steps: steps, Facts: map[string]facts.Facts{"s1": {"os_family": "redhat"}}}
+	e.Run(context.Background(), srv, executor.Request{})
+	if len(ex.calls) != 2 {
+		t.Errorf("calls = %v", ex.calls)
+	}
+
+	ex = &scriptedExec{}
+	e = &Engine{Exec: ex, Steps: steps}
+	if r := e.Run(context.Background(), srv, executor.Request{}); r.Status != executor.StatusError || len(ex.calls) != 1 {
+		t.Errorf("missing facts must fail: %+v", r)
+	}
+}
+
+func TestBadWhenIsALoadError(t *testing.T) {
+	_, err := NewSet(map[string]Runbook{"r": {Steps: []Step{{Name: "a", Task: "uptime", When: "x =="}}}}, testTasks(t))
+	if err == nil {
+		t.Error("a bad condition was accepted")
 	}
 }

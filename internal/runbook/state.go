@@ -48,7 +48,7 @@ var ErrNoState = errors.New("no saved progress to resume")
 func PlanHash(plan []PlannedStep) string {
 	h := sha256.New()
 	for _, ps := range plan {
-		fmt.Fprintf(h, "%q %q %x\n", ps.Step.Name, ps.Command, ps.Stdin)
+		fmt.Fprintf(h, "%q %q %q %x\n", ps.Step.Name, ps.Step.When, ps.Command, ps.Stdin)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"example.com/msh/internal/expr"
 	"example.com/msh/internal/task"
 )
 
@@ -13,6 +14,7 @@ type PlannedStep struct {
 	Command string        // remote command line
 	Stdin   []byte        // script text, for script tasks
 	Timeout time.Duration // 0 = use the command_timeout setting
+	When    *expr.Expr    // nil = always run
 }
 
 // Plan resolves every step into its remote command. Nothing is executed,
@@ -27,6 +29,11 @@ func (rb *Runbook) Plan(tasks *task.Set, values task.Values) ([]PlannedStep, err
 		ps := PlannedStep{Step: s, Command: inv.Command, Stdin: inv.Stdin, Timeout: inv.Timeout}
 		if s.Timeout != nil {
 			ps.Timeout = time.Duration(*s.Timeout)
+		}
+		if s.When != "" {
+			if ps.When, err = expr.Parse(s.When); err != nil {
+				return nil, fmt.Errorf("step %q: when: %w", s.Name, err)
+			}
 		}
 		plan = append(plan, ps)
 	}

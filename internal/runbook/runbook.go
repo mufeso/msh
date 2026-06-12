@@ -20,6 +20,9 @@ type Step struct {
 	Args    []string          `json:"args,omitempty" yaml:"args,omitempty"`
 	Command string            `json:"command,omitempty" yaml:"command,omitempty"`
 
+	// When is an expression over facts; the step only runs if it is true.
+	When string `json:"when,omitempty" yaml:"when,omitempty"`
+
 	// Interpreter runs Command (sh or bash; default sh).
 	Interpreter string `json:"interpreter,omitempty" yaml:"interpreter,omitempty"`
 	// AllowRedirection permits <, > and >> in Command.
@@ -55,4 +58,14 @@ type Runbook struct {
 
 	// inputs validates and binds Arguments; it is set during validation.
 	inputs *task.Task
+}
+
+// UsesFacts reports whether any step has a condition.
+func (rb *Runbook) UsesFacts() bool {
+	for _, s := range rb.Steps {
+		if s.When != "" {
+			return true
+		}
+	}
+	return false
 }

@@ -160,6 +160,16 @@ func (c *cli) executeRunbook(f *runbookRunFlags, st *setup, rb *runbook.Runbook,
 	}
 	engine.Progress = tracker
 
+	if rb.UsesFacts() {
+		ctx, cancel := c.runContext(st)
+		found, failed := c.gatherer(st, stack.executor).Gather(ctx, servers)
+		cancel()
+		for _, r := range failed {
+			fmt.Fprintf(c.stderr, "msh: warning: %s: no facts (%s)\n", r.Server, r.Status)
+		}
+		engine.Facts = found
+	}
+
 	var exec executor.Executor = engine
 	if rb.Stagger != nil {
 		exec = &runbook.Stagger{Exec: engine, Interval: time.Duration(*rb.Stagger)}
@@ -219,6 +229,7 @@ type planView struct {
 
 type planStepView struct {
 	Name    string `json:"name"`
+	When    string `json:"when,omitempty"`
 	Command string `json:"command"`
 	Stdin   bool   `json:"script_on_stdin"`
 }
@@ -237,7 +248,7 @@ func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety 
 		view.Servers = append(view.Servers, s.Name)
 	}
 	for _, ps := range plan {
-		view.Steps = append(view.Steps, planStepView{Name: ps.Step.Name, Command: ps.Command, Stdin: ps.Stdin != nil})
+		view.Steps = append(view.Steps, planStepView{Name: ps.Step.Name, When: ps.Step.When, Command: ps.Command, Stdin: ps.Stdin != nil})
 	}
 	if c.rejectCSV(opts, "runbook run --dry-run") {
 		return exitcode.Usage
@@ -257,7 +268,11 @@ func (c *cli) printRunbookPlan(opts *commonOptions, rb *runbook.Runbook, safety 
 		fmt.Fprintf(c.stdout, "Stops after more than %d failed servers\n", rollout.MaxFailures)
 	}
 	for i, s := range view.Steps {
-		fmt.Fprintf(c.stdout, "  %d. %s\n     $ %s\n", i+1, s.Name, s.Command)
+		fmt.Fprintf(c.stdout, "  %d. %s\n", i+1, s.Name)
+		if s.When != "" {
+			fmt.Fprintf(c.stdout, "     when: %s\n", s.When)
+		}
+		fmt.Fprintf(c.stdout, "     $ %s\n", s.Command)
 	}
 	return exitcode.OK
 }

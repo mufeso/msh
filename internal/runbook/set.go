@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"example.com/msh/internal/expr"
 	"example.com/msh/internal/task"
 )
 
@@ -83,6 +84,11 @@ func (rb *Runbook) validate(tasks *task.Set) error {
 func (rb *Runbook) validateStep(s Step, tasks *task.Set) error {
 	if (s.Task == "") == (s.Command == "") {
 		return errors.New("exactly one of task or command must be set")
+	}
+	if s.When != "" {
+		if _, err := expr.Parse(s.When); err != nil {
+			return fmt.Errorf("when: %w", err)
+		}
 	}
 	if s.Retries < 0 || s.Retries > maxRetries {
 		return fmt.Errorf("retries must be between 0 and %d", maxRetries)

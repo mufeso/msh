@@ -104,3 +104,32 @@ func TestWhereErrors(t *testing.T) {
 		t.Errorf("unreachable: stdout = %q, stderr = %q", stdout, stderr)
 	}
 }
+
+func TestRunbookWhen(t *testing.T) {
+	fleet := mixedFleet(t)
+	cfg := writeConfig(t, `runbooks:
+  update:
+    steps:
+      - name: redhat
+        when: os_family == "redhat"
+        command: "echo dnf"
+        read_only: true
+      - name: debian
+        when: os_family == "debian"
+        command: "echo apt"
+        read_only: true
+`)
+	stdout, stderr, code := fleet.run(t, []string{"runbook", "run", "update", "--all", "--ordered", "--prefix"}, "--config", cfg)
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"s1: dnf", "s2: apt", "s1: --- step debian: skipped", "s2: --- step redhat: skipped"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	dry, _, _ := fleet.run(t, []string{"runbook", "run", "update", "--all", "--dry-run"}, "--config", cfg)
+	if !contains(dry, `when: os_family == "redhat"`) {
+		t.Errorf("dry run = %q", dry)
+	}
+}

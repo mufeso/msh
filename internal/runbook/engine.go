@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"example.com/msh/internal/executor"
+	"example.com/msh/internal/facts"
 	"example.com/msh/internal/inventory"
 )
 
@@ -22,6 +23,10 @@ type Engine struct {
 	DefaultTimeout time.Duration // used by steps without their own timeout
 	ServerTimeout  time.Duration // total limit per server; 0 = none
 	Progress       Progress      // optional: skips finished steps, records new ones
+
+	// Facts holds the facts per server for "when:" conditions. It is only
+	// read during a run, so goroutines can share it without a lock.
+	Facts map[string]facts.Facts
 }
 
 var _ executor.Executor = (*Engine)(nil)
@@ -52,6 +57,26 @@ func (e *Engine) Run(ctx context.Context, server inventory.Server, _ executor.Re
 		if stopped {
 			res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusSkipped, ExitCode: -1})
 			continue
+		}
+		if ps.When != nil {
+			f, ok := e.Facts[server.Name]
+			if !ok {
+				// Failing closed: skipping a step because data is missing
+				// could silently leave a server half done.
+				stopped = true
+				res.Status, res.ExitCode = executor.StatusError, -1
+				res.Err = fmt.Errorf("step %q: no facts for its condition", ps.Step.Name)
+				res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusError, ExitCode: -1, Error: "no facts"})
+				continue
+			}
+			if !ps.When.Eval(facts.Env(server, f)) {
+				fmt.Fprintf(&stdout, "--- step %s: skipped (when: %s)\n", ps.Step.Name, ps.When)
+				res.Steps = append(res.Steps, executor.StepResult{Name: ps.Step.Name, Status: executor.StatusSkipped, ExitCode: -1})
+				if e.Progress != nil {
+					e.Progress.Mark(server.Name, i+1)
+				}
+				continue
+			}
 		}
 		r, attempts := e.runStep(ctx, server, ps)
 		sr := stepResult(ps, r)
