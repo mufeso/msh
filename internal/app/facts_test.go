@@ -150,3 +150,16 @@ func TestFactsExpect(t *testing.T) {
 		t.Errorf("bad expression: code = %d", code)
 	}
 }
+
+func TestFactsGroupBy(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 3, handlers: map[int]sshtest.Handler{
+		1: factHandler(rockyFacts), 2: factHandler(ubuntuFacts), 3: factHandler(rockyFacts),
+	}})
+	stdout, _, code := fleet.run(t, []string{"facts"}, "--all", "--group-by", "os_family", "--output", "csv")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d", code)
+	}
+	if !contains(stdout, "OS_FAMILY,COUNT,SERVERS\nredhat,2,\"s1,s3\"\ndebian,1,s2\n") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}

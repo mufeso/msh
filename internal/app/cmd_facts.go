@@ -1,7 +1,11 @@
 package app
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
@@ -43,6 +47,7 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	sel.registerWhere(fs)
 	ro.register(fs)
 	refresh := fs.Bool("refresh", false, "ignore cached facts")
+	groupBy := fs.String("group-by", "", "count servers per value of this `fact`")
 	var expects []*expr.Expr
 	fs.Func("expect", "report servers where this `expression` is false (repeatable)", func(v string) error {
 		e, err := expr.Parse(v)
@@ -69,6 +74,10 @@ func runFacts(c *cli, args []string) exitcode.Code {
 
 	if len(expects) > 0 {
 		return c.checkExpectations(&opts, p.servers, found, failed, expects)
+	}
+
+	if *groupBy != "" {
+		return c.groupFacts(&opts, *groupBy, p.servers, found, failed)
 	}
 
 	views := make([]factsView, 0, len(found))
@@ -143,4 +152,41 @@ func (c *cli) checkExpectations(opts *commonOptions, servers []inventory.Server,
 		return exitcode.Failure
 	}
 	return exitcode.OK
+}
+
+// factGroup is one value of a fact and the servers that have it.
+type factGroup struct {
+	Value   string   `json:"value"`
+	Count   int      `json:"count"`
+	Servers []string `json:"servers"`
+}
+
+// groupFacts counts servers per value of a fact.
+func (c *cli) groupFacts(opts *commonOptions, key string, servers []inventory.Server, found map[string]facts.Facts, failed []executor.Result) exitcode.Code {
+	byValue := map[string][]string{}
+	for _, s := range servers {
+		if f, ok := found[s.Name]; ok {
+			byValue[f[key]] = append(byValue[f[key]], s.Name)
+		}
+	}
+	groups := make([]factGroup, 0, len(byValue))
+	for value, names := range byValue {
+		groups = append(groups, factGroup{Value: value, Count: len(names), Servers: names})
+	}
+	// Most common first; ties by value, so the report is deterministic.
+	slices.SortFunc(groups, func(a, b factGroup) int {
+		if n := cmp.Compare(b.Count, a.Count); n != 0 {
+			return n
+		}
+		return cmp.Compare(a.Value, b.Value)
+	})
+	rows := make([][]string, 0, len(groups))
+	for _, g := range groups {
+		rows = append(rows, []string{g.Value, strconv.Itoa(g.Count), strings.Join(g.Servers, ",")})
+	}
+	if err := output.WriteRows(c.stdout, opts.format, []string{strings.ToUpper(key), "COUNT", "SERVERS"}, rows, groups); err != nil {
+		c.errorf("writing output: %v", err)
+		return exitcode.IO
+	}
+	return c.reportFailures(failed)
 }
