@@ -133,3 +133,20 @@ func TestRunbookWhen(t *testing.T) {
 		t.Errorf("dry run = %q", dry)
 	}
 }
+
+func TestFactsExpect(t *testing.T) {
+	fleet := mixedFleet(t)
+	stdout, _, code := fleet.run(t, []string{"facts"}, "--all", "--expect", "disk_root_pct < 90", "--expect", "cpus >= 2")
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d", code)
+	}
+	if !contains(stdout, "s1") || !contains(stdout, "disk_root_pct < 90") || contains(stdout, "s2") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if _, _, code := fleet.run(t, []string{"facts"}, "--all", "--expect", "cpus >= 2"); exitcode.Code(code) != exitcode.OK {
+		t.Errorf("all good: code = %d", code)
+	}
+	if _, _, code := fleet.run(t, []string{"facts"}, "--all", "--expect", "cpus >="); exitcode.Code(code) != exitcode.Usage {
+		t.Errorf("bad expression: code = %d", code)
+	}
+}

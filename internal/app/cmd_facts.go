@@ -6,7 +6,9 @@ import (
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/expr"
 	"example.com/msh/internal/facts"
+	"example.com/msh/internal/inventory"
 	"example.com/msh/internal/output"
 )
 
@@ -41,6 +43,15 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	sel.registerWhere(fs)
 	ro.register(fs)
 	refresh := fs.Bool("refresh", false, "ignore cached facts")
+	var expects []*expr.Expr
+	fs.Func("expect", "report servers where this `expression` is false (repeatable)", func(v string) error {
+		e, err := expr.Parse(v)
+		if err != nil {
+			return err
+		}
+		expects = append(expects, e)
+		return nil
+	})
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -55,6 +66,10 @@ func runFacts(c *cli, args []string) exitcode.Code {
 	g := c.gatherer(p.st, p.stack.executor)
 	g.Refresh = *refresh
 	found, failed := g.Gather(ctx, p.servers)
+
+	if len(expects) > 0 {
+		return c.checkExpectations(&opts, p.servers, found, failed, expects)
+	}
 
 	views := make([]factsView, 0, len(found))
 	rows := make([][]string, 0, len(found))
@@ -93,4 +108,39 @@ func (c *cli) reportFailures(failed []executor.Result) exitcode.Code {
 		fmt.Fprintln(c.stderr)
 	}
 	return exitCodeForResults(failed)
+}
+
+// violation is one server breaking one expectation.
+type violation struct {
+	Server string `json:"server"`
+	Expect string `json:"expect"`
+}
+
+// checkExpectations reports the servers that break a rule.
+func (c *cli) checkExpectations(opts *commonOptions, servers []inventory.Server, found map[string]facts.Facts, failed []executor.Result, expects []*expr.Expr) exitcode.Code {
+	violations := []violation{}
+	rows := [][]string{}
+	for _, s := range servers {
+		f, ok := found[s.Name]
+		if !ok {
+			continue
+		}
+		for _, e := range expects {
+			if !e.Eval(facts.Env(s, f)) {
+				violations = append(violations, violation{Server: s.Name, Expect: e.String()})
+				rows = append(rows, []string{s.Name, e.String()})
+			}
+		}
+	}
+	if err := output.WriteRows(c.stdout, opts.format, []string{"SERVER", "FAILED EXPECTATION"}, rows, violations); err != nil {
+		c.errorf("writing output: %v", err)
+		return exitcode.IO
+	}
+	if code := c.reportFailures(failed); code != exitcode.OK {
+		return code
+	}
+	if len(violations) > 0 {
+		return exitcode.Failure
+	}
+	return exitcode.OK
 }
