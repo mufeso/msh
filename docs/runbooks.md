@@ -45,6 +45,7 @@ Each step has a `name` and either `task` (with `params` and `args`) or
 | `timeout` | limit for this step; overrides the task's timeout and `command_timeout` |
 | `continue_on_error` | a failure does not stop the runbook; it stays visible in the step results |
 | `read_only` | declares that a command changes nothing |
+| `when` | run only where this expression over facts is true (see facts.md) |
 | `allow_redirection` | permits `<` and `>` in a command |
 
 On each server the steps run in order. The first failure stops that

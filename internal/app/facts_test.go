@@ -163,3 +163,11 @@ func TestFactsGroupBy(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestWhereUsesInventoryNames(t *testing.T) {
+	fleet := mixedFleet(t)
+	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--all", "--where", `name == "s2" && user == "tester" && facts.cpus == 2`, "--command", "echo ok")
+	if exitcode.Code(code) != exitcode.OK || !contains(stdout, "=== s2: ok") {
+		t.Errorf("code = %d, stdout = %q, stderr = %q", code, stdout, stderr)
+	}
+}

@@ -44,6 +44,10 @@ in path settings is expanded to `$HOME`.
 | `mode` | `--mode` | `MSH_MODE` | `parallel` | `sequential` or `parallel` |
 | `workers` | `--workers` | `MSH_WORKERS` | `5` | concurrent servers in parallel mode (1-512) |
 | `ordered` | `--ordered` | `MSH_ORDERED` | `false` | print results in selection order |
+| `bastion` | `--bastion` | `MSH_BASTION` | none | default bastion (`none` = direct) |
+| `allowed_log_paths` | — | `MSH_ALLOWED_LOG_PATHS` | `/var/log` | directories `msh logs` may read |
+| `tmux_layout` | `--tmux-layout` | `MSH_TMUX_LAYOUT` | `tiled` | default tmux layout |
+| `facts_ttl` | — | `MSH_FACTS_TTL` | `1h` | how long collected facts stay valid (`0s` = no cache) |
 
 Durations use Go syntax: `500ms`, `30s`, `2m`, `1h30m`.
 
