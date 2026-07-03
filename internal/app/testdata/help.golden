@@ -13,6 +13,7 @@ Commands:
   help          Show help for msh or for one command
   hosts         List and check inventory servers
   logs          Show or follow a log file on servers
+  packages      Check installed rpm and dpkg packages
   runbook       List, show and run multi-step runbooks
   script        Run a local script on servers without copying it
   shell         Open an interactive shell on a server

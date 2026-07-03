@@ -29,6 +29,7 @@ func commands() []*command {
 		helpCommand(),
 		hostsCommand(),
 		logsCommand(),
+		packagesCommand(),
 		runbookCommand(),
 		scriptCommand(),
 		shellCommand(),
