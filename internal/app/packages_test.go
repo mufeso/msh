@@ -51,3 +51,22 @@ func TestPackagesNoManager(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
 	}
 }
+
+func TestPackagesCheck(t *testing.T) {
+	fleet := packageFleet(t)
+	stdout, stderr, code := fleet.run(t, []string{"packages", "check"}, "--all", "--package", "nginx,curl")
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"s1", "curl", "missing", "1.24.0-2ubuntu7"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	if _, _, code := fleet.run(t, []string{"packages", "check"}, "--all", "--package", "nginx"); exitcode.Code(code) != exitcode.OK {
+		t.Errorf("all present: code = %d", code)
+	}
+	if _, _, code := fleet.run(t, []string{"packages", "check"}, "--all"); exitcode.Code(code) != exitcode.Usage {
+		t.Errorf("no package: code = %d", code)
+	}
+}

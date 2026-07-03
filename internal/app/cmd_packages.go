@@ -16,6 +16,7 @@ const packagesUsage = `Usage: msh packages <subcommand> [flags]
 
 Subcommands:
   list    List installed packages
+  check   Check that packages are installed
 
 Works on servers with rpm or dpkg. msh only reads package data here.
 `
@@ -42,6 +43,8 @@ func runPackages(c *cli, args []string) exitcode.Code {
 	switch args[0] {
 	case "list":
 		return runPackagesList(c, args[1:])
+	case "check":
+		return runPackagesCheck(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, packagesUsage)
 		return exitcode.OK
