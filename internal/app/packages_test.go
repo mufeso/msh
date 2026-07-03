@@ -70,3 +70,17 @@ func TestPackagesCheck(t *testing.T) {
 		t.Errorf("no package: code = %d", code)
 	}
 }
+
+func TestPackagesCheckVersionsAcrossManagers(t *testing.T) {
+	fleet := packageFleet(t)
+	stdout, _, code := fleet.run(t, []string{"packages", "check"}, "--all", "--package", "openssl>=3.0.10")
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d", code)
+	}
+	if !contains(stdout, "wrong-version") || !contains(stdout, "3.0.13-0ubuntu3") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if _, _, code := fleet.run(t, []string{"packages", "check"}, "--all", "--package", "openssl>=3.0,!telnet"); exitcode.Code(code) != exitcode.OK {
+		t.Errorf("code = %d", code)
+	}
+}
