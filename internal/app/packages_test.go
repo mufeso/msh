@@ -84,3 +84,16 @@ func TestPackagesCheckVersionsAcrossManagers(t *testing.T) {
 		t.Errorf("code = %d", code)
 	}
 }
+
+func TestPackagesFind(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 3, handlers: map[int]sshtest.Handler{
+		1: packageHandler(rpmPackages), 2: packageHandler(dpkgPackages), 3: packageHandler(rpmPackages),
+	}})
+	stdout, stderr, code := fleet.run(t, []string{"packages", "find", "open*"}, "--all", "--output", "csv")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "openssl,1:3.0.7-16.el9,2,\"s1,s3\"") || !contains(stdout, "openssl,3.0.13-0ubuntu3,1,s2") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
