@@ -18,6 +18,7 @@ Subcommands:
   list    List installed packages
   check   Check that packages are installed
   find    Find packages across servers
+  compare Compare servers with a baseline server
 
 Works on servers with rpm or dpkg. msh only reads package data here.
 `
@@ -48,6 +49,8 @@ func runPackages(c *cli, args []string) exitcode.Code {
 		return runPackagesCheck(c, args[1:])
 	case "find":
 		return runPackagesFind(c, args[1:])
+	case "compare":
+		return runPackagesCompare(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, packagesUsage)
 		return exitcode.OK

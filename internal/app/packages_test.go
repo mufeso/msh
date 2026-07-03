@@ -97,3 +97,33 @@ func TestPackagesFind(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestPackagesCompare(t *testing.T) {
+	other := "#manager=rpm\nnginx\t1:1.26.0-1.el9\tx86_64\nopenssl\t1:3.0.7-16.el9\tx86_64\nextra\t0:1-1\tx86_64\n"
+	fleet := newFleet(t, fleetOptions{servers: 3, handlers: map[int]sshtest.Handler{
+		1: packageHandler(rpmPackages), 2: packageHandler(other), 3: packageHandler(rpmPackages),
+	}})
+	stdout, stderr, code := fleet.run(t, []string{"packages", "compare"}, "--all", "--output", "csv")
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"s2,bash,5.1.8-6.el9,-", "s2,extra,-,1-1", "s2,nginx,1:1.24.0-1.el9,1:1.26.0-1.el9"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	if contains(stdout, "s3,") {
+		t.Errorf("identical servers must not appear:\n%s", stdout)
+	}
+	if _, stderr, code := fleet.run(t, []string{"packages", "compare"}, "--all", "--baseline", "ghost"); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "baseline") {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}
+
+func TestPackagesCompareMixedManagersWarns(t *testing.T) {
+	fleet := packageFleet(t)
+	_, stderr, _ := fleet.run(t, []string{"packages", "compare"}, "--all")
+	if !contains(stderr, "versions will not match") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
