@@ -81,3 +81,19 @@ runbooks:
         read_only: true
         retries: 5
         retry_delay: 3s
+
+  update-package:
+    description: Update one package on a mixed fleet, a few servers at a time
+    batch: 25%
+    max_failures: 0
+    arguments:
+      - name: package
+        required: true
+        pattern: "[A-Za-z0-9+._-]+"
+    steps:
+      - name: update with dnf
+        when: package_manager == "rpm"
+        command: "sudo dnf -y update {{package}}"
+      - name: update with apt
+        when: package_manager == "dpkg"
+        command: "sudo apt-get -y install --only-upgrade {{package}}"

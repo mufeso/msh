@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"io"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -156,5 +157,42 @@ func TestPackagesBaselineFile(t *testing.T) {
 	}
 	if _, _, code := fleet.run(t, []string{"packages", "check"}, "--all", "--file", "testdata/none.txt"); exitcode.Code(code) != exitcode.IO {
 		t.Errorf("missing file: code = %d", code)
+	}
+}
+
+// packageFactHandler answers both scripts.
+func packageFactHandler(factsOut, packagesOut string) sshtest.Handler {
+	f, p := factHandler(factsOut), packageHandler(packagesOut)
+	return func(ctx context.Context, e *sshtest.Exec) int {
+		if e.Command == pkgs.Command {
+			return p(ctx, e)
+		}
+		return f(ctx, e)
+	}
+}
+
+func TestPackagesWithWhereThroughBastion(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 2, bastion: true, handlers: map[int]sshtest.Handler{
+		1: packageFactHandler(rockyFacts, rpmPackages), 2: packageFactHandler(ubuntuFacts, dpkgPackages),
+	}})
+	stdout, stderr, code := fleet.run(t, []string{"packages", "list"}, "--where", `package_manager == "dpkg"`, "--filter", "curl", "--output", "csv")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "s2,curl") || contains(stdout, "s1,") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestRealPackageScript(t *testing.T) {
+	if _, err := exec.LookPath("rpm"); err != nil {
+		if _, err := exec.LookPath("dpkg-query"); err != nil {
+			t.Skip("neither rpm nor dpkg-query on this machine")
+		}
+	}
+	fleet := newTestFleet(t, 1, nil)
+	_, stderr, code := fleet.run(t, []string{"packages", "list"}, "--all")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Errorf("code = %d, stderr = %s", code, stderr)
 	}
 }
