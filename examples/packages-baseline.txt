@@ -1,0 +1,6 @@
+# Example package baseline for: msh packages check --all --file ...
+# One requirement per line: name, name>=version, or !name (must be absent).
+openssl>=3.0
+bash
+!telnet
+!rsh

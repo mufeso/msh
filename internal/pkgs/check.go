@@ -1,7 +1,9 @@
 package pkgs
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -91,4 +93,23 @@ func (s Spec) Check(l *List) CheckResult {
 		return CheckResult{Status: StatusWrongVersion, Version: best}
 	}
 	return CheckResult{Status: StatusOK, Version: best}
+}
+
+// ParseBaseline reads requirements, one per line. Empty lines and lines
+// starting with # are ignored.
+func ParseBaseline(r io.Reader) ([]Spec, error) {
+	var specs []Spec
+	sc := bufio.NewScanner(r)
+	for n := 1; sc.Scan(); n++ {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		s, err := ParseSpec(line)
+		if err != nil {
+			return nil, fmt.Errorf("line %d: %w", n, err)
+		}
+		specs = append(specs, s)
+	}
+	return specs, sc.Err()
 }

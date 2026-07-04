@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"io"
+	"path/filepath"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
@@ -141,5 +142,19 @@ func TestPackagesUpdates(t *testing.T) {
 	}
 	if cmds := fleet.servers[0].Commands(); cmds[0] != pkgs.UpdatesCommand {
 		t.Errorf("commands = %q", cmds)
+	}
+}
+
+func TestPackagesBaselineFile(t *testing.T) {
+	fleet := packageFleet(t)
+	stdout, stderr, code := fleet.run(t, []string{"packages", "check"}, "--all", "--only-problems", "--file", filepath.Join("..", "..", "examples", "packages-baseline.txt"))
+	if exitcode.Code(code) != exitcode.Failure {
+		t.Errorf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "s2") || !contains(stdout, "bash") || !contains(stdout, "missing") || contains(stdout, "ok") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if _, _, code := fleet.run(t, []string{"packages", "check"}, "--all", "--file", "testdata/none.txt"); exitcode.Code(code) != exitcode.IO {
+		t.Errorf("missing file: code = %d", code)
 	}
 }

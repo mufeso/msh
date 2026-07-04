@@ -1,15 +1,19 @@
 package app
 
 import (
+	"os"
+
 	"example.com/msh/internal/cliflag"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/pkgs"
 )
 
-const packagesCheckUsage = `Usage: msh packages check (--host NAME | --group NAME | --tag K=V | --all) --package NAME[,NAME...] [flags]
+const packagesCheckUsage = `Usage: msh packages check (--host NAME | --group NAME | --tag K=V | --all) (--package REQ[,REQ...] | --file FILE) [flags]
 
-Checks each package on each server. Exits 1 if a requirement is not met.
+Checks requirements on each server and exits 1 if one is not met.
+A requirement is NAME, NAME>=VERSION (also =, !=, <, <=, >) or !NAME, which
+means the package must not be installed. Quote requirements in the shell.
 `
 
 // checkRow is one package requirement on one server.
@@ -25,11 +29,13 @@ func runPackagesCheck(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("packages check", packagesCheckUsage)
 	f.register(fs)
 	fs.Var(&names, "package", "package `requirement` (repeatable, comma-separated)")
+	file := fs.String("file", "", "read requirements from this `file`, one per line")
+	onlyProblems := fs.Bool("only-problems", false, "show only requirements that are not met")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if len(names) == 0 {
-		c.errorf("packages check: --package is required")
+	if len(names) == 0 && *file == "" {
+		c.errorf("packages check: use --package or --file")
 		return exitcode.Usage
 	}
 	specs := make([]pkgs.Spec, 0, len(names))
@@ -41,15 +47,43 @@ func runPackagesCheck(c *cli, args []string) exitcode.Code {
 		}
 		specs = append(specs, s)
 	}
+	if *file != "" {
+		from, code := c.readBaseline(*file)
+		if from == nil {
+			return code
+		}
+		specs = append(specs, from...)
+	}
 	data, code := c.collectPackages("packages check", &f)
 	if data == nil {
 		return code
 	}
-	return c.reportChecks(&f, data, specs)
+	return c.reportChecks(&f, data, specs, *onlyProblems)
+}
+
+// readBaseline reads a requirements file. On failure it prints the error
+// and returns nil and the exit code.
+func (c *cli) readBaseline(path string) ([]pkgs.Spec, exitcode.Code) {
+	f, err := os.Open(path)
+	if err != nil {
+		c.errorf("%v", err)
+		return nil, exitcode.IO
+	}
+	defer f.Close()
+	specs, err := pkgs.ParseBaseline(f)
+	if err != nil {
+		c.errorf("%s: %v", path, err)
+		return nil, exitcode.Config
+	}
+	if len(specs) == 0 {
+		c.errorf("%s: no requirements", path)
+		return nil, exitcode.Config
+	}
+	return specs, exitcode.OK
 }
 
 // reportChecks evaluates and prints the requirements.
-func (c *cli) reportChecks(f *packagesFlags, data *collected, specs []pkgs.Spec) exitcode.Code {
+func (c *cli) reportChecks(f *packagesFlags, data *collected, specs []pkgs.Spec, onlyProblems bool) exitcode.Code {
 	items := []checkRow{}
 	rows := [][]string{}
 	problems := 0
@@ -62,6 +96,8 @@ func (c *cli) reportChecks(f *packagesFlags, data *collected, specs []pkgs.Spec)
 			r := spec.Check(l)
 			if r.Status != pkgs.StatusOK {
 				problems++
+			} else if onlyProblems {
+				continue
 			}
 			items = append(items, checkRow{Server: s.Name, Requirement: spec.String(), CheckResult: r})
 			version := r.Version

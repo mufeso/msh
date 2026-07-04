@@ -1,6 +1,9 @@
 package pkgs
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCheckPresence(t *testing.T) {
 	l := Parse(rpmOutput)
@@ -67,5 +70,16 @@ func TestCheckVersions(t *testing.T) {
 		if got := s.Check(tt.list); got.Status != tt.want {
 			t.Errorf("%s on %s: %+v, want %s", tt.spec, tt.list.Manager, got, tt.want)
 		}
+	}
+}
+
+func TestParseBaseline(t *testing.T) {
+	specs, err := ParseBaseline(strings.NewReader("# comment\n\nopenssl>=3.0\n  !telnet  \n"))
+	if err != nil || len(specs) != 2 || !specs[1].Absent {
+		t.Errorf("specs = %+v, err = %v", specs, err)
+	}
+	_, err = ParseBaseline(strings.NewReader("ok\nbad name\n"))
+	if err == nil || !strings.Contains(err.Error(), "line 2") {
+		t.Errorf("err = %v", err)
 	}
 }
