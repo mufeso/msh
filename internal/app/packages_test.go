@@ -127,3 +127,19 @@ func TestPackagesCompareMixedManagersWarns(t *testing.T) {
 		t.Errorf("stderr = %q", stderr)
 	}
 }
+
+func TestPackagesUpdates(t *testing.T) {
+	dnf := sshtest.Static("#tool=dnf\nnginx.x86_64  1:1.26.0-1.el9  appstream\n", "", 0)
+	apt := sshtest.Static("#tool=apt\nListing...\ncurl/noble-updates 8.5.0-2ubuntu10.1 amd64 [upgradable from: 8.5.0-2ubuntu10]\n", "", 0)
+	fleet := newFleet(t, fleetOptions{servers: 2, handlers: map[int]sshtest.Handler{1: dnf, 2: apt}})
+	stdout, stderr, code := fleet.run(t, []string{"packages", "updates"}, "--all", "--output", "csv")
+	if exitcode.Code(code) != exitcode.OK {
+		t.Fatalf("code = %d, stderr = %s", code, stderr)
+	}
+	if !contains(stdout, "s1,nginx,1:1.26.0-1.el9,appstream") || !contains(stdout, "s2,curl,8.5.0-2ubuntu10.1,noble-updates") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	if cmds := fleet.servers[0].Commands(); cmds[0] != pkgs.UpdatesCommand {
+		t.Errorf("commands = %q", cmds)
+	}
+}
