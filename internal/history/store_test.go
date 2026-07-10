@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
@@ -28,5 +29,61 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 	if _, err := s.Load("nope"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func saved(t *testing.T, s Store, command string, at time.Time) Record {
+	t.Helper()
+	r := NewRecord(command, sampleReport("a"), at)
+	if err := s.Save(r); err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func TestAllNewestFirst(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i, c := range []string{"one", "two", "three"} {
+		saved(t, s, c, base.Add(time.Duration(i)*time.Hour))
+	}
+	var got []string
+	for r, err := range s.All() {
+		if err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, r.Command)
+	}
+	if !slices.Equal(got, []string{"three", "two", "one"}) {
+		t.Errorf("order = %v", got)
+	}
+	n := 0
+	for range s.All() {
+		n++
+		break // stopping early must work
+	}
+	if n != 1 {
+		t.Errorf("n = %d", n)
+	}
+}
+
+func TestFind(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	a := saved(t, s, "first", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	b := saved(t, s, "second", time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC))
+	if r, err := s.Find("last"); err != nil || r.ID != b.ID {
+		t.Errorf("last = %+v, %v", r, err)
+	}
+	if r, err := s.Find(a.ID[:8]); err != nil || r.ID != a.ID {
+		t.Errorf("prefix = %+v, %v", r, err)
+	}
+	if _, err := s.Find("202"); err == nil {
+		t.Error("an ambiguous prefix was accepted")
+	}
+	if _, err := s.Find("1999"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v", err)
+	}
+	if _, err := (Store{Dir: t.TempDir()}).Find("last"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("empty store: err = %v", err)
 	}
 }

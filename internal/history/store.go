@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"example.com/msh/internal/output"
 )
@@ -49,4 +52,71 @@ func (s Store) Load(id string) (Record, error) {
 		return Record{}, fmt.Errorf("history record %s: %w", id, err)
 	}
 	return r, nil
+}
+
+// ids returns all record IDs, oldest first. IDs sort by time.
+func (s Store) ids() ([]string, error) {
+	entries, err := os.ReadDir(s.Dir) // sorted by file name
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, e := range entries {
+		if id, ok := strings.CutSuffix(e.Name(), ".json"); ok && !strings.HasPrefix(id, ".") {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// All iterates over the records, newest first:
+//
+//	for r, err := range store.All() { ... }
+//
+// A record is only read when the loop reaches it, so breaking out of the
+// loop early saves reading the rest.
+func (s Store) All() iter.Seq2[Record, error] {
+	return func(yield func(Record, error) bool) {
+		ids, err := s.ids()
+		if err != nil {
+			yield(Record{}, err)
+			return
+		}
+		for _, id := range slices.Backward(ids) {
+			if !yield(s.Load(id)) {
+				return
+			}
+		}
+	}
+}
+
+// Find returns a record by "last", an ID, or a unique prefix of an ID.
+func (s Store) Find(ref string) (Record, error) {
+	ids, err := s.ids()
+	if err != nil {
+		return Record{}, err
+	}
+	if ref == "last" {
+		if len(ids) == 0 {
+			return Record{}, ErrNotFound
+		}
+		return s.Load(ids[len(ids)-1])
+	}
+	var matches []string
+	for _, id := range ids {
+		if strings.HasPrefix(id, ref) {
+			matches = append(matches, id)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return Record{}, ErrNotFound
+	case 1:
+		return s.Load(matches[0])
+	default:
+		return Record{}, fmt.Errorf("%q matches %d runs; use more of the ID", ref, len(matches))
+	}
 }
