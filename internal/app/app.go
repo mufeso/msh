@@ -36,6 +36,9 @@ type cli struct {
 	// lookPath finds executables (exec.LookPath); tests replace it.
 	lookPath func(file string) (string, error)
 
+	// args is the command line of this run, for the history.
+	args []string
+
 	// newTmux returns the tmux runner for a tmux binary path. Tests
 	// replace it with an in-memory fake.
 	newTmux func(path string) tmux.Runner
@@ -62,6 +65,7 @@ func (c *cli) finish(code exitcode.Code) exitcode.Code {
 }
 
 func (c *cli) run(args []string) exitcode.Code {
+	c.args = args
 	if len(args) == 0 {
 		c.printUsage(c.stdout)
 		return exitcode.OK

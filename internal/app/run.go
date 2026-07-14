@@ -188,6 +188,9 @@ func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emi
 		}
 		log.Debug("report written", "path", ro.report)
 	}
+	if opts.history && !ro.noHistory {
+		c.recordHistory(opts, report)
+	}
 	return exitCodeForResults(report.Results)
 }
 

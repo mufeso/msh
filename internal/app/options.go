@@ -17,6 +17,9 @@ type commonOptions struct {
 	verbose    bool
 	logFormat  string
 
+	// history says whether this run is recorded; set from the settings.
+	history bool
+
 	// log is created on first use by cli.log.
 	log *slog.Logger
 

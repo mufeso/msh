@@ -1,0 +1,58 @@
+package app
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"example.com/msh/internal/exitcode"
+)
+
+// historyFiles returns the records under home.
+func historyFiles(t *testing.T, home string) []string {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(home, ".local", "state", "msh", "history", "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
+}
+
+func TestRunsAreRecorded(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	home := t.TempDir()
+	env := map[string]string{"HOME": home}
+	args := append([]string{"exec", "--all", "--command", "echo hi"}, fleet.args()...)
+	if _, stderr, code := runCLIEnv(t, env, args...); code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	files := historyFiles(t, home)
+	if len(files) != 1 {
+		t.Fatalf("files = %v", files)
+	}
+	info, _ := os.Stat(files[0])
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v", info.Mode().Perm())
+	}
+
+	runCLIEnv(t, env, append(args, "--no-history")...)
+	env["MSH_HISTORY"] = "false"
+	runCLIEnv(t, env, args...)
+	if n := len(historyFiles(t, home)); n != 1 {
+		t.Errorf("%d records, want 1", n)
+	}
+}
+
+func TestHistoryFailureDoesNotChangeTheResult(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"XDG_STATE_HOME": blocked} // a file, not a directory
+	args := append([]string{"exec", "--all", "--command", "true"}, fleet.args()...)
+	_, stderr, code := runCLIEnv(t, env, args...)
+	if code != exitcode.OK || !contains(stderr, "warning: could not save") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
