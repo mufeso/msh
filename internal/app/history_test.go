@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
@@ -54,5 +55,34 @@ func TestHistoryFailureDoesNotChangeTheResult(t *testing.T) {
 	_, stderr, code := runCLIEnv(t, env, args...)
 	if code != exitcode.OK || !contains(stderr, "warning: could not save") {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
+
+// fleetHistory runs a few commands and returns the environment.
+func fleetHistory(t *testing.T, fleet *testFleet, commands ...string) map[string]string {
+	t.Helper()
+	env := map[string]string{"HOME": t.TempDir()}
+	for _, cmd := range commands {
+		args := append([]string{"exec", "--all", "--command", cmd}, fleet.args()...)
+		runCLIEnv(t, env, args...)
+	}
+	return env
+}
+
+func TestHistoryList(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	env := fleetHistory(t, fleet, "echo one", "exit 3")
+	stdout, stderr, code := runCLIEnv(t, env, "history", "list")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"PROBLEMS", "'echo one'", "'exit 3'"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	stdout, _, _ = runCLIEnv(t, env, "history", "list", "--limit", "1", "--output", "jsonl")
+	if n := strings.Count(stdout, "\n"); n != 1 || !contains(stdout, `"problems":2`) {
+		t.Errorf("stdout = %q", stdout)
 	}
 }
