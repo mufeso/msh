@@ -86,3 +86,20 @@ func TestHistoryList(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestHistoryShow(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	env := fleetHistory(t, fleet, "echo remembered")
+	stdout, stderr, code := runCLIEnv(t, env, "history", "show", "last")
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"Command: msh exec", "=== s1: ok", "remembered\n"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	if _, stderr, code := runCLIEnv(t, env, "history", "show", "1999"); code != exitcode.Usage || !contains(stderr, "no such run") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}

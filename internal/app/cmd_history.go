@@ -12,6 +12,7 @@ const historyUsage = `Usage: msh history <subcommand> [flags]
 
 Subcommands:
   list    List recorded runs
+  show    Show one recorded run
 
 msh records runs in ~/.local/state/msh/history. See docs/history.md.
 `
@@ -38,6 +39,8 @@ func runHistory(c *cli, args []string) exitcode.Code {
 	switch args[0] {
 	case "list":
 		return runHistoryList(c, args[1:])
+	case "show":
+		return runHistoryShow(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, historyUsage)
 		return exitcode.OK
