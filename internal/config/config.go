@@ -31,6 +31,7 @@ const (
 	KeyTmuxLayout      = "tmux_layout"
 	KeyFactsTTL        = "facts_ttl"
 	KeyHistory         = "history"
+	KeyHistoryLimit    = "history_limit"
 )
 
 // Execution modes.
@@ -79,6 +80,9 @@ type Settings struct {
 	// History records runs under the state directory.
 	History bool `json:"history"`
 
+	// HistoryLimit is how many runs are kept (0 = all).
+	HistoryLimit int `json:"history_limit"`
+
 	// Sources maps each setting key to the layer that provided its value.
 	Sources map[string]string `json:"-"`
 }
@@ -97,6 +101,7 @@ func Defaults() Settings {
 		TmuxLayout:      "tiled",
 		FactsTTL:        time.Hour,
 		History:         true,
+		HistoryLimit:    200,
 		Workers:         5,
 	}
 	s.Sources = map[string]string{}
@@ -111,7 +116,7 @@ func Keys() []string {
 	return []string{
 		KeyInventory, KeyUser, KeyPort, KeyIdentityFile, KeyKnownHostsFile, KeyOutput,
 		KeyConnectTimeout, KeyCommandTimeout, KeyTimeout,
-		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths, KeyTmuxLayout, KeyFactsTTL, KeyHistory,
+		KeyMode, KeyWorkers, KeyOrdered, KeyBastion, KeyAllowedLogPaths, KeyTmuxLayout, KeyFactsTTL, KeyHistory, KeyHistoryLimit,
 	}
 }
 
@@ -135,6 +140,7 @@ type Layer struct {
 	TmuxLayout      *string   `json:"tmux_layout,omitempty" yaml:"tmux_layout,omitempty"`
 	FactsTTL        *Duration `json:"facts_ttl,omitempty" yaml:"facts_ttl,omitempty"`
 	History         *bool     `json:"history,omitempty" yaml:"history,omitempty"`
+	HistoryLimit    *int      `json:"history_limit,omitempty" yaml:"history_limit,omitempty"`
 }
 
 // Source is a named layer.
@@ -179,6 +185,7 @@ func (s *Settings) Apply(name string, l Layer) {
 	set(s, name, KeyTmuxLayout, &s.TmuxLayout, l.TmuxLayout)
 	setDuration(s, name, KeyFactsTTL, &s.FactsTTL, l.FactsTTL)
 	set(s, name, KeyHistory, &s.History, l.History)
+	set(s, name, KeyHistoryLimit, &s.HistoryLimit, l.HistoryLimit)
 }
 
 // set copies *src into *dst when src is not nil and records the source.
@@ -234,6 +241,8 @@ func (s Settings) Value(key string) string {
 		return s.FactsTTL.String()
 	case KeyHistory:
 		return strconv.FormatBool(s.History)
+	case KeyHistoryLimit:
+		return strconv.Itoa(s.HistoryLimit)
 	default:
 		return ""
 	}

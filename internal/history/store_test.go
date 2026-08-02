@@ -2,6 +2,7 @@ package history
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -85,5 +86,27 @@ func TestFind(t *testing.T) {
 	}
 	if _, err := (Store{Dir: t.TempDir()}).Find("last"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("empty store: err = %v", err)
+	}
+}
+
+func TestPrune(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 5 {
+		saved(t, s, fmt.Sprint(i), base.Add(time.Duration(i)*time.Hour))
+	}
+	n, err := s.Prune(2)
+	if err != nil || n != 3 {
+		t.Fatalf("n = %d, err = %v", n, err)
+	}
+	var got []string
+	for r, _ := range s.All() {
+		got = append(got, r.Command)
+	}
+	if !slices.Equal(got, []string{"4", "3"}) {
+		t.Errorf("kept = %v, want the newest", got)
+	}
+	if n, _ := s.Prune(10); n != 0 {
+		t.Errorf("n = %d", n)
 	}
 }

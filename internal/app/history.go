@@ -34,4 +34,9 @@ func (c *cli) recordHistory(opts *commonOptions, report runner.Report) {
 		return
 	}
 	c.log(opts).Debug("run recorded in the history")
+	if opts.historyLimit > 0 {
+		if _, err := store.Prune(opts.historyLimit); err != nil {
+			fmt.Fprintf(c.stderr, "msh: warning: could not prune the history: %v\n", err)
+		}
+	}
 }

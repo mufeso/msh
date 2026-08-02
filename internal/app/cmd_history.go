@@ -14,6 +14,7 @@ Subcommands:
   list    List recorded runs
   show    Show one recorded run
   diff    Compare two recorded runs
+  prune   Remove old runs
 
 msh records runs in ~/.local/state/msh/history. See docs/history.md.
 `
@@ -44,6 +45,8 @@ func runHistory(c *cli, args []string) exitcode.Code {
 		return runHistoryShow(c, args[1:])
 	case "diff":
 		return runHistoryDiff(c, args[1:])
+	case "prune":
+		return runHistoryPrune(c, args[1:])
 	case "-h", "--help", "help":
 		fmt.Fprint(c.stdout, historyUsage)
 		return exitcode.OK
@@ -102,5 +105,34 @@ func runHistoryList(c *cli, args []string) exitcode.Code {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO
 	}
+	return exitcode.OK
+}
+
+const historyPruneUsage = `Usage: msh history prune --keep N
+
+Removes all but the newest N recorded runs.
+`
+
+func runHistoryPrune(c *cli, args []string) exitcode.Code {
+	fs := c.newFlagSet("history prune", historyPruneUsage)
+	keep := fs.Int("keep", -1, "keep this many `runs`")
+	if code, ok := parseFlags(fs, args); !ok {
+		return code
+	}
+	if *keep < 0 {
+		c.errorf("history prune: --keep N is required")
+		return exitcode.Usage
+	}
+	store, ok := c.historyStore()
+	if !ok {
+		c.errorf("cannot find a state directory: set HOME or XDG_STATE_HOME")
+		return exitcode.Config
+	}
+	removed, err := store.Prune(*keep)
+	if err != nil {
+		c.errorf("%v", err)
+		return exitcode.IO
+	}
+	fmt.Fprintf(c.stdout, "removed %d runs\n", removed)
 	return exitcode.OK
 }

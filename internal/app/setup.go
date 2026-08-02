@@ -123,6 +123,7 @@ func (c *cli) load(opts *commonOptions, needInventory bool) (*setup, exitcode.Co
 	}
 	opts.format = output.Format(st.settings.Output)
 	opts.history = st.settings.History
+	opts.historyLimit = st.settings.HistoryLimit
 	return st, exitcode.OK
 }
 

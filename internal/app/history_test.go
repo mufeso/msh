@@ -139,3 +139,20 @@ func TestHistoryDiff(t *testing.T) {
 		t.Errorf("same run: code = %v", code)
 	}
 }
+
+func TestHistoryLimit(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	home := t.TempDir()
+	env := map[string]string{"HOME": home, "MSH_HISTORY_LIMIT": "2"}
+	args := append([]string{"exec", "--all", "--command", "true"}, fleet.args()...)
+	for range 4 {
+		runCLIEnv(t, env, args...)
+	}
+	if n := len(historyFiles(t, home)); n != 2 {
+		t.Errorf("%d records, want 2", n)
+	}
+	stdout, _, code := runCLIEnv(t, env, "history", "prune", "--keep", "1")
+	if code != exitcode.OK || !contains(stdout, "removed 1 runs") {
+		t.Errorf("code = %v, stdout = %q", code, stdout)
+	}
+}

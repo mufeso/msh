@@ -30,6 +30,7 @@ const (
 	EnvTmuxLayout      = "MSH_TMUX_LAYOUT"
 	EnvFactsTTL        = "MSH_FACTS_TTL"
 	EnvHistory         = "MSH_HISTORY"
+	EnvHistoryLimit    = "MSH_HISTORY_LIMIT"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
@@ -71,6 +72,9 @@ func EnvLayer(lookup LookupFunc) (Layer, error) {
 		return Layer{}, err
 	}
 	if l.FactsTTL, err = envDuration(str, EnvFactsTTL); err != nil {
+		return Layer{}, err
+	}
+	if l.HistoryLimit, err = envInt(str, EnvHistoryLimit); err != nil {
 		return Layer{}, err
 	}
 	if v := str(EnvHistory); v != nil {

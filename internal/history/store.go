@@ -120,3 +120,27 @@ func (s Store) Find(ref string) (Record, error) {
 		return Record{}, fmt.Errorf("%q matches %d runs; use more of the ID", ref, len(matches))
 	}
 }
+
+// Prune removes all but the newest keep records and returns how many it
+// removed.
+func (s Store) Prune(keep int) (int, error) {
+	ids, err := s.ids()
+	if err != nil {
+		return 0, err
+	}
+	if len(ids) <= keep {
+		return 0, nil
+	}
+	removed := 0
+	for _, id := range ids[:len(ids)-keep] {
+		err := os.Remove(s.path(id))
+		if errors.Is(err, os.ErrNotExist) {
+			continue // another msh run removed it first
+		}
+		if err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
+}
