@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -108,5 +110,57 @@ func TestPrune(t *testing.T) {
 	}
 	if n, _ := s.Prune(10); n != 0 {
 		t.Errorf("n = %d", n)
+	}
+}
+
+func TestLockIsExclusive(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	var inside, overlaps atomic.Int32
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := s.withLock(func() error {
+				if inside.Add(1) > 1 {
+					overlaps.Add(1)
+				}
+				time.Sleep(2 * time.Millisecond)
+				inside.Add(-1)
+				return nil
+			})
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	if overlaps.Load() != 0 {
+		t.Errorf("%d overlapping critical sections", overlaps.Load())
+	}
+}
+
+func TestConcurrentSavesAndPrunes(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := s.Save(NewRecord(fmt.Sprint(i), sampleReport("a"), time.Now())); err != nil {
+				t.Error(err)
+			}
+			if _, err := s.Prune(5); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	wg.Wait()
+	if _, err := s.Prune(5); err != nil {
+		t.Fatal(err)
+	}
+	ids, _ := s.ids()
+	if len(ids) != 5 {
+		t.Errorf("%d records, want 5", len(ids))
 	}
 }

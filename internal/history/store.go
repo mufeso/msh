@@ -124,6 +124,16 @@ func (s Store) Find(ref string) (Record, error) {
 // Prune removes all but the newest keep records and returns how many it
 // removed.
 func (s Store) Prune(keep int) (int, error) {
+	removed := 0
+	err := s.withLock(func() error {
+		var err error
+		removed, err = s.prune(keep)
+		return err
+	})
+	return removed, err
+}
+
+func (s Store) prune(keep int) (int, error) {
 	ids, err := s.ids()
 	if err != nil {
 		return 0, err
