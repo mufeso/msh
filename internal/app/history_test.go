@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,5 +102,40 @@ func TestHistoryShow(t *testing.T) {
 	}
 	if _, stderr, code := runCLIEnv(t, env, "history", "show", "1999"); code != exitcode.Usage || !contains(stderr, "no such run") {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func historyIDs(t *testing.T, env map[string]string) []string {
+	t.Helper()
+	stdout, _, _ := runCLIEnv(t, env, "history", "list", "--output", "json")
+	var rows []historyRow
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatal(err)
+	}
+	var ids []string
+	for _, r := range rows {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
+func TestHistoryDiff(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	env := fleetHistory(t, fleet, "echo before", "echo after; exit 2")
+	ids := historyIDs(t, env)
+	if len(ids) != 2 {
+		t.Fatalf("ids = %v", ids)
+	}
+	stdout, stderr, code := runCLIEnv(t, env, "history", "diff", ids[1], ids[0])
+	if code != exitcode.Failure {
+		t.Errorf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, want := range []string{"status", "failed", "exit_code", "stdout", "before", "after"} {
+		if !contains(stdout, want) {
+			t.Errorf("missing %q in:\n%s", want, stdout)
+		}
+	}
+	if _, _, code := runCLIEnv(t, env, "history", "diff", ids[0], ids[0]); code != exitcode.OK {
+		t.Errorf("same run: code = %v", code)
 	}
 }
