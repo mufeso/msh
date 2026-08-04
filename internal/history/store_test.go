@@ -200,3 +200,27 @@ func TestRefusesNewerSchema(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestFilterIsLazy(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 6 {
+		saved(t, s, fmt.Sprint(i), base.Add(time.Duration(i)*time.Hour))
+	}
+	calls := 0
+	even := Filter(s.All(), func(r Record) bool {
+		calls++
+		return r.Args[0] == "5" || r.Args[0] == "3"
+	})
+	for r, err := range even {
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Args[0] == "5" {
+			break
+		}
+	}
+	if calls != 1 {
+		t.Errorf("the filter looked at %d records after an early break", calls)
+	}
+}

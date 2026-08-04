@@ -157,3 +157,23 @@ func (s Store) prune(keep int) (int, error) {
 	}
 	return removed, nil
 }
+
+// Filter returns an iterator over the records of seq that keep accepts.
+// It reads lazily, so a limit on the outer loop stops the file reads.
+// Errors always pass through.
+func Filter(seq iter.Seq2[Record, error], keep func(Record) bool) iter.Seq2[Record, error] {
+	return func(yield func(Record, error) bool) {
+		for r, err := range seq {
+			if err != nil || keep(r) {
+				if !yield(r, err) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// HasServer reports whether the run included a server.
+func (r Record) HasServer(name string) bool {
+	return slices.ContainsFunc(r.Results, func(v output.ResultView) bool { return v.Server == name })
+}

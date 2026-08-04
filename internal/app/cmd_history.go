@@ -3,8 +3,11 @@ package app
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/history"
 	"example.com/msh/internal/output"
 )
 
@@ -72,6 +75,10 @@ func runHistoryList(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("history list", historyListUsage)
 	opts.register(fs)
 	limit := fs.Int("limit", 20, "show at most this many `runs` (0 = all)")
+	failed := fs.Bool("failed", false, "only runs with problems")
+	server := fs.String("server", "", "only runs that included this `server`")
+	since := fs.Duration("since", 0, "only runs from this recent `time`, e.g. 24h")
+	grep := fs.String("grep", "", "only runs whose command line contains this `text`")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
@@ -85,7 +92,14 @@ func runHistoryList(c *cli, args []string) exitcode.Code {
 	}
 	items := []historyRow{}
 	rows := [][]string{}
-	for r, err := range store.All() {
+	oldest := time.Now().Add(-*since)
+	matching := history.Filter(store.All(), func(r history.Record) bool {
+		return (!*failed || r.Summary.Total != r.Summary.OK) &&
+			(*server == "" || r.HasServer(*server)) &&
+			(*since == 0 || r.Started.After(oldest)) &&
+			(*grep == "" || strings.Contains(r.Command, *grep))
+	})
+	for r, err := range matching {
 		if err != nil {
 			fmt.Fprintf(c.stderr, "msh: warning: %v\n", err)
 			continue

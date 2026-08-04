@@ -156,3 +156,27 @@ func TestHistoryLimit(t *testing.T) {
 		t.Errorf("code = %v, stdout = %q", code, stdout)
 	}
 }
+
+func TestHistoryFilters(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	env := fleetHistory(t, fleet, "echo fine", "exit 3")
+	rows := func(args ...string) string {
+		stdout, stderr, code := runCLIEnv(t, env, append([]string{"history", "list"}, args...)...)
+		if code != exitcode.OK {
+			t.Fatalf("code = %v, stderr = %s", code, stderr)
+		}
+		return stdout
+	}
+	if out := rows("--failed"); !contains(out, "exit 3") || contains(out, "echo fine") {
+		t.Errorf("--failed:\n%s", out)
+	}
+	if out := rows("--grep", "fine"); !contains(out, "echo fine") || contains(out, "exit 3") {
+		t.Errorf("--grep:\n%s", out)
+	}
+	if out := rows("--server", "ghost"); contains(out, "echo") {
+		t.Errorf("--server:\n%s", out)
+	}
+	if out := rows("--since", "1h"); !contains(out, "echo fine") {
+		t.Errorf("--since:\n%s", out)
+	}
+}
