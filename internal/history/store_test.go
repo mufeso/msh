@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func TestSaveAndLoad(t *testing.T) {
 	s := Store{Dir: filepath.Join(t.TempDir(), "history")}
-	r := NewRecord("msh exec --all", sampleReport("a"), time.Now())
+	r := NewRecord([]string{"exec", "--all"}, "ops", sampleReport("a"), time.Now())
 	if err := s.Save(r); err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +23,7 @@ func TestSaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Command != r.Command || got.Results[0].Stdout != "hello from a\n" {
+	if got.Command != "msh exec --all" || got.Operator != "ops" || got.Results[0].Stdout != "hello from a\n" {
 		t.Errorf("record = %+v", got)
 	}
 	dir, _ := os.Stat(s.Dir)
@@ -37,7 +38,7 @@ func TestSaveAndLoad(t *testing.T) {
 
 func saved(t *testing.T, s Store, command string, at time.Time) Record {
 	t.Helper()
-	r := NewRecord(command, sampleReport("a"), at)
+	r := NewRecord([]string{command}, "ops", sampleReport("a"), at)
 	if err := s.Save(r); err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestAllNewestFirst(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got = append(got, r.Command)
+		got = append(got, r.Args[0])
 	}
 	if !slices.Equal(got, []string{"three", "two", "one"}) {
 		t.Errorf("order = %v", got)
@@ -103,7 +104,7 @@ func TestPrune(t *testing.T) {
 	}
 	var got []string
 	for r, _ := range s.All() {
-		got = append(got, r.Command)
+		got = append(got, r.Args[0])
 	}
 	if !slices.Equal(got, []string{"4", "3"}) {
 		t.Errorf("kept = %v, want the newest", got)
@@ -147,7 +148,7 @@ func TestConcurrentSavesAndPrunes(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := s.Save(NewRecord(fmt.Sprint(i), sampleReport("a"), time.Now())); err != nil {
+			if err := s.Save(NewRecord([]string{fmt.Sprint(i)}, "ops", sampleReport("a"), time.Now())); err != nil {
 				t.Error(err)
 			}
 			if _, err := s.Prune(5); err != nil {
@@ -162,5 +163,40 @@ func TestConcurrentSavesAndPrunes(t *testing.T) {
 	ids, _ := s.ids()
 	if len(ids) != 5 {
 		t.Errorf("%d records, want 5", len(ids))
+	}
+}
+
+func copyFixture(t *testing.T, dir, id string) {
+	t.Helper()
+	data, err := os.ReadFile("testdata/schema1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".json"), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReadsOldSchema(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	id := "20260101T000000.000000-abc123"
+	copyFixture(t, s.Dir, id)
+	r, err := s.Load(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Schema != Schema || r.Operator != "unknown" || !slices.Equal(r.Args, []string{"exec", "--all", "--command", "true"}) {
+		t.Errorf("record = %+v", r)
+	}
+}
+
+func TestRefusesNewerSchema(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	id := "20990101T000000.000000-abc123"
+	if err := os.WriteFile(filepath.Join(s.Dir, id+".json"), []byte(`{"schema": 99}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Load(id); err == nil || !strings.Contains(err.Error(), "newer msh") {
+		t.Errorf("err = %v", err)
 	}
 }

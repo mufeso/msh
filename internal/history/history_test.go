@@ -21,11 +21,11 @@ func sampleReport(servers ...string) runner.Report {
 
 func TestNewRecord(t *testing.T) {
 	now := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
-	r := NewRecord("msh exec --all", sampleReport("a", "b"), now)
+	r := NewRecord([]string{"exec", "--all"}, "ops", sampleReport("a", "b"), now)
 	if r.Schema != Schema || !strings.HasPrefix(r.ID, "20260304T050605.000000-") || len(r.Results) != 2 {
 		t.Errorf("record = %+v", r)
 	}
-	if other := NewRecord("x", sampleReport("a"), now); other.ID == r.ID {
+	if other := NewRecord([]string{"x"}, "ops", sampleReport("a"), now); other.ID == r.ID {
 		t.Error("two records in the same second share an ID")
 	}
 }
@@ -35,7 +35,7 @@ func TestOutputIsLimited(t *testing.T) {
 		Server: "a", Stdout: strings.Repeat("x", MaxOutput*2),
 		Steps: []executor.StepResult{{Name: "s", Stdout: strings.Repeat("y", MaxOutput*2)}},
 	}}}
-	r := NewRecord("c", report, time.Now())
+	r := NewRecord([]string{"c"}, "ops", report, time.Now())
 	if len(r.Results[0].Stdout) > MaxOutput+100 || !strings.HasSuffix(r.Results[0].Stdout, "[truncated in history]\n") {
 		t.Errorf("stdout length = %d", len(r.Results[0].Stdout))
 	}

@@ -70,7 +70,7 @@ func (c *cli) findRun(ref string) (history.Record, exitcode.Code) {
 // describeRun renders a record for people.
 func describeRun(r history.Record) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Run:     %s\nStarted: %s\nCommand: %s\n", r.ID, r.Started.Local().Format("2006-01-02 15:04:05"), r.Command)
+	fmt.Fprintf(&b, "Run:     %s\nStarted: %s\nBy:      %s\nCommand: %s\n", r.ID, r.Started.Local().Format("2006-01-02 15:04:05"), r.Operator, r.Command)
 	fmt.Fprintf(&b, "Result:  %d servers, %d ok, %d with problems, %d ms\n", r.Summary.Total, r.Summary.OK, r.Summary.Total-r.Summary.OK, r.Summary.DurationMS)
 	for _, v := range r.Results {
 		fmt.Fprintf(&b, "=== %s: %s (exit %d, %d ms)\n", v.Server, v.Status, v.ExitCode, v.DurationMS)

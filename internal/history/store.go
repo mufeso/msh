@@ -51,6 +51,9 @@ func (s Store) Load(id string) (Record, error) {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return Record{}, fmt.Errorf("history record %s: %w", id, err)
 	}
+	if err := migrate(&r); err != nil {
+		return Record{}, fmt.Errorf("history record %s: %w", id, err)
+	}
 	return r, nil
 }
 

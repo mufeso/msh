@@ -5,39 +5,49 @@ package history
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"strings"
 	"time"
 
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/runner"
+	"example.com/msh/internal/shellquote"
 )
 
 // Schema is the current version of the file format.
-const Schema = 1
+//
+//	1  first version
+//	2  adds args and operator
+const Schema = 2
 
 // MaxOutput limits the stored stdout and stderr of each server and step.
 const MaxOutput = 64 << 10
 
 // Record is one run.
 type Record struct {
-	Schema  int                 `json:"schema"`
-	ID      string              `json:"id"`
-	Started time.Time           `json:"started"`
-	Command string              `json:"command"`
-	Results []output.ResultView `json:"results"`
-	Summary output.SummaryView  `json:"summary"`
+	Schema   int                 `json:"schema"`
+	ID       string              `json:"id"`
+	Started  time.Time           `json:"started"`
+	Command  string              `json:"command"`
+	Args     []string            `json:"args"`
+	Operator string              `json:"operator"`
+	Results  []output.ResultView `json:"results"`
+	Summary  output.SummaryView  `json:"summary"`
 }
 
 // NewRecord builds the record of a finished run. now is the end of the
 // run, and the start is derived from the run's duration.
-func NewRecord(command string, report runner.Report, now time.Time) Record {
+func NewRecord(args []string, operator string, report runner.Report, now time.Time) Record {
 	started := now.Add(-report.Summary.Duration).UTC()
 	r := Record{
-		Schema:  Schema,
-		ID:      newID(started),
-		Started: started,
-		Command: command,
-		Results: make([]output.ResultView, 0, len(report.Results)),
-		Summary: output.NewSummaryView(report.Summary),
+		Schema:   Schema,
+		ID:       newID(started),
+		Started:  started,
+		Command:  "msh " + shellquote.Join(args),
+		Args:     args,
+		Operator: operator,
+		Results:  make([]output.ResultView, 0, len(report.Results)),
+		Summary:  output.NewSummaryView(report.Summary),
 	}
 	for _, res := range report.Results {
 		v := output.NewResultView(res)
@@ -49,6 +59,22 @@ func NewRecord(command string, report runner.Report, now time.Time) Record {
 		r.Results = append(r.Results, v)
 	}
 	return r
+}
+
+// migrate upgrades a record read from a file, one version at a time, and
+// refuses files from a newer msh, whose meaning it can't know.
+func migrate(r *Record) error {
+	if r.Schema > Schema {
+		return fmt.Errorf("written by a newer msh (schema %d, this version reads up to %d)", r.Schema, Schema)
+	}
+	if r.Schema < 2 {
+		// Version 1 kept only the joined command line. Splitting it again
+		// is approximate, which is fine for display.
+		r.Args = strings.Fields(strings.TrimPrefix(r.Command, "msh "))
+		r.Operator = "unknown"
+		r.Schema = 2
+	}
+	return nil
 }
 
 // trim limits stored output.

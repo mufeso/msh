@@ -8,7 +8,6 @@ import (
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/history"
 	"example.com/msh/internal/runner"
-	"example.com/msh/internal/shellquote"
 )
 
 // historyStore returns the store. ok is false if no state directory can
@@ -28,8 +27,7 @@ func (c *cli) recordHistory(opts *commonOptions, report runner.Report) {
 	if !ok {
 		return
 	}
-	command := "msh " + shellquote.Join(c.args)
-	if err := store.Save(history.NewRecord(command, report, time.Now())); err != nil {
+	if err := store.Save(history.NewRecord(c.args, currentUser(), report, time.Now())); err != nil {
 		fmt.Fprintf(c.stderr, "msh: warning: could not save the run in the history: %v\n", err)
 		return
 	}
