@@ -39,6 +39,13 @@ never contain command output, scripts or task arguments.
   disk. Report files are written atomically with mode 0600.
 - Log paths are restricted to `allowed_log_paths`.
 
+## Data stored on your machine
+
+msh keeps data only under your home directory, readable only by you: run
+history (`~/.local/state/msh/history`), runbook progress and cached facts
+(`~/.cache/msh/facts`). The history includes command lines and command
+output. See history.md for how to limit or disable it.
+
 ## Bastions
 
 msh tunnels through bastions with `direct-tcpip`; nothing runs on the

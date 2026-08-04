@@ -48,6 +48,8 @@ in path settings is expanded to `$HOME`.
 | `allowed_log_paths` | — | `MSH_ALLOWED_LOG_PATHS` | `/var/log` | directories `msh logs` may read |
 | `tmux_layout` | `--tmux-layout` | `MSH_TMUX_LAYOUT` | `tiled` | default tmux layout |
 | `facts_ttl` | — | `MSH_FACTS_TTL` | `1h` | how long collected facts stay valid (`0s` = no cache) |
+| `history` | `--no-history` | `MSH_HISTORY` | `true` | record runs in the history |
+| `history_limit` | — | `MSH_HISTORY_LIMIT` | `200` | runs to keep (`0` = all) |
 
 Durations use Go syntax: `500ms`, `30s`, `2m`, `1h30m`.
 

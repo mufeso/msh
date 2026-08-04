@@ -180,3 +180,17 @@ func TestHistoryFilters(t *testing.T) {
 		t.Errorf("--since:\n%s", out)
 	}
 }
+
+func TestRunbookIsRecordedWithSteps(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	cfg := writeConfig(t, basicRunbooks)
+	env := map[string]string{"HOME": t.TempDir()}
+	args := append([]string{"runbook", "run", "greet", "--all", "--config", cfg}, fleet.args()...)
+	if _, stderr, code := runCLIEnv(t, env, args...); code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	stdout, _, _ := runCLIEnv(t, env, "history", "show", "last", "--output", "json")
+	if !contains(stdout, `"steps"`) || !contains(stdout, `"name": "first"`) {
+		t.Errorf("stdout = %s", stdout)
+	}
+}
