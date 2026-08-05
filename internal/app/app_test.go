@@ -63,6 +63,12 @@ func TestRun(t *testing.T) {
 func TestUsageListsEveryCommand(t *testing.T) {
 	stdout, _, _ := runCLI(t, "--help")
 	for _, cmd := range commands() {
+		if cmd.hidden {
+			if strings.Contains(stdout, cmd.name) {
+				t.Errorf("hidden command %q is listed", cmd.name)
+			}
+			continue
+		}
 		if !strings.Contains(stdout, cmd.name) {
 			t.Errorf("usage does not mention command %q", cmd.name)
 		}

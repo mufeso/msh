@@ -107,7 +107,7 @@ func (c *cli) printUsage(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Commands:")
 	for _, cmd := range commands() {
-		if !cmd.shortcut {
+		if !cmd.shortcut && !cmd.hidden {
 			fmt.Fprintf(w, "  %-13s %s\n", cmd.name, cmd.summary)
 		}
 	}

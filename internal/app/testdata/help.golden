@@ -7,6 +7,7 @@ Usage:
 
 Commands:
   c             Short form of task run: msh c TASK SERVER
+  completion    Print a shell completion script
   config        Show and validate configuration
   exec          Run a command on servers
   facts         Collect and show server facts

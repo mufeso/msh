@@ -51,7 +51,9 @@ func suggest(input string, candidates []string) (best string, ok bool) {
 func commandNames() []string {
 	var names []string
 	for _, cmd := range commands() {
-		names = append(names, cmd.name)
+		if !cmd.hidden {
+			names = append(names, cmd.name)
+		}
 	}
 	return names
 }

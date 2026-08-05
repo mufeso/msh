@@ -14,6 +14,8 @@ type command struct {
 
 	// shortcut commands are listed in their own help section.
 	shortcut bool
+	// hidden commands are not listed anywhere.
+	hidden bool
 }
 
 // commands returns every command in the order shown by --help.
@@ -23,6 +25,8 @@ type command struct {
 func commands() []*command {
 	cmds := []*command{
 		cCommand(),
+		completionCommand(),
+		completeCommand(),
 		configCommand(),
 		execCommand(),
 		factsCommand(),
