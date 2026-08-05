@@ -59,3 +59,37 @@ func TestBashScriptSyntax(t *testing.T) {
 		t.Errorf("code = %v", code)
 	}
 }
+
+func TestDynamicCompletion(t *testing.T) {
+	cfg := writeConfig(t, "inventory: testdata/inventory.yaml\n"+basicRunbooks)
+	env := map[string]string{"MSH_CONFIG": cfg}
+	got := func(words ...string) string {
+		stdout, _, _ := runCLIEnv(t, env, append([]string{"__complete"}, words...)...)
+		return stdout
+	}
+	if s := got("exec", "--host", "we"); s != "web01\nweb02\n" {
+		t.Errorf("--host: %q", s)
+	}
+	if s := got("exec", "--group", "d"); s != "database\n" {
+		t.Errorf("--group: %q", s)
+	}
+	if s := got("runbook", "run", "gr"); s != "greet\n" {
+		t.Errorf("runbook: %q", s)
+	}
+	if s := got("c", "he"); s != "hello\n" {
+		t.Errorf("c task: %q", s)
+	}
+	if s := got("c", "hello", "db"); s != "db01\n" {
+		t.Errorf("c server: %q", s)
+	}
+	if s := got("exec", "--wh"); s != "--where\n" {
+		t.Errorf("flags: %q", s)
+	}
+}
+
+func TestCompletionIsSilentOnErrors(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "__complete", "exec", "--host", "x")
+	if code != exitcode.OK || stdout != "" || stderr != "" {
+		t.Errorf("code = %v, stdout = %q, stderr = %q", code, stdout, stderr)
+	}
+}

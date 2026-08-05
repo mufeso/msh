@@ -1,7 +1,10 @@
 package app
 
 import (
+	"flag"
 	"fmt"
+	"io"
+	"slices"
 	"strings"
 
 	"example.com/msh/internal/exitcode"
@@ -93,7 +96,30 @@ func (c *cli) complete(words []string) []string {
 		words = []string{""}
 	}
 	current := words[len(words)-1]
+	if strings.HasPrefix(current, "-") {
+		return withPrefix(commonFlags, current)
+	}
 	var candidates []string
+	if len(words) >= 2 {
+		switch words[len(words)-2] {
+		case "--host":
+			return withPrefix(c.inventoryNames(servers), current)
+		case "--group":
+			return withPrefix(c.inventoryNames(groups), current)
+		case "--bastion":
+			return withPrefix(append(c.inventoryNames(bastions), "none"), current)
+		}
+	}
+	switch {
+	case len(words) == 2 && words[0] == "c":
+		return withPrefix(c.configNames(false), current)
+	case len(words) == 3 && words[0] == "c":
+		return withPrefix(c.inventoryNames(servers), current)
+	case len(words) == 3 && words[0] == "task" && (words[1] == "run" || words[1] == "show"):
+		return withPrefix(c.configNames(false), current)
+	case len(words) == 3 && words[0] == "runbook" && (words[1] == "run" || words[1] == "show"):
+		return withPrefix(c.configNames(true), current)
+	}
 	switch len(words) {
 	case 1:
 		for _, cmd := range commands() {
@@ -119,4 +145,69 @@ func withPrefix(candidates []string, prefix string) []string {
 		}
 	}
 	return out
+}
+
+// commonFlags are offered for words starting with "-".
+var commonFlags = []string{
+	"--all", "--bastion", "--command", "--config", "--group", "--help", "--host",
+	"--inventory", "--mode", "--ordered", "--output", "--prefix", "--tag",
+	"--timeout", "--verbose", "--where", "--workers",
+}
+
+// Name kinds for inventoryNames.
+const (
+	servers = iota
+	groups
+	bastions
+)
+
+// quietSetup loads the configuration without printing anything: errors
+// must not disturb the shell during completion.
+func (c *cli) quietSetup(needInventory bool) *setup {
+	var opts commonOptions
+	fs := flag.NewFlagSet("complete", flag.ContinueOnError)
+	opts.register(fs)
+	quiet := *c
+	quiet.stderr = io.Discard
+	st, _ := quiet.load(&opts, needInventory)
+	return st
+}
+
+// inventoryNames returns server, group or bastion names.
+func (c *cli) inventoryNames(kind int) []string {
+	st := c.quietSetup(true)
+	if st == nil {
+		return nil
+	}
+	var out []string
+	switch kind {
+	case bastions:
+		for _, b := range st.inv.Bastions {
+			out = append(out, b.Name)
+		}
+	case groups:
+		for _, s := range st.inv.Servers {
+			for _, g := range s.Groups {
+				if !slices.Contains(out, g) {
+					out = append(out, g)
+				}
+			}
+		}
+		slices.Sort(out)
+	default:
+		out = st.inv.Names()
+	}
+	return out
+}
+
+// configNames returns task names, or runbook names.
+func (c *cli) configNames(runbooks bool) []string {
+	st := c.quietSetup(false)
+	if st == nil {
+		return nil
+	}
+	if runbooks {
+		return st.runbooks.Names()
+	}
+	return st.tasks.Names()
 }
