@@ -5,3 +5,5 @@
 //	msh --help
 //	msh --version
 package main
+
+//go:generate go run ../msh-docs ../../docs
