@@ -33,3 +33,13 @@ func TestGeneratedManualIsUpToDate(t *testing.T) {
 		t.Error("docs/man/msh.1 is out of date; run: go generate ./...")
 	}
 }
+
+func TestGeneratedReferenceIsUpToDate(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "docs", "commands.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != Reference() {
+		t.Error("docs/commands.md is out of date; run: go generate ./...")
+	}
+}

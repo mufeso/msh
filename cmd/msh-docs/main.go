@@ -15,9 +15,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: msh-docs DOCS_DIR")
 		os.Exit(2)
 	}
-	path := filepath.Join(os.Args[1], "man", "msh.1")
-	if err := os.WriteFile(path, []byte(app.Manual()), 0o644); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	files := map[string]string{
+		filepath.Join(os.Args[1], "man", "msh.1"): app.Manual(),
+		filepath.Join(os.Args[1], "commands.md"):  app.Reference(),
+	}
+	for path, content := range files {
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 	}
 }
