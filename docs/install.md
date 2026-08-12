@@ -70,9 +70,20 @@ msh hosts check
 msh uptime --all
 ```
 
+## Shell completion and man page
+
+```bash
+echo 'source <(msh completion bash)' >> ~/.bashrc     # or zsh, after compinit
+sudo install -m 0644 docs/man/msh.1 /usr/local/share/man/man1/msh.1
+```
+
+Completion offers commands, server, group and bastion names, tasks and
+runbooks from your own configuration.
+
 ## Uninstall
 
 ```bash
 rm /usr/local/bin/msh      # or ~/.local/bin/msh
 rm -r ~/.config/msh        # configuration and inventory
+rm -r ~/.local/state/msh ~/.cache/msh   # history, runbook progress, cached facts
 ```

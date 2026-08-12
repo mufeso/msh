@@ -1,11 +1,14 @@
 # msh — My Parallel SSH
 
 msh is a command-line SSH fleet-management tool for Linux servers. It
-runs commands, reusable tasks, local scripts and interactive sessions on
-one or many servers, sequentially or in parallel, directly or through a
-bastion, with verified host keys and clean CTRL+C handling.
+runs commands, reusable tasks, local scripts, multi-step runbooks and
+interactive sessions on one or many servers, sequentially or in parallel,
+directly or through a bastion, with verified host keys and clean CTRL+C
+handling. It also collects facts, checks rpm and dpkg packages across the
+fleet, and keeps a history of what it did.
 
-It is written in Go using the standard library plus
+A man page is in docs/man/msh.1. It is written in Go using the standard
+library plus
 `golang.org/x/crypto/ssh`, `golang.org/x/term` and `gopkg.in/yaml.v3`.
 
 ## Quick start
@@ -29,6 +32,7 @@ Every remote command accepts:
 | `--group web` | members of a group (repeatable) |
 | `--tag environment=production` | filters by tag (repeatable, all must match) |
 | `--all` | every server |
+| `--where 'os_family == "redhat"'` | filters by facts (see docs/facts.md) |
 
 ## Commands
 
@@ -54,6 +58,31 @@ msh script run --host server01 --file ./check.sh
 msh script run --group web --file ./health-check.py --interpreter python3
 msh script run --all --file examples/scripts/health-check.sh --arg nginx
 
+# Runbooks: several steps, rolled out safely (see docs/runbooks.md)
+msh runbook list
+msh runbook show restart-web
+msh runbook run restart-web --group web --dry-run
+msh runbook run restart-web --group web --canary 1 --batch 25% --pause 30s --yes
+msh runbook run restart-web --group web --yes --resume
+
+# Facts (see docs/facts.md)
+msh facts --all
+msh facts --all --group-by os_version
+msh facts --all --expect 'disk_root_pct < 90'
+
+# Installed packages, rpm and dpkg (see docs/packages.md)
+msh packages list --host web01 --filter 'kernel*'
+msh packages check --all --package 'openssl>=3.0,!telnet'
+msh packages check --all --file baseline.txt --only-problems
+msh packages find 'openssl*' --all
+msh packages compare --group web --baseline web01
+msh packages updates --all
+
+# History of runs (see docs/history.md)
+msh history list --failed --since 24h
+msh history show last
+msh history diff 20261105T1015 last
+
 # Built-in read-only shortcuts (msh help shortcuts)
 msh ping --all
 msh uname --all
@@ -71,6 +100,7 @@ msh shell --group web --tmux [--tmux-session fleet] [--tmux-layout tiled]
 
 # Configuration and version
 msh config init | show | validate
+msh completion bash | zsh
 msh version
 msh --help
 msh --version
@@ -126,7 +156,10 @@ secrets never appear in output or logs. See docs/security.md.
 ## Documentation
 
 [install](docs/install.md) · [configuration](docs/configuration.md) ·
-[tasks](docs/tasks.md) · [scripts](docs/scripts.md) ·
+[commands](docs/commands.md) · [tasks](docs/tasks.md) ·
+[runbooks](docs/runbooks.md) · [facts](docs/facts.md) ·
+[packages](docs/packages.md) · [history](docs/history.md) ·
+[scripts](docs/scripts.md) ·
 [bastions](docs/bastion.md) · [interactive](docs/interactive.md) ·
 [tmux](docs/tmux.md) · [output](docs/output.md) ·
 [concurrency](docs/concurrency.md) · [shutdown](docs/shutdown.md) ·
@@ -137,6 +170,7 @@ secrets never appear in output or logs. See docs/security.md.
 
 ```bash
 ./scripts/check.sh --race      # gofmt, vet, tests, race tests, build
+go generate ./...              # regenerate the man page and command reference
 make dist VERSION=1.0.0        # release binaries and SHA256SUMS
 ```
 
