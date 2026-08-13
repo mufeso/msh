@@ -23,7 +23,7 @@ go build -trimpath -o msh ./cmd/msh
 Release binaries for several platforms:
 
 ```bash
-make dist VERSION=1.0.0    # dist/msh-1.0.0-OS-ARCH and dist/SHA256SUMS
+make dist VERSION=2.0.0    # dist/msh-2.0.0-OS-ARCH and dist/SHA256SUMS
 ```
 
 ## Install the binary

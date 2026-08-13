@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.0.0
+
+- Runbooks: multi-step workflows with dry run, retries, continue_on_error,
+  timeouts, safety classes, arguments and resume after failure.
+- Rolling execution: batches, canaries, failure limits, pauses, approvals
+  and staggered starts.
+- Facts: `msh facts`, a cache, `--expect` and `--group-by`.
+- Expressions: a small language for `--where` and runbook `when:`.
+- Packages: `msh packages list|check|find|compare|updates` for rpm and dpkg,
+  with ported version comparison, requirements and baseline files.
+- History: every run is recorded; `msh history list|show|diff|prune`.
+- Shell completion for bash and zsh, a man page and a command reference,
+  both generated from the program.
+- Fixed: a command that exits 0 without reading all of its stdin is now a
+  success, not an error.
+- JSON output: `summary` has a new `skipped` count, and results of runbooks
+  have `steps`.
+- New status `skipped`.
+
 ## 1.0.0
 
 First complete version of msh — My Parallel SSH, built in 150 layered

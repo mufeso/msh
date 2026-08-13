@@ -171,7 +171,7 @@ secrets never appear in output or logs. See docs/security.md.
 ```bash
 ./scripts/check.sh --race      # gofmt, vet, tests, race tests, build
 go generate ./...              # regenerate the man page and command reference
-make dist VERSION=1.0.0        # release binaries and SHA256SUMS
+make dist VERSION=2.0.0        # release binaries and SHA256SUMS
 ```
 
 Tests need no servers: they start in-process SSH servers (including
