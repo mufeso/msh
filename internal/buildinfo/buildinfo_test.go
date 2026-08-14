@@ -42,7 +42,7 @@ func TestWithBuildInfo(t *testing.T) {
 		t.Errorf("got %+v", got)
 	}
 
-	ldflags := Info{Version: "2.0.0", Commit: "abc", Date: "today"}
+	ldflags := Info{Version: "7.7.7", Commit: "abc", Date: "today"}
 	if got := withBuildInfo(ldflags, bi); got != ldflags {
 		t.Errorf("-ldflags values must win: %+v", got)
 	}
