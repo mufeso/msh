@@ -103,3 +103,24 @@ func TestHostsListYAMLInventory(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestHostFlagForms(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "servers.txt")
+	if err := os.WriteFile(file, []byte("# production\ndb01\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"--host", "web01,web02,db01"},
+		{"--host", "web01 web02 db01"},
+		{"--host", "web01 web02", "--host", "@" + file},
+		{"--host", "web01,web02", "--host", "@" + file},
+	} {
+		got := serverNames(listJSON(t, args...))
+		if !slices.Equal(got, []string{"web01", "web02", "db01"}) {
+			t.Errorf("%v: got %v", args, got)
+		}
+	}
+	if _, _, code := runCLI(t, "hosts", "list", "--inventory", fixture, "--host", "@/does/not/exist"); code != exitcode.Usage {
+		t.Errorf("missing file: code = %v", code)
+	}
+}

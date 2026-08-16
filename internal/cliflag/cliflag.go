@@ -13,8 +13,10 @@ package cliflag
 import (
 	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // StringList collects values from repeated flags and comma-separated lists:
@@ -83,4 +85,58 @@ func (kv *KeyValues) Set(value string) error {
 	}
 	(*kv)[key] = strings.TrimSpace(val)
 	return nil
+}
+
+// HostList collects server names from commas, spaces, repeated flags and
+// files:
+//
+//	--host a,b --host "c d" --host @servers.txt
+type HostList []string
+
+var _ flag.Value = (*HostList)(nil)
+
+// String returns the hosts joined by commas.
+func (l *HostList) String() string {
+	if l == nil {
+		return ""
+	}
+	return strings.Join(*l, ",")
+}
+
+// Set adds hosts. A value starting with "@" names a file; user@host has
+// the "@" in the middle, so the two can't be confused.
+func (l *HostList) Set(value string) error {
+	if path, ok := strings.CutPrefix(value, "@"); ok {
+		return l.ReadFile(path)
+	}
+	hosts := splitHosts(value)
+	if len(hosts) == 0 {
+		return fmt.Errorf("no hosts in %q", value)
+	}
+	*l = append(*l, hosts...)
+	return nil
+}
+
+// ReadFile adds the hosts of a file. Names are separated by lines, spaces
+// or commas; everything after # on a line is a comment.
+func (l *HostList) ReadFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var hosts []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line, _, _ = strings.Cut(line, "#")
+		hosts = append(hosts, splitHosts(line)...)
+	}
+	if len(hosts) == 0 {
+		return fmt.Errorf("%s: no hosts", path)
+	}
+	*l = append(*l, hosts...)
+	return nil
+}
+
+// splitHosts splits on commas and any whitespace.
+func splitHosts(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || unicode.IsSpace(r) })
 }

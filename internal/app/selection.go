@@ -12,7 +12,7 @@ import (
 
 // selectionOptions describe which servers a command acts on.
 type selectionOptions struct {
-	hosts  cliflag.StringList
+	hosts  cliflag.HostList
 	groups cliflag.StringList
 	tags   cliflag.KeyValues
 	all    bool
@@ -20,7 +20,7 @@ type selectionOptions struct {
 }
 
 func (s *selectionOptions) register(fs *flag.FlagSet) {
-	fs.Var(&s.hosts, "host", "server `name` (repeatable, comma-separated)")
+	fs.Var(&s.hosts, "host", "servers: `a,b`, \"a b\", user@host or @FILE (repeatable)")
 	fs.Var(&s.groups, "group", "group `name` (repeatable, comma-separated)")
 	fs.Var(&s.tags, "tag", "tag filter `key=value` (repeatable)")
 	fs.BoolVar(&s.all, "all", false, "select all servers")
