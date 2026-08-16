@@ -28,3 +28,50 @@ func TestParseTarget(t *testing.T) {
 		}
 	}
 }
+
+func TestAddTargets(t *testing.T) {
+	inv := sampleInventory()
+	d := TargetDefaults{User: "me", Port: 22}
+	names, err := inv.AddTargets([]string{"web01", "root@db01", "ops@web02:2200", "x@198.51.100.7:2222", "new.example.com"}, d, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := inv.Select(Selector{Hosts: names})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 5 {
+		t.Fatalf("selected = %+v", got)
+	}
+	if db := got[1]; db.Name != "db01" || db.User != "root" || db.Address != "db01.example.com" {
+		t.Errorf("db01 = %+v", db)
+	}
+	if w := got[2]; w.Port != 2200 || w.User != "ops" {
+		t.Errorf("web02 = %+v", w)
+	}
+	if x := got[3]; x.Name != "x@198.51.100.7:2222" || x.Address != "198.51.100.7" || x.User != "x" || x.Port != 2222 {
+		t.Errorf("ad hoc = %+v", x)
+	}
+	if n := got[4]; n.User != "me" || n.Port != 22 {
+		t.Errorf("defaults = %+v", n)
+	}
+	if _, err := inv.AddTargets([]string{"-oProxyCommand=x"}, d, nil); err == nil {
+		t.Error("an option-like target was accepted")
+	}
+}
+
+func TestAddTargetsMatchesAddress(t *testing.T) {
+	inv := sampleInventory()
+	names, err := inv.AddTargets([]string{"admin@192.0.2.10"}, TargetDefaults{}, nil)
+	if err != nil || names[0] != "web01" {
+		t.Errorf("names = %v, err = %v", names, err)
+	}
+}
+
+func TestAddTargetsKeepsPortsApart(t *testing.T) {
+	inv := &Inventory{}
+	names, err := inv.AddTargets([]string{"a@192.0.2.1:2201", "a@192.0.2.1:2202"}, TargetDefaults{}, nil)
+	if err != nil || len(names) != 2 || len(inv.Servers) != 2 {
+		t.Errorf("names = %v, servers = %+v, err = %v", names, inv.Servers, err)
+	}
+}

@@ -37,6 +37,12 @@ func (s *selectionOptions) isEmpty() bool {
 	return !s.all && len(s.hosts) == 0 && len(s.groups) == 0 && len(s.tags) == 0 && s.where == ""
 }
 
+// onlyHosts reports whether the selection names servers directly, which
+// works without an inventory file.
+func (s *selectionOptions) onlyHosts() bool {
+	return len(s.hosts) > 0 && !s.all && len(s.groups) == 0 && len(s.tags) == 0
+}
+
 // validate rejects contradictory selections.
 func (s *selectionOptions) validate() error {
 	if s.all && (len(s.hosts) > 0 || len(s.groups) > 0 || len(s.tags) > 0) {

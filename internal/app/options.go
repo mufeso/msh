@@ -17,6 +17,11 @@ type commonOptions struct {
 	verbose    bool
 	logFormat  string
 
+	// inventoryOptional accepts a missing default inventory file, and
+	// noInventoryFile records that it was missing.
+	inventoryOptional bool
+	noInventoryFile   bool
+
 	// history says whether this run is recorded, and historyLimit how many
 	// runs are kept; both are set from the settings.
 	history      bool

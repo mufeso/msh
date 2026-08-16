@@ -62,3 +62,76 @@ func ParseTarget(s string) (Target, error) {
 	}
 	return t, nil
 }
+
+// TargetDefaults complete ad hoc servers.
+type TargetDefaults struct {
+	User         string
+	Port         int
+	Bastion      string
+	ForceBastion bool // the bastion came from the command line
+}
+
+// AddTargets makes every entry of hosts selectable and returns the names
+// to select them by.
+//
+// An entry that names an inventory server, or its address, keeps that
+// server's settings, and a user or port in the entry override them. Any
+// other entry becomes an ad hoc server named as it was typed. resolve, if
+// not nil, can complete a new server (for example from ~/.ssh/config).
+func (inv *Inventory) AddTargets(hosts []string, d TargetDefaults, resolve func(*Server) error) ([]string, error) {
+	names := make([]string, 0, len(hosts))
+	known := len(inv.Servers) // ad hoc servers never merge with each other
+	for _, entry := range hosts {
+		if _, ok := inv.Find(entry); ok {
+			names = append(names, entry)
+			continue
+		}
+		t, err := ParseTarget(entry)
+		if err != nil {
+			return nil, err
+		}
+		if i := inv.indexOf(t, known); i >= 0 {
+			if t.User != "" {
+				inv.Servers[i].User = t.User
+			}
+			if t.Port != 0 {
+				inv.Servers[i].Port = t.Port
+			}
+			names = append(names, inv.Servers[i].Name)
+			continue
+		}
+		s := Server{Name: entry, Address: t.Host, User: t.User, Port: t.Port}
+		if resolve != nil {
+			if err := resolve(&s); err != nil {
+				return nil, fmt.Errorf("%s: %w", entry, err)
+			}
+		}
+		if s.User == "" {
+			s.User = d.User
+		}
+		if s.Port == 0 {
+			s.Port = d.Port
+		}
+		if d.ForceBastion || s.Bastion == "" {
+			s.Bastion = d.Bastion
+		}
+		inv.Servers = append(inv.Servers, s)
+		names = append(names, entry)
+	}
+	return names, nil
+}
+
+// indexOf finds a target among the first n servers, by name or by address.
+// One address with another port is another server: several can share a
+// host behind port forwarding.
+func (inv *Inventory) indexOf(t Target, n int) int {
+	for i, s := range inv.Servers[:n] {
+		if s.Name == t.Host {
+			return i
+		}
+		if s.Address == t.Host && (t.Port == 0 || s.Port == 0 || t.Port == s.Port) {
+			return i
+		}
+	}
+	return -1
+}

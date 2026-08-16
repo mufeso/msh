@@ -56,22 +56,9 @@ func runShell(c *cli, args []string) exitcode.Code {
 // interactiveSession selects exactly one server, connects and runs an
 // interactive session on it.
 func (c *cli) interactiveSession(f *shellFlags, iopts interactive.Options) exitcode.Code {
-	if err := f.sel.validate(); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
-	if f.sel.isEmpty() {
-		c.errorf("shell: select a server with --host")
-		return exitcode.Usage
-	}
-	st, code := c.load(&f.opts, true)
+	st, servers, code := c.selectServers("shell", &f.opts, &f.sel)
 	if st == nil {
 		return code
-	}
-	servers, err := st.inv.Select(f.sel.selector())
-	if err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
 	}
 	if f.tmux.enabled {
 		return c.tmuxSessions(f, st, servers, iopts)

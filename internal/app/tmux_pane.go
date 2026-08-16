@@ -21,10 +21,12 @@ func (c *cli) paneArgv(f *shellFlags, st *setup, server inventory.Server, iopts 
 	}
 	s := st.settings
 	argv := []string{exe, "shell", "--host", server.Name,
-		"--inventory", absPath(s.Inventory),
 		"--known-hosts", absPath(s.KnownHostsFile),
 		"--port", strconv.Itoa(s.Port),
 		"--connect-timeout", s.ConnectTimeout.String(),
+	}
+	if !f.opts.noInventoryFile {
+		argv = append(argv, "--inventory", absPath(s.Inventory))
 	}
 	if st.configFile != "" {
 		argv = append(argv, "--config", absPath(st.configFile))

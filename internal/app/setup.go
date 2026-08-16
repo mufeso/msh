@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"os/user"
+	"strings"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/configfile"
@@ -134,6 +135,10 @@ func (c *cli) loadInventory(opts *commonOptions, s config.Settings) (*inventory.
 	if err == nil {
 		return inv, exitcode.OK
 	}
+	if errors.Is(err, fs.ErrNotExist) && s.Sources[config.KeyInventory] == config.SourceDefault && opts.inventoryOptional {
+		opts.noInventoryFile = true
+		return &inventory.Inventory{}, exitcode.OK
+	}
 	if errors.Is(err, fs.ErrNotExist) && s.Sources[config.KeyInventory] == config.SourceDefault {
 		c.errorf("no inventory file at %s: use --inventory FILE, %s, or \"inventory\" in the configuration file",
 			s.Inventory, config.EnvInventory)
@@ -199,6 +204,10 @@ func (c *cli) resolveBastions(st *setup) exitcode.Code {
 	default:
 		fallback = st.settings.Bastion
 	}
+	if err := addBastionTarget(st.inv, override); err != nil {
+		c.errorf("--bastion: %v", err)
+		return exitcode.Usage
+	}
 	if err := st.inv.ResolveBastions(override, fallback); err != nil {
 		c.errorf("%v", err)
 		if st.settings.Sources[config.KeyBastion] == config.SourceFlag {
@@ -207,4 +216,18 @@ func (c *cli) resolveBastions(st *setup) exitcode.Code {
 		return exitcode.Config
 	}
 	return exitcode.OK
+}
+
+// addBastionTarget registers an ad hoc bastion such as jump@host:2222.
+// A plain word must be a name from the inventory, so a typo stays an error.
+func addBastionTarget(inv *inventory.Inventory, value string) error {
+	if _, known := inv.FindBastion(value); known || !strings.ContainsAny(value, "@.:") {
+		return nil
+	}
+	t, err := inventory.ParseTarget(value)
+	if err != nil {
+		return err
+	}
+	inv.Bastions = append(inv.Bastions, inventory.Bastion{Name: value, Address: t.Host, User: t.User, Port: t.Port})
+	return nil
 }

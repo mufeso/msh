@@ -84,9 +84,14 @@ func (c *cli) selectServers(name string, opts *commonOptions, sel *selectionOpti
 		c.errorf("%s: select servers with --host, --group, --tag or --all", name)
 		return nil, nil, exitcode.Usage
 	}
+	opts.inventoryOptional = sel.onlyHosts()
 	st, code := c.load(opts, true)
 	if st == nil {
 		return nil, nil, code
+	}
+	if err := c.addTargets(st, sel); err != nil {
+		c.errorf("%v", err)
+		return nil, nil, exitcode.Usage
 	}
 	servers, err := st.inv.Select(sel.selector())
 	if err != nil {
@@ -94,6 +99,28 @@ func (c *cli) selectServers(name string, opts *commonOptions, sel *selectionOpti
 		return nil, nil, exitcode.Usage
 	}
 	return st, servers, exitcode.OK
+}
+
+// addTargets turns the --host entries into selectable servers.
+func (c *cli) addTargets(st *setup, sel *selectionOptions) error {
+	if len(sel.hosts) == 0 {
+		return nil
+	}
+	d := inventory.TargetDefaults{User: st.settings.User, Port: st.settings.Port}
+	if d.User == "" {
+		d.User = currentUser()
+	}
+	if b := st.settings.Bastion; b != inventory.NoBastion {
+		d.Bastion = b
+	}
+	source := st.settings.Sources[config.KeyBastion]
+	d.ForceBastion = source == config.SourceFlag || source == config.SourceEnv
+	names, err := st.inv.AddTargets(sel.hosts, d, nil)
+	if err != nil {
+		return err
+	}
+	sel.hosts = names
+	return nil
 }
 
 // prepareRun selects servers and builds the SSH stack. The caller closes
