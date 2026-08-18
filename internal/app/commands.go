@@ -28,6 +28,7 @@ func commands() []*command {
 		completionCommand(),
 		completeCommand(),
 		configCommand(),
+		connectCommand(),
 		execCommand(),
 		factsCommand(),
 		helpCommand(),

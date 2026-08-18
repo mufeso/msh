@@ -45,7 +45,7 @@ func TestRun(t *testing.T) {
 		{name: "hosts help", args: []string{"hosts", "--help"}, wantCode: exitcode.OK, wantStdout: "Subcommands:"},
 		{name: "hosts unknown", args: []string{"hosts", "nope"}, wantCode: exitcode.Usage, wantStderr: `unknown hosts subcommand "nope"`},
 		{name: "typo suggestion", args: []string{"verison"}, wantCode: exitcode.Usage, wantStderr: `Did you mean "version"?`},
-		{name: "unknown command", args: []string{"bogus"}, wantCode: exitcode.Usage, wantStderr: `unknown command "bogus"`},
+		{name: "unknown word is a destination", args: []string{"bogus"}, wantCode: exitcode.Connection, wantStderr: "no usable SSH keys"},
 	}
 
 	for _, tt := range tests {

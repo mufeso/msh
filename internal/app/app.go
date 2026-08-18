@@ -82,10 +82,14 @@ func (c *cli) run(args []string) exitcode.Code {
 
 	cmd, ok := lookup(args[0])
 	if !ok {
+		if c.isDestination(args[0]) {
+			return runConnect(c, args)
+		}
 		c.errorf("unknown command %q", args[0])
 		if s, ok := suggest(args[0], commandNames()); ok {
 			fmt.Fprintf(c.stderr, "Did you mean %q?\n", s)
 		}
+		fmt.Fprintf(c.stderr, "To connect to a server with this name: msh connect %s\n", args[0])
 		fmt.Fprintln(c.stderr, "Run 'msh --help' for usage.")
 		return exitcode.Usage
 	}
@@ -101,6 +105,7 @@ func (c *cli) errorf(format string, a ...any) {
 func (c *cli) printUsage(w io.Writer) {
 	fmt.Fprintf(w, "%s\n\n", buildinfo.Banner())
 	fmt.Fprintln(w, "Usage:")
+	fmt.Fprintln(w, "  msh [user@]host                like ssh: open a shell")
 	fmt.Fprintln(w, "  msh <command> [flags]")
 	fmt.Fprintln(w, "  msh --help")
 	fmt.Fprintln(w, "  msh --version")

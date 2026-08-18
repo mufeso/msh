@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -54,6 +55,40 @@ func TestAdHocBastion(t *testing.T) {
 func TestGroupStillNeedsAnInventory(t *testing.T) {
 	_, stderr, code := runCLI(t, "exec", "--group", "web", "--command", "true")
 	if code != exitcode.Config || !contains(stderr, "no inventory file") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func TestConnectLikeSSH(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	ctx := withInput(context.Background(), "echo in-the-shell\nexit 5\n")
+	args := append(fleet.credentials(), "tester@"+fleet.servers[0].Addr)
+	stdout, stderr, code := runCLICtx(t, ctx, nil, args...)
+	if code != 5 || !contains(stdout, "in-the-shell") {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestConnectByInventoryName(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	ctx := withInput(context.Background(), "exit 6\n")
+	cfg := writeConfig(t, "inventory: "+fleet.inventory+"\n")
+	stdout, stderr, code := runCLICtx(t, ctx, map[string]string{"MSH_CONFIG": cfg}, append(fleet.credentials(), "s1")...)
+	if code != 6 {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestTypoIsNotADestination(t *testing.T) {
+	_, stderr, code := runCLI(t, "verison")
+	if code != exitcode.Usage || !contains(stderr, `Did you mean "version"?`) || !contains(stderr, "msh connect verison") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}
+
+func TestOptionLikeDestinationIsRejected(t *testing.T) {
+	_, stderr, code := runCLI(t, "connect", "--", "-oProxyCommand=x")
+	if code != exitcode.Usage || !contains(stderr, "invalid host") {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }

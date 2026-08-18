@@ -62,6 +62,22 @@ prints a summary. Exits 0 when everything is valid, 3 when the
 configuration or inventory is invalid, and 8 when a file cannot be read.
 ```
 
+## msh connect
+
+```text
+Usage: msh [flags] [user@]host[:port]
+       msh connect [flags] [user@]host[:port]
+
+Connects like ssh: opens a shell on the server. The server does not need
+to be in the inventory; if it is, its settings apply. Host keys are always
+verified.
+
+Examples:
+  msh ops@server1
+  msh root@server1:2222
+  msh web01
+```
+
 ## msh exec
 
 ```text
