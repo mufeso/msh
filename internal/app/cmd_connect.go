@@ -9,17 +9,19 @@ import (
 	"example.com/msh/internal/interactive"
 )
 
-const connectUsage = `Usage: msh [flags] [user@]host[:port]
-       msh connect [flags] [user@]host[:port]
+const connectUsage = `Usage: msh [flags] [user@]host[:port] [command...]
+       msh connect [flags] [user@]host[:port] [command...]
 
-Connects like ssh: opens a shell on the server. The server does not need
-to be in the inventory; if it is, its settings apply. Host keys are always
-verified.
+Connects like ssh. Without a command it opens a shell. With one it runs the
+command on the server, with raw output and the remote exit status. The
+server does not need to be in the inventory; if it is, its settings apply.
+Host keys are always verified.
 
 Examples:
   msh ops@server1
   msh root@server1:2222
-  msh web01
+  msh web01 df -h
+  msh -t web01 top
 `
 
 func connectCommand() *command {
@@ -36,18 +38,30 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("connect", connectUsage)
 	f.opts.register(fs)
 	f.ro.register(fs)
+	tty := fs.Bool("t", false, "use a terminal for a remote command (like ssh -t)")
+	noTTY := fs.Bool("T", false, "never use a terminal (like ssh -T)")
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if fs.NArg() != 1 {
-		c.errorf("usage: msh [user@]host")
+	if fs.NArg() == 0 {
+		c.errorf("usage: msh [user@]host [command...]")
 		return exitcode.Usage
 	}
 	if err := f.sel.hosts.Set(fs.Arg(0)); err != nil {
 		c.errorf("%v", err)
 		return exitcode.Usage
 	}
-	return c.interactiveSession(&f, interactive.Options{})
+	// A second round: like ssh, flags may follow the destination. Parsing
+	// stops at the first other word, which starts the remote command.
+	if code, ok := parseFlags(fs, fs.Args()[1:]); !ok {
+		return code
+	}
+	// As with ssh, the words are joined and the remote shell splits them.
+	command := strings.Join(fs.Args(), " ")
+	return c.interactiveSession(&f, interactive.Options{
+		Command: command,
+		NoTTY:   *noTTY || (command != "" && !*tty),
+	})
 }
 
 // isDestination decides what an unknown first word means: flags and

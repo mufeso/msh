@@ -59,17 +59,19 @@ configuration or inventory is invalid, and 8 when a file cannot be read.
 .fi
 .SS connect
 .nf
-Usage: msh [flags] [user@]host[:port]
-       msh connect [flags] [user@]host[:port]
+Usage: msh [flags] [user@]host[:port] [command...]
+       msh connect [flags] [user@]host[:port] [command...]
 
-Connects like ssh: opens a shell on the server. The server does not need
-to be in the inventory; if it is, its settings apply. Host keys are always
-verified.
+Connects like ssh. Without a command it opens a shell. With one it runs the
+command on the server, with raw output and the remote exit status. The
+server does not need to be in the inventory; if it is, its settings apply.
+Host keys are always verified.
 
 Examples:
   msh ops@server1
   msh root@server1:2222
-  msh web01
+  msh web01 df \-h
+  msh \-t web01 top
 .fi
 .SS exec
 .nf

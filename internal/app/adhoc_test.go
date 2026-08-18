@@ -92,3 +92,37 @@ func TestOptionLikeDestinationIsRejected(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestRemoteCommandLikeSSH(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	dest := "tester@" + fleet.servers[0].Addr
+	args := append(fleet.credentials(), dest, "echo", "raw", "output;", "exit", "4")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != 4 || stdout != "raw output\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if cmds := fleet.servers[0].Commands(); cmds[0] != "echo raw output; exit 4" {
+		t.Errorf("remote command = %q", cmds)
+	}
+	if len(fleet.servers[0].PTYs()) != 0 {
+		t.Error("a plain remote command must not use a terminal")
+	}
+}
+
+func TestFlagsAroundDestinationAndTTY(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	dest := "tester@" + fleet.servers[0].Addr
+	// -t after the destination; "-l" after the command word stays in it.
+	args := append([]string{"connect", dest}, fleet.credentials()...)
+	args = append(args, "-t", "ls", "-l", "/dev/null")
+	_, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if cmds := fleet.servers[0].Commands(); cmds[0] != "ls -l /dev/null" {
+		t.Errorf("remote command = %q", cmds)
+	}
+	if len(fleet.servers[0].PTYs()) != 1 {
+		t.Error("-t did not request a terminal")
+	}
+}
