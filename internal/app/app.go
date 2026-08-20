@@ -105,7 +105,8 @@ func (c *cli) errorf(format string, a ...any) {
 func (c *cli) printUsage(w io.Writer) {
 	fmt.Fprintf(w, "%s\n\n", buildinfo.Banner())
 	fmt.Fprintln(w, "Usage:")
-	fmt.Fprintln(w, "  msh [user@]host                like ssh: open a shell")
+	fmt.Fprintln(w, "  msh [flags] [user@]host [command]     like ssh")
+	fmt.Fprintln(w, "  msh [flags] --host LIST [command]     several servers: a,b or \"a b\" or @FILE")
 	fmt.Fprintln(w, "  msh <command> [flags]")
 	fmt.Fprintln(w, "  msh --help")
 	fmt.Fprintln(w, "  msh --version")

@@ -45,6 +45,8 @@ func runShell(c *cli, args []string) exitcode.Code {
 	f.sel.register(fs)
 	f.ro.register(fs)
 	f.tmux.register(fs)
+	fs.StringVar(&f.sel.forceUser, "l", "", "login `user`, even over the inventory (like ssh -l)")
+	fs.IntVar(&f.sel.forcePort, "p", 0, "`port`, even over the inventory (like ssh -p)")
 	command := fs.String("command", "", "remote command to run interactively (default: login shell)")
 	noTTY := fs.Bool("no-tty", false, "do not request a pseudo-terminal; keep remote stderr separate")
 	if code, ok := parseFlags(fs, args); !ok {

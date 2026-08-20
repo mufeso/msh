@@ -5,11 +5,13 @@ import (
 	"slices"
 	"strings"
 
+	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
 )
 
 const connectUsage = `Usage: msh [flags] [user@]host[:port] [command...]
+       msh [flags] --host LIST [command...]
        msh connect [flags] [user@]host[:port] [command...]
 
 Connects like ssh. Without a command it opens a shell. With one it runs the
@@ -17,12 +19,19 @@ command on the server, with raw output and the remote exit status. The
 server does not need to be in the inventory; if it is, its settings apply.
 Host keys are always verified.
 
+For several servers use --host (a,b or "a b" or @FILE), --group, --tag or
+--all: a command runs on all of them in parallel, and without a
+command each server opens in its own tmux pane.
+
 Examples:
   msh ops@server1
   msh root@server1:2222
   msh web01 df -h
   msh -t web01 top
   msh -p 2222 -l root -i ~/.ssh/key -J jump@bastion.example.com server1
+  msh --host "web01 web02 root@db01" uptime
+  msh --host @servers.txt df -h
+  msh --group web
 `
 
 func connectCommand() *command {
@@ -38,7 +47,10 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	var f shellFlags
 	fs := c.newFlagSet("connect", connectUsage)
 	f.opts.register(fs)
+	f.sel.register(fs)
+	f.sel.registerWhere(fs)
 	f.ro.register(fs)
+	f.tmux.register(fs)
 	fs.StringVar(&f.sel.forceUser, "l", "", "login `user` (like ssh -l)")
 	fs.IntVar(&f.sel.forcePort, "p", 0, "`port` (like ssh -p)")
 	fs.String("i", "", "private key `file` (like ssh -i)")
@@ -48,21 +60,41 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if fs.NArg() == 0 {
-		c.errorf("usage: msh [user@]host [command...]")
-		return exitcode.Usage
-	}
-	if err := f.sel.hosts.Set(fs.Arg(0)); err != nil {
-		c.errorf("%v", err)
-		return exitcode.Usage
-	}
-	// A second round: like ssh, flags may follow the destination. Parsing
-	// stops at the first other word, which starts the remote command.
-	if code, ok := parseFlags(fs, fs.Args()[1:]); !ok {
-		return code
+	if f.sel.isEmpty() {
+		if fs.NArg() == 0 {
+			c.errorf("usage: msh [user@]host [command...]")
+			return exitcode.Usage
+		}
+		if err := f.sel.hosts.Set(fs.Arg(0)); err != nil {
+			c.errorf("%v", err)
+			return exitcode.Usage
+		}
+		// A second round: like ssh, flags may follow the destination.
+		// Parsing stops at the first other word, which starts the command.
+		if code, ok := parseFlags(fs, fs.Args()[1:]); !ok {
+			return code
+		}
 	}
 	// As with ssh, the words are joined and the remote shell splits them.
 	command := strings.Join(fs.Args(), " ")
+
+	// Selecting replaces the entries by server names, and the session below
+	// selects again, so it needs the user@ and :port of the original ones.
+	hosts := slices.Clone(f.sel.hosts)
+	st, servers, code := c.selectServers("connect", &f.opts, &f.sel)
+	if st == nil {
+		return code
+	}
+	f.sel.hosts = hosts
+	if len(servers) > 1 && command != "" {
+		return c.runRemote(remoteRun{
+			opts: &f.opts, sel: &f.sel, ro: &f.ro, name: "connect",
+			req: executor.Request{Command: command},
+		})
+	}
+	if len(servers) > 1 {
+		f.tmux.enabled = true
+	}
 	return c.interactiveSession(&f, interactive.Options{
 		Command: command,
 		NoTTY:   *noTTY || (command != "" && !*tty),

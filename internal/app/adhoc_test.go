@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/tmux"
+	"example.com/msh/internal/tmux/tmuxtest"
 )
 
 // credentials are the flags to reach a fleet without its inventory.
@@ -156,5 +158,87 @@ func TestPortFlagBeatsInventory(t *testing.T) {
 	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
 	if code != exitcode.OK || stdout != "ok\n" {
 		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestSeveralHostsWithCommand(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	hosts := "tester@" + fleet.servers[0].Addr + ",tester@" + fleet.servers[1].Addr
+	file := filepath.Join(t.TempDir(), "servers.txt")
+	if err := os.WriteFile(file, []byte("tester@"+fleet.servers[2].Addr+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(fleet.credentials(), "--host", hosts, "--host", "@"+file, "echo", "everywhere")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	if strings.Count(stdout, "everywhere") != 3 || !contains(stdout, "--- 3 servers: 3 ok") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}
+
+func TestOneHostViaFlagBehavesLikeDestination(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append(fleet.credentials(), "--host", "tester@"+fleet.servers[0].Addr, "echo", "raw")
+	stdout, _, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || stdout != "raw\n" {
+		t.Errorf("code = %v, stdout = %q", code, stdout)
+	}
+}
+
+func TestSeveralHostsWithoutCommandUseTmux(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	hosts := "tester@" + fleet.servers[0].Addr + " tester@" + fleet.servers[1].Addr
+	fake := tmuxtest.NewFake()
+	configure := func(c *cli) {
+		c.lookPath = func(string) (string, error) { return "/usr/bin/tmux", nil }
+		c.newTmux = func(string) tmux.Runner { return fake }
+	}
+	args := append(fleet.credentials(), "--host", hosts, "--tmux-detached")
+	_, stderr, code := runCLIWith(t, context.Background(), nil, configure, args...)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	created := fake.CallsTo("new-session")
+	if len(created) != 1 || len(fake.CallsTo("split-window")) != 1 {
+		t.Fatalf("calls = %v", fake.Calls())
+	}
+	if line := created[0][len(created[0])-1]; contains(line, "--inventory") {
+		t.Errorf("panes must not ask for an inventory file that does not exist:\n%s", line)
+	}
+}
+
+func TestDestinationOverridesInventoryServer(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	_, port, _ := net.SplitHostPort(fleet.servers[0].Addr)
+	inv := filepath.Join(t.TempDir(), "inv.yaml")
+	content := "servers:\n  - name: web\n    address: 127.0.0.1\n    port: 1\n    user: wrong\n"
+	if err := os.WriteFile(inv, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(fleet.credentials(), "--inventory", inv, "tester@web:"+port, "echo", "ok")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestPanesKeepTheUser(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	hosts := fleet.servers[0].Addr + " " + fleet.servers[1].Addr
+	fake := tmuxtest.NewFake()
+	configure := func(c *cli) {
+		c.lookPath = func(string) (string, error) { return "/usr/bin/tmux", nil }
+		c.newTmux = func(string) tmux.Runner { return fake }
+	}
+	args := append(fleet.credentials(), "-l", "someone", "--host", hosts, "--tmux-detached")
+	_, stderr, code := runCLIWith(t, context.Background(), nil, configure, args...)
+	if code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	created := fake.CallsTo("new-session")
+	if line := created[0][len(created[0])-1]; !contains(line, "-l someone") {
+		t.Errorf("pane lost the user:\n%s", line)
 	}
 }

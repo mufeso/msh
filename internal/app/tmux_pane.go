@@ -25,6 +25,12 @@ func (c *cli) paneArgv(f *shellFlags, st *setup, server inventory.Server, iopts 
 		"--port", strconv.Itoa(s.Port),
 		"--connect-timeout", s.ConnectTimeout.String(),
 	}
+	if server.User != "" {
+		argv = append(argv, "-l", server.User)
+	}
+	if server.Port != 0 {
+		argv = append(argv, "-p", strconv.Itoa(server.Port))
+	}
 	if !f.opts.noInventoryFile {
 		argv = append(argv, "--inventory", absPath(s.Inventory))
 	}
