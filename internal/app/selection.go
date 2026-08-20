@@ -17,6 +17,11 @@ type selectionOptions struct {
 	tags   cliflag.KeyValues
 	all    bool
 	where  string // expression over facts; see registerWhere
+
+	// forceUser and forcePort beat what the inventory says for a server,
+	// as ssh's -l and -p do.
+	forceUser string
+	forcePort int
 }
 
 func (s *selectionOptions) register(fs *flag.FlagSet) {

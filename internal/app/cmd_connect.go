@@ -22,6 +22,7 @@ Examples:
   msh root@server1:2222
   msh web01 df -h
   msh -t web01 top
+  msh -p 2222 -l root -i ~/.ssh/key -J jump@bastion.example.com server1
 `
 
 func connectCommand() *command {
@@ -38,6 +39,10 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("connect", connectUsage)
 	f.opts.register(fs)
 	f.ro.register(fs)
+	fs.StringVar(&f.sel.forceUser, "l", "", "login `user` (like ssh -l)")
+	fs.IntVar(&f.sel.forcePort, "p", 0, "`port` (like ssh -p)")
+	fs.String("i", "", "private key `file` (like ssh -i)")
+	fs.String("J", "", "connect through this `bastion`: a name or [user@]host[:port] (like ssh -J)")
 	tty := fs.Bool("t", false, "use a terminal for a remote command (like ssh -t)")
 	noTTY := fs.Bool("T", false, "never use a terminal (like ssh -T)")
 	if code, ok := parseFlags(fs, args); !ok {

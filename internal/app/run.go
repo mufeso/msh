@@ -98,6 +98,14 @@ func (c *cli) selectServers(name string, opts *commonOptions, sel *selectionOpti
 		c.errorf("%v", err)
 		return nil, nil, exitcode.Usage
 	}
+	for i := range servers {
+		if sel.forceUser != "" {
+			servers[i].User = sel.forceUser
+		}
+		if sel.forcePort != 0 {
+			servers[i].Port = sel.forcePort
+		}
+	}
 	return st, servers, exitcode.OK
 }
 

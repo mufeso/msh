@@ -2,6 +2,9 @@ package app
 
 import (
 	"context"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -124,5 +127,34 @@ func TestFlagsAroundDestinationAndTTY(t *testing.T) {
 	}
 	if len(fleet.servers[0].PTYs()) != 1 {
 		t.Error("-t did not request a terminal")
+	}
+}
+
+func TestSSHFlags(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, bastion: true})
+	host, port, _ := net.SplitHostPort(fleet.servers[0].Addr)
+	args := []string{"-l", "tester", "-p", port, "-i", fleet.identity, "--known-hosts", fleet.known,
+		"-J", "tester@" + fleet.bastion.Addr, host, "echo", "flags-work"}
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || stdout != "flags-work\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if len(fleet.bastion.Forwards()) != 1 {
+		t.Errorf("forwards = %v", fleet.bastion.Forwards())
+	}
+}
+
+func TestPortFlagBeatsInventory(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	_, port, _ := net.SplitHostPort(fleet.servers[0].Addr)
+	inv := filepath.Join(t.TempDir(), "inv.yaml")
+	content := "servers:\n  - name: web\n    address: 127.0.0.1\n    port: 1\n    user: wrong\n"
+	if err := os.WriteFile(inv, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append(fleet.credentials(), "--inventory", inv, "-p", port, "-l", "tester", "web", "echo", "ok")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
 	}
 }

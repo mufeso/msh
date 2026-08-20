@@ -40,6 +40,10 @@ type commonOptions struct {
 // settingsFlags maps settings flags to configuration keys.
 var settingsFlags = map[string]string{
 	"inventory":       config.KeyInventory,
+	"l":               config.KeyUser, // ssh-style aliases, on "msh connect"
+	"p":               config.KeyPort,
+	"i":               config.KeyIdentityFile,
+	"J":               config.KeyBastion,
 	"user":            config.KeyUser,
 	"port":            config.KeyPort,
 	"identity":        config.KeyIdentityFile,
