@@ -72,7 +72,8 @@ Usage: msh [flags] [user@]host[:port] [command...]
 Connects like ssh. Without a command it opens a shell. With one it runs the
 command on the server, with raw output and the remote exit status. The
 server does not need to be in the inventory; if it is, its settings apply.
-Host keys are always verified.
+If it is not, ~/.ssh/config is used as ssh would. Host keys are always
+verified.
 
 For several servers use --host (a,b or "a b" or @FILE), --group, --tag or
 --all: a command runs on all of them in parallel, and without a

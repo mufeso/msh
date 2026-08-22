@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"errors"
 	"io/fs"
 	"os"
@@ -23,6 +24,8 @@ type setup struct {
 	inv        *inventory.Inventory // nil unless the command needs servers
 	tasks      *task.Set            // tasks from the configuration file
 	runbooks   *runbook.Set         // runbooks from the configuration file
+
+	extraIdentities []string // keys named by ~/.ssh/config, tried first
 }
 
 // load resolves settings and, if needInventory is true, loads the
@@ -204,7 +207,7 @@ func (c *cli) resolveBastions(st *setup) exitcode.Code {
 	default:
 		fallback = st.settings.Bastion
 	}
-	if err := addBastionTarget(st.inv, override); err != nil {
+	if err := c.addBastionTarget(st, override); err != nil {
 		c.errorf("--bastion: %v", err)
 		return exitcode.Usage
 	}
@@ -218,16 +221,28 @@ func (c *cli) resolveBastions(st *setup) exitcode.Code {
 	return exitcode.OK
 }
 
-// addBastionTarget registers an ad hoc bastion such as jump@host:2222.
-// A plain word must be a name from the inventory, so a typo stays an error.
-func addBastionTarget(inv *inventory.Inventory, value string) error {
-	if _, known := inv.FindBastion(value); known || !strings.ContainsAny(value, "@.:") {
+// addBastionTarget registers an ad hoc bastion such as jump@host:2222 or
+// an alias from ~/.ssh/config. Any other plain word must be a name from the
+// inventory, so a typo stays an error.
+func (c *cli) addBastionTarget(st *setup, value string) error {
+	if _, known := st.inv.FindBastion(value); known || value == "" {
+		return nil
+	}
+	cfg := c.userSSHConfig()
+	if !cfg.Known(value) && !strings.ContainsAny(value, "@.:") {
 		return nil
 	}
 	t, err := inventory.ParseTarget(value)
 	if err != nil {
 		return err
 	}
-	inv.Bastions = append(inv.Bastions, inventory.Bastion{Name: value, Address: t.Host, User: t.User, Port: t.Port})
+	h := cfg.Lookup(t.Host)
+	st.extraIdentities = append(st.extraIdentities, h.IdentityFiles...)
+	st.inv.Bastions = append(st.inv.Bastions, inventory.Bastion{
+		Name:    value,
+		Address: cmp.Or(h.HostName, t.Host),
+		User:    cmp.Or(t.User, h.User),
+		Port:    cmp.Or(t.Port, h.Port),
+	})
 	return nil
 }

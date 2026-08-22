@@ -123,7 +123,7 @@ func (c *cli) addTargets(st *setup, sel *selectionOptions) error {
 	}
 	source := st.settings.Sources[config.KeyBastion]
 	d.ForceBastion = source == config.SourceFlag || source == config.SourceEnv
-	names, err := st.inv.AddTargets(sel.hosts, d, nil)
+	names, err := st.inv.AddTargets(sel.hosts, d, c.sshConfigResolver(st))
 	if err != nil {
 		return err
 	}

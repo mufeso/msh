@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"slices"
 
 	"example.com/msh/internal/config"
 	"example.com/msh/internal/errs"
@@ -117,7 +118,7 @@ func (c *cli) sshConfig(ro *remoteOptions, st *setup) sshx.Config {
 	}
 	return sshx.Config{
 		IdentityFile:          st.settings.IdentityFile,
-		DefaultIdentityFiles:  defaults,
+		DefaultIdentityFiles:  append(slices.Clone(st.extraIdentities), defaults...),
 		KnownHostsFile:        st.settings.KnownHostsFile,
 		InsecureIgnoreHostKey: ro.insecureIgnoreHostKey,
 		ConnectTimeout:        st.settings.ConnectTimeout,
