@@ -11,7 +11,8 @@ import (
 )
 
 const connectUsage = `Usage: msh [flags] [user@]host[:port] [command...]
-       msh [flags] --host LIST [command...]
+       msh [flags] --host LIST [[user@]host [command...]]
+       msh [flags] --group NAME|--tag K=V|--all [command...]
        msh connect [flags] [user@]host[:port] [command...]
 
 Connects like ssh. Without a command it opens a shell. With one it runs the
@@ -20,9 +21,11 @@ server does not need to be in the inventory; if it is, its settings apply.
 If it is not, ~/.ssh/config is used as ssh would. Host keys are always
 verified.
 
-For several servers use --host (a,b or "a b" or @FILE), --group, --tag or
---all: a command runs on all of them in parallel, and without a
-command each server opens in its own tmux pane.
+--host adds more servers to the destination: a,b or "a b" or @FILE. The
+first word after the flags is always a destination. --group, --tag and --all
+take no destination: every word is the command. With several servers a
+command runs on all of them in parallel, and without a command each server
+opens in its own tmux pane.
 
 Examples:
   msh ops@server1
@@ -30,9 +33,11 @@ Examples:
   msh web01 df -h
   msh -t web01 top
   msh -p 2222 -l root -i ~/.ssh/key -J jump@bastion.example.com server1
-  msh --host "web01 web02 root@db01" uptime
-  msh --host @servers.txt df -h
-  msh --group web
+  msh --host "web01 web02" root@db01 uptime
+  msh --host web01,web02 root@db01 uptime
+  msh --host @servers.txt root@db01 df -h
+  msh --host web01,web02
+  msh --group web uptime
 `
 
 func connectCommand() *command {
@@ -61,11 +66,12 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	if code, ok := parseFlags(fs, args); !ok {
 		return code
 	}
-	if f.sel.isEmpty() {
-		if fs.NArg() == 0 {
-			c.errorf("usage: msh [user@]host [command...]")
-			return exitcode.Usage
-		}
+	if f.sel.isEmpty() && fs.NArg() == 0 {
+		c.errorf("usage: msh [user@]host [command...]")
+		return exitcode.Usage
+	}
+	// --host only adds servers, so the first word is still a destination.
+	if (f.sel.isEmpty() || f.sel.onlyHosts()) && fs.NArg() > 0 {
 		if err := f.sel.hosts.Set(fs.Arg(0)); err != nil {
 			c.errorf("%v", err)
 			return exitcode.Usage

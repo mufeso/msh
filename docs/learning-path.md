@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 228 layered steps. Each `stepNNN` directory is the
+msh was built in 229 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -234,3 +234,4 @@ This table lists the first line of every `.step` file.
 | 226 | Added the internal/sshconfig package, a small reader for OpenSSH configuration files: Host blocks with * ? and ! patterns, Include, quotes, "keyword value" and "keyword=value", and the options msh can use: HostName, User, Port, IdentityFile and ProxyJump. As in OpenSSH, the first value found wins. Match blocks are skipped. |
 | 227 | msh now uses ~/.ssh/config for servers that are not in the inventory, so "msh myalias" finds the same address, user, port, key and jump host as ssh. Precedence: user@host, -l and -p first, then ~/.ssh/config, then msh's defaults. Inventory servers are not affected. A ProxyJump with several hops is an error, never a direct connection. -J also accepts an alias from the file. |
 | 228 | Final step: msh 2.1.0, the ssh client release. Added docs/ssh-client.md, a README section and CHANGELOG entry, and updated the default version, the generated documentation and the learning path. The quality gate passes: gofmt, go vet, go test, repeated race tests and cross-compiled release builds. |
+| 229 | Changed what --host means in the ssh-style form: it adds servers to the destination instead of replacing it. The first word after the flags is always a destination, as in ssh, so "msh --host web01,web02 root@db01 uptime" runs uptime on three servers. Only --group, --tag and --all have no destination; there every word is the command. |

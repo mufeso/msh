@@ -161,32 +161,6 @@ func TestPortFlagBeatsInventory(t *testing.T) {
 	}
 }
 
-func TestSeveralHostsWithCommand(t *testing.T) {
-	fleet := newTestFleet(t, 3, nil)
-	hosts := "tester@" + fleet.servers[0].Addr + ",tester@" + fleet.servers[1].Addr
-	file := filepath.Join(t.TempDir(), "servers.txt")
-	if err := os.WriteFile(file, []byte("tester@"+fleet.servers[2].Addr+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	args := append(fleet.credentials(), "--host", hosts, "--host", "@"+file, "echo", "everywhere")
-	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
-	if code != exitcode.OK {
-		t.Fatalf("code = %v, stderr = %s", code, stderr)
-	}
-	if strings.Count(stdout, "everywhere") != 3 || !contains(stdout, "--- 3 servers: 3 ok") {
-		t.Errorf("stdout = %q", stdout)
-	}
-}
-
-func TestOneHostViaFlagBehavesLikeDestination(t *testing.T) {
-	fleet := newTestFleet(t, 1, nil)
-	args := append(fleet.credentials(), "--host", "tester@"+fleet.servers[0].Addr, "echo", "raw")
-	stdout, _, code := runCLICtx(t, context.Background(), nil, args...)
-	if code != exitcode.OK || stdout != "raw\n" {
-		t.Errorf("code = %v, stdout = %q", code, stdout)
-	}
-}
-
 func TestSeveralHostsWithoutCommandUseTmux(t *testing.T) {
 	fleet := newTestFleet(t, 2, nil)
 	hosts := "tester@" + fleet.servers[0].Addr + " tester@" + fleet.servers[1].Addr
@@ -240,5 +214,39 @@ func TestPanesKeepTheUser(t *testing.T) {
 	created := fake.CallsTo("new-session")
 	if line := created[0][len(created[0])-1]; !contains(line, "-l someone") {
 		t.Errorf("pane lost the user:\n%s", line)
+	}
+}
+
+func TestHostFlagAddsToTheDestination(t *testing.T) {
+	fleet := newTestFleet(t, 3, nil)
+	a, b := "tester@"+fleet.servers[0].Addr, "tester@"+fleet.servers[1].Addr
+	dest := "tester@" + fleet.servers[2].Addr
+	file := filepath.Join(t.TempDir(), "a")
+	if err := os.WriteFile(file, []byte(a+"\n"+b+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, list := range []string{a + " " + b, a + "," + b, a + ", " + b, "@" + file} {
+		args := append(fleet.credentials(), "--host", list, dest, "echo", "everywhere")
+		stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+		if code != exitcode.OK {
+			t.Fatalf("--host %q: code = %v, stderr = %s", list, code, stderr)
+		}
+		if strings.Count(stdout, "everywhere") != 3 || !contains(stdout, "--- 3 servers: 3 ok") {
+			t.Errorf("--host %q: stdout = %q", list, stdout)
+		}
+	}
+	for _, s := range fleet.servers {
+		if cmds := s.Commands(); cmds[0] != "echo everywhere" {
+			t.Errorf("remote command = %q", cmds)
+		}
+	}
+}
+
+func TestWordsAfterAllAreTheCommand(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	args := append(fleet.args(), "--all", "echo", "all")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || strings.Count(stdout, "all\n") != 2 {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
 	}
 }

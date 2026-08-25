@@ -2,7 +2,8 @@ msh — My Parallel SSH
 
 Usage:
   msh [flags] [user@]host [command]     like ssh
-  msh [flags] --host LIST [command]     several servers: a,b or "a b" or @FILE
+  msh --host LIST [flags] [user@]host [command]
+                                        more servers: a,b or "a b" or @FILE
   msh <command> [flags]
   msh --help
   msh --version

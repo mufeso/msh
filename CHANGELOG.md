@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1
+
+- Changed: in the ssh-style form `--host` adds servers to the destination.
+  The first word after the flags is always a destination:
+  `msh --host web01,web02 root@db01 uptime` runs on three servers. To use
+  only the listed servers, run `msh exec --host LIST --command CMD`.
+
 ## 2.1.0
 
 - msh works like an ssh client: `msh user@host`, `msh host command`, with

@@ -37,23 +37,35 @@ word of the remote command belongs to the command.
 
 ## Several servers
 
-`--host` is only needed for more than one server.
+`--host` adds more servers to the destination. The first word after the flags
+is always a destination, as in ssh, and the words after it are the command.
 
 ```bash
-msh --host web01,web02 uptime             # comma-separated
-msh --host "web01 web02 root@db01" uptime # space-separated
-msh --host @servers.txt df -h             # @ reads a file
-msh --host a --host @more.txt uptime      # repeat and mix them
-msh --group web uptime
+msh --host "web01 web02" root@db01 uptime   # space-separated
+msh --host web01,web02 root@db01 uptime     # comma-separated
+msh --host "web01, web02" root@db01 uptime  # both
+msh --host @a root@db01 uptime              # @ reads the file a
+msh --host web01,web02                      # no destination, no command: panes
 ```
+
+Each of the first four runs `uptime` on three servers. Be careful with
+`msh --host a,b uptime`: here `uptime` is a destination, not the command.
 
 `--host a` is the server `a`; `--host @a` is the file `a`. A file has server
 names separated by lines, spaces or commas, and `#` starts a comment.
 
+`--group`, `--tag` and `--all` have no destination, so every word is the
+command:
+
+```bash
+msh --group web uptime
+msh --all df -h
+```
+
 With a command, msh runs it on all servers in parallel and prints its usual
-report. Without a command, each server opens in its own tmux pane. The same
-`--host` forms work with every msh command, for example
-`msh exec --host @servers.txt --command uptime`.
+report. Without a command, each server opens in its own tmux pane. To run on
+exactly the listed servers, use the explicit form, which takes the same
+`--host` values: `msh exec --host @a --command uptime`.
 
 ## What decides the settings
 
