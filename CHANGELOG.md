@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.1.0
+
+- msh works like an ssh client: `msh user@host`, `msh host command`, with
+  raw output and the remote exit status, and no inventory needed.
+- ssh flags: `-l`, `-p`, `-i`, `-J`, `-t`, `-T`.
+- `--host` takes `a,b`, `"a b"` and `@FILE`, and entries such as
+  `user@host:port` that are not in the inventory, on every command.
+- `msh --host LIST command` runs in parallel; without a command each server
+  opens in a tmux pane.
+- `~/.ssh/config` is used for servers that are not in the inventory.
+- Changed: an unknown first word is now a destination, unless it looks like
+  a typo of a command.
+
 ## 2.0.0
 
 - Runbooks: multi-step workflows with dry run, retries, continue_on_error,

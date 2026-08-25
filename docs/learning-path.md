@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 218 layered steps. Each `stepNNN` directory is the
+msh was built in 228 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -224,3 +224,13 @@ This table lists the first line of every `.step` file.
 | 216 | Updated README.md for everything added since 1.0.0: runbooks, rolling execution, facts and --where, package checks, run history and shell completion, plus the documentation index and the install guide. |
 | 217 | Updated CHANGELOG.md and RELEASE.md for version 2.0.0, including smoke tests for the new features on real rpm and dpkg servers, which unit tests can't replace. |
 | 218 | Final step: msh 2.0.0. The default version is 2.0.0, the learning path covers all 218 steps, the generated documentation is current, and the quality gate passes: gofmt, go vet, go test, repeated race tests, and cross-compiled release builds with checksums. |
+| 219 | Added inventory.ParseTarget, which understands how people write SSH destinations: host, user@host, user@host:port, [ipv6]:port and ssh://user@host:port. Anything that could be mistaken for an option or holds strange characters is rejected. |
+| 220 | Changed --host to accept what people actually have: a comma-separated list, a space-separated string, repeated flags, and a file with @FILE (names separated by lines, spaces or commas, with # comments). |
+| 221 | Added ad hoc servers: a --host entry that is not in the inventory is now a real destination (user@host:port), so remote commands work on any server, even with no inventory file at all. Entries that match an inventory name or address keep its settings, and user@ or :port override them. Bastions can be ad hoc too: --bastion jump@host. "hosts list" stays strict and only shows the inventory. |
+| 222 | Made msh work like an ssh client: "msh user@server" and "msh server" open a shell, with or without an inventory. The first word is a msh command if it is one; otherwise it is a destination. A word close to a command name that is not a known server still gets "Did you mean ...?", and "msh connect NAME" reaches a server named like a command. |
+| 223 | Added remote commands in ssh style: "msh user@server uptime -p" runs the words after the destination on the server, with raw output and the remote exit status, so it works in pipes and scripts just like ssh. -t asks for a terminal (top, vi); -T never uses one. Flags may come before or after the destination; everything after the first word of the command belongs to the command. |
+| 224 | Added the ssh client's flags: -l USER, -p PORT, -i KEY and -J [user@]jump[:port] (or a bastion name). Like in ssh, -l and -p beat what the inventory says for that server. |
+| 225 | Added several servers to the ssh-style form: --host a,b, --host "a b c", --host @file, --group, --tag and --all work without "exec". With a command, it runs on all of them in parallel with the usual report; without a command, each server opens in its own tmux pane. One server behaves exactly like "msh server". |
+| 226 | Added the internal/sshconfig package, a small reader for OpenSSH configuration files: Host blocks with * ? and ! patterns, Include, quotes, "keyword value" and "keyword=value", and the options msh can use: HostName, User, Port, IdentityFile and ProxyJump. As in OpenSSH, the first value found wins. Match blocks are skipped. |
+| 227 | msh now uses ~/.ssh/config for servers that are not in the inventory, so "msh myalias" finds the same address, user, port, key and jump host as ssh. Precedence: user@host, -l and -p first, then ~/.ssh/config, then msh's defaults. Inventory servers are not affected. A ProxyJump with several hops is an error, never a direct connection. -J also accepts an alias from the file. |
+| 228 | Final step: msh 2.1.0, the ssh client release. Added docs/ssh-client.md, a README section and CHANGELOG entry, and updated the default version, the generated documentation and the learning path. The quality gate passes: gofmt, go vet, go test, repeated race tests and cross-compiled release builds. |

@@ -11,6 +11,17 @@ A man page is in docs/man/msh.1. It is written in Go using the standard
 library plus
 `golang.org/x/crypto/ssh`, `golang.org/x/term` and `gopkg.in/yaml.v3`.
 
+## Use it like ssh
+
+```bash
+msh user@server                       # open a shell, no setup needed
+msh user@server df -h                 # run a command
+msh -p 2222 -J jump@bastion server    # ssh flags and ~/.ssh/config work
+msh --host "web01 web02" uptime       # several: a,b or "a b" or @FILE
+```
+
+See [using msh like ssh](docs/ssh-client.md).
+
 ## Quick start
 
 ```bash
@@ -155,7 +166,8 @@ secrets never appear in output or logs. See docs/security.md.
 
 ## Documentation
 
-[install](docs/install.md) · [configuration](docs/configuration.md) ·
+[like ssh](docs/ssh-client.md) · [install](docs/install.md) ·
+[configuration](docs/configuration.md) ·
 [commands](docs/commands.md) · [tasks](docs/tasks.md) ·
 [runbooks](docs/runbooks.md) · [facts](docs/facts.md) ·
 [packages](docs/packages.md) · [history](docs/history.md) ·
