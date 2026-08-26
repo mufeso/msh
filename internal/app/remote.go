@@ -123,5 +123,14 @@ func (c *cli) sshConfig(ro *remoteOptions, st *setup) sshx.Config {
 		InsecureIgnoreHostKey: ro.insecureIgnoreHostKey,
 		ConnectTimeout:        st.settings.ConnectTimeout,
 		AgentSocket:           agentSocket,
+		Password:              c.passwordFunc(),
 	}
+}
+
+// passwordFunc returns where passwords come from, or nil for keys only.
+func (c *cli) passwordFunc() sshx.PasswordFunc {
+	if value, _ := c.lookupEnv(config.EnvPassword); value != "" {
+		return func(_, _ string) (string, error) { return value, nil }
+	}
+	return nil
 }

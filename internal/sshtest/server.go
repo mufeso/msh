@@ -41,12 +41,15 @@ type Options struct {
 	AuthorizedKeys  []ssh.PublicKey // keys allowed to log in (any user name)
 	Handler         Handler         // default: ShellHandler
 	AllowForwarding bool            // accept direct-tcpip channels (act as a bastion)
+	Password        string          // also accept this password ("" = keys only)
 }
 
 // Server is an SSH server listening on 127.0.0.1 for one test.
 type Server struct {
 	Addr    string // host:port to connect to
 	HostKey Key    // the server's host key
+
+	passwordTries atomic.Int32
 
 	opts Options
 	cfg  *ssh.ServerConfig
@@ -81,6 +84,11 @@ func NewServer(t testing.TB, opts Options) *Server {
 			return nil, fmt.Errorf("key not authorized for %q", meta.User())
 		},
 	}
+	if s.opts.Password != "" {
+		s.cfg.PasswordCallback = func(meta ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
+			return s.checkPassword(meta, string(password))
+		}
+	}
 	s.cfg.AddHostKey(s.HostKey.Signer)
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0") // port 0: pick a free port
@@ -94,6 +102,18 @@ func NewServer(t testing.TB, opts Options) *Server {
 	t.Cleanup(s.Close)
 	return s
 }
+
+// checkPassword counts the attempt and compares the password.
+func (s *Server) checkPassword(meta ssh.ConnMetadata, password string) (*ssh.Permissions, error) {
+	s.passwordTries.Add(1)
+	if password == s.opts.Password {
+		return &ssh.Permissions{}, nil
+	}
+	return nil, fmt.Errorf("wrong password for %q", meta.User())
+}
+
+// PasswordTries returns how many passwords the server has received.
+func (s *Server) PasswordTries() int { return int(s.passwordTries.Load()) }
 
 // KnownHostsLine returns the known_hosts line for this server.
 func (s *Server) KnownHostsLine() string {

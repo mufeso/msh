@@ -27,7 +27,7 @@ type Auth struct {
 //     ones are skipped.
 //   - The agent at cfg.AgentSocket is used when reachable.
 //
-// It fails if no key is available at all.
+// It fails if no key is available at all and cfg.Password is nil.
 func NewAuth(cfg Config) (*Auth, error) {
 	a := &Auth{}
 	if ag, closer, err := DialAgent(cfg.AgentSocket); err == nil {
@@ -61,9 +61,9 @@ func NewAuth(cfg Config) (*Auth, error) {
 		}
 	}
 
-	if len(a.fileSigners) == 0 && a.agentKeyCount() == 0 {
+	if len(a.fileSigners) == 0 && a.agentKeyCount() == 0 && cfg.Password == nil {
 		a.Close()
-		return nil, fmt.Errorf("no usable SSH keys: start ssh-agent and add a key with ssh-add, or set identity_file")
+		return nil, fmt.Errorf("no usable SSH keys: start ssh-agent and add a key with ssh-add, set identity_file, or set MSH_PASSWORD")
 	}
 	return a, nil
 }
@@ -109,7 +109,7 @@ func (a *Auth) Close() error {
 // ClientConfig builds the SSH client configuration for one endpoint.
 func ClientConfig(cfg Config, ep Endpoint, auth *Auth, hostKeys ssh.HostKeyCallback) *ssh.ClientConfig {
 	cc := baseClientConfig(cfg, ep)
-	cc.Auth = []ssh.AuthMethod{auth.Method()}
+	cc.Auth = append([]ssh.AuthMethod{auth.Method()}, passwordMethods(cfg, ep)...)
 	cc.HostKeyCallback = hostKeys
 	cc.HostKeyAlgorithms = HostKeyAlgorithms(cfg, ep.Addr())
 	return cc

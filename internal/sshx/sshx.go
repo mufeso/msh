@@ -29,6 +29,7 @@ type Config struct {
 	InsecureIgnoreHostKey bool          // UNSAFE: skip host key verification
 	ConnectTimeout        time.Duration // TCP connect + SSH handshake
 	AgentSocket           string        // path of the ssh-agent socket (usually $SSH_AUTH_SOCK)
+	Password              PasswordFunc  // nil = keys only
 }
 
 // Endpoint is one SSH destination.

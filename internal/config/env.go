@@ -31,6 +31,10 @@ const (
 	EnvFactsTTL        = "MSH_FACTS_TTL"
 	EnvHistory         = "MSH_HISTORY"
 	EnvHistoryLimit    = "MSH_HISTORY_LIMIT"
+
+	// EnvPassword is not a setting: it never enters Settings, so it can't
+	// be shown by "msh config" or reach a log.
+	EnvPassword = "MSH_PASSWORD"
 )
 
 // LookupFunc has the same signature as os.LookupEnv.
