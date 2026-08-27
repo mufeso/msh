@@ -42,6 +42,7 @@ type Options struct {
 	Handler         Handler         // default: ShellHandler
 	AllowForwarding bool            // accept direct-tcpip channels (act as a bastion)
 	Password        string          // also accept this password ("" = keys only)
+	KeyboardOnly    bool            // ask for Password with keyboard-interactive only
 }
 
 // Server is an SSH server listening on 127.0.0.1 for one test.
@@ -84,7 +85,15 @@ func NewServer(t testing.TB, opts Options) *Server {
 			return nil, fmt.Errorf("key not authorized for %q", meta.User())
 		},
 	}
-	if s.opts.Password != "" {
+	if s.opts.KeyboardOnly {
+		s.cfg.KeyboardInteractiveCallback = func(meta ssh.ConnMetadata, challenge ssh.KeyboardInteractiveChallenge) (*ssh.Permissions, error) {
+			answers, err := challenge("", "", []string{"Password: "}, []bool{false})
+			if err != nil {
+				return nil, err
+			}
+			return s.checkPassword(meta, answers[0])
+		}
+	} else if s.opts.Password != "" {
 		s.cfg.PasswordCallback = func(meta ssh.ConnMetadata, password []byte) (*ssh.Permissions, error) {
 			return s.checkPassword(meta, string(password))
 		}

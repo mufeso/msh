@@ -58,3 +58,12 @@ func TestKeysComeBeforeThePassword(t *testing.T) {
 		t.Errorf("no key and no password: code = %v", code)
 	}
 }
+
+func TestKeyboardInteractivePassword(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{KeyboardOnly: true})
+	env := map[string]string{"MSH_PASSWORD": testPassword}
+	stdout, stderr, code := runCLICtx(t, context.Background(), env, "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
+	if code != exitcode.OK || stdout != "ok\n" || srv.PasswordTries() != 1 {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
