@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -11,6 +12,9 @@ import (
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/sshtest"
+	"example.com/msh/internal/tmux"
+	"example.com/msh/internal/tmux/tmuxtest"
+	"golang.org/x/crypto/ssh"
 )
 
 const testPassword = "correct-horse-test"
@@ -52,13 +56,69 @@ func TestWrongPasswordIsNotPrinted(t *testing.T) {
 	}
 }
 
-func TestKeysComeBeforeThePassword(t *testing.T) {
+func TestSSHAddKeysComeBeforeThePassword(t *testing.T) {
 	key := sshtest.NewKey(t)
-	srv, known := passwordServer(t, sshtest.Options{AuthorizedKeys: nil})
-	_ = key
-	_, _, code := runCLICtx(t, context.Background(), nil, "--known-hosts", known, "tester@"+srv.Addr, "true")
-	if code != exitcode.Connection {
-		t.Errorf("no key and no password: code = %v", code)
+	srv, known := passwordServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{key.Public()}})
+	r := &fakeReader{}
+	env := map[string]string{"SSH_AUTH_SOCK": sshtest.StartAgent(t, key)}
+	stdout, stderr, code := runCLIWith(t, context.Background(), env, r.configure, "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if len(r.prompts) != 0 || srv.PasswordTries() != 0 {
+		t.Errorf("the agent key worked, but: prompts = %q, tries = %d", r.prompts, srv.PasswordTries())
+	}
+}
+
+func TestPasswordAfterAgentKeyIsRefused(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{})
+	env := map[string]string{"SSH_AUTH_SOCK": sshtest.StartAgent(t, sshtest.NewKey(t)), "MSH_PASSWORD": testPassword}
+	stdout, stderr, code := runCLICtx(t, context.Background(), env, "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestPasswordNeverReachesAnUnverifiedServer(t *testing.T) {
+	srv, _ := passwordServer(t, sshtest.Options{})
+	_, otherKnown := passwordServer(t, sshtest.Options{})
+	env := map[string]string{"MSH_PASSWORD": testPassword}
+	_, _, code := runCLICtx(t, context.Background(), env, "--known-hosts", otherKnown, "tester@"+srv.Addr, "true")
+	if code == exitcode.OK || srv.PasswordTries() != 0 {
+		t.Errorf("code = %v, tries = %d", code, srv.PasswordTries())
+	}
+}
+
+func TestInsecureModeNeverSendsThePassword(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{})
+	r := &fakeReader{}
+	env := map[string]string{"MSH_PASSWORD": testPassword}
+	_, stderr, code := runCLIWith(t, context.Background(), env, r.configure, "--insecure-ignore-host-key", "--known-hosts", known, "tester@"+srv.Addr, "true")
+	if code == exitcode.OK || srv.PasswordTries() != 0 || len(r.prompts) != 0 {
+		t.Errorf("code = %v, tries = %d, prompts = %q", code, srv.PasswordTries(), r.prompts)
+	}
+	if !contains(stderr, "passwords are not sent") {
+		t.Errorf("stderr = %q", stderr)
+	}
+}
+
+func TestPanesDoNotCarryThePassword(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	hosts := "tester@" + fleet.servers[0].Addr + " tester@" + fleet.servers[1].Addr
+	fake := tmuxtest.NewFake()
+	configure := func(c *cli) {
+		c.lookPath = func(string) (string, error) { return "/usr/bin/tmux", nil }
+		c.newTmux = func(string) tmux.Runner { return fake }
+	}
+	env := map[string]string{"MSH_PASSWORD": testPassword}
+	args := append(fleet.credentials(), "--host", hosts, "--tmux-detached")
+	if _, stderr, code := runCLIWith(t, context.Background(), env, configure, args...); code != exitcode.OK {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, call := range fake.Calls() {
+		if contains(strings.Join(call, " "), testPassword) {
+			t.Errorf("tmux received the password: %q", call)
+		}
 	}
 }
 

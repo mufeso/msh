@@ -123,13 +123,21 @@ func (c *cli) sshConfig(ro *remoteOptions, st *setup) sshx.Config {
 		InsecureIgnoreHostKey: ro.insecureIgnoreHostKey,
 		ConnectTimeout:        st.settings.ConnectTimeout,
 		AgentSocket:           agentSocket,
-		Password:              c.passwordFunc(),
+		Password:              c.passwordFunc(ro),
 	}
 }
 
 // passwordFunc returns where passwords come from, or nil for keys only.
-func (c *cli) passwordFunc() sshx.PasswordFunc {
-	if value, _ := c.lookupEnv(config.EnvPassword); value != "" {
+func (c *cli) passwordFunc(ro *remoteOptions) sshx.PasswordFunc {
+	value, _ := c.lookupEnv(config.EnvPassword)
+	if ro.insecureIgnoreHostKey {
+		// Without a verified host key, anyone in between could read it.
+		if value != "" {
+			c.errorf("%s ignored: passwords are not sent with --insecure-ignore-host-key", config.EnvPassword)
+		}
+		return nil
+	}
+	if value != "" {
 		return func(_, _ string) (string, error) { return value, nil }
 	}
 	if c.passwordReader != nil {
