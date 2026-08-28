@@ -132,5 +132,11 @@ func (c *cli) passwordFunc() sshx.PasswordFunc {
 	if value, _ := c.lookupEnv(config.EnvPassword); value != "" {
 		return func(_, _ string) (string, error) { return value, nil }
 	}
+	if c.passwordReader != nil {
+		if read, ok := c.passwordReader(); ok {
+			prompt := &passwordPrompt{ctx: c.ctx(), read: read}
+			return prompt.get
+		}
+	}
 	return nil
 }

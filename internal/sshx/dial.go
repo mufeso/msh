@@ -135,7 +135,11 @@ func (d *Dialer) handshake(ctx context.Context, conn net.Conn, ep Endpoint, c cr
 	// callback already ran.
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 
-	sc, chans, reqs, err := ssh.NewClientConn(conn, ep.Addr(), ClientConfig(c.cfg, ep, c.auth, c.hostKeys))
+	cfg := c.cfg
+	if cfg.Password != nil {
+		cfg.Password = pauseTimeouts(ctx, conn, cfg)
+	}
+	sc, chans, reqs, err := ssh.NewClientConn(conn, ep.Addr(), ClientConfig(cfg, ep, c.auth, c.hostKeys))
 	interrupted := !stop()
 	if err != nil || interrupted {
 		conn.Close()
@@ -149,6 +153,19 @@ func (d *Dialer) handshake(ctx context.Context, conn net.Conn, ep Endpoint, c cr
 	}
 	_ = conn.SetDeadline(time.Time{})
 	return ssh.NewClient(sc, chans, reqs), nil
+}
+
+// pauseTimeouts stops the connect timeouts while the password is fetched:
+// a person typing should not count as a slow server.
+func pauseTimeouts(ctx context.Context, conn net.Conn, cfg Config) PasswordFunc {
+	return func(user, host string) (string, error) {
+		defer pauseClock(ctx)()
+		_ = conn.SetDeadline(time.Time{})
+		if t := cfg.ConnectTimeout; t > 0 {
+			defer func() { _ = conn.SetDeadline(time.Now().Add(t)) }()
+		}
+		return cfg.Password(user, host)
+	}
 }
 
 // asBastionError marks a connection error as a bastion failure.
@@ -200,8 +217,8 @@ func classifyHandshake(ep Endpoint, err error) error {
 
 // contextError reports why ctx ended.
 func contextError(ctx context.Context, ep Endpoint) error {
-	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-		return errs.New(errs.KindConnectTimeout, ep.Name, ctx.Err())
+	if cause := context.Cause(ctx); errors.Is(cause, context.DeadlineExceeded) {
+		return errs.New(errs.KindConnectTimeout, ep.Name, cause)
 	}
 	return errs.New(errs.KindCanceled, ep.Name, ctx.Err())
 }

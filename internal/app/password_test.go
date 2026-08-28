@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
+	"time"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/sshtest"
 )
 
@@ -65,5 +68,76 @@ func TestKeyboardInteractivePassword(t *testing.T) {
 	stdout, stderr, code := runCLICtx(t, context.Background(), env, "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
 	if code != exitcode.OK || stdout != "ok\n" || srv.PasswordTries() != 1 {
 		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+// fakeReader answers prompts and records them.
+type fakeReader struct {
+	mu      sync.Mutex
+	prompts []string
+	delay   time.Duration
+}
+
+func (r *fakeReader) read(_ context.Context, prompt string) (string, error) {
+	time.Sleep(r.delay)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.prompts = append(r.prompts, prompt)
+	return testPassword, nil
+}
+
+func (r *fakeReader) configure(c *cli) {
+	c.passwordReader = func() (interactive.ReadPassword, bool) { return r.read, true }
+}
+
+func TestPasswordPrompt(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{})
+	r := &fakeReader{}
+	stdout, stderr, code := runCLIWith(t, context.Background(), nil, r.configure, "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Fatalf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if len(r.prompts) != 1 || r.prompts[0] != "tester@127.0.0.1's password: " {
+		t.Errorf("prompts = %q", r.prompts)
+	}
+}
+
+func TestOnePromptForAFleet(t *testing.T) {
+	a, knownA := passwordServer(t, sshtest.Options{})
+	b, knownB := passwordServer(t, sshtest.Options{})
+	lines, _ := os.ReadFile(knownB)
+	f, err := os.OpenFile(knownA, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Write(lines)
+	f.Close()
+	r := &fakeReader{}
+	stdout, stderr, code := runCLIWith(t, context.Background(), nil, r.configure, "--known-hosts", knownA, "--host", "tester@"+a.Addr, "tester@"+b.Addr, "echo", "ok")
+	if code != exitcode.OK || !contains(stdout, "--- 2 servers: 2 ok") {
+		t.Fatalf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if len(r.prompts) != 1 {
+		t.Errorf("prompts = %q", r.prompts)
+	}
+}
+
+func TestTypingDoesNotCountAsConnectTime(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{})
+	r := &fakeReader{delay: 300 * time.Millisecond}
+	stdout, stderr, code := runCLIWith(t, context.Background(), nil, r.configure, "--connect-timeout", "100ms", "--known-hosts", known, "tester@"+srv.Addr, "echo", "ok")
+	if code != exitcode.OK || stdout != "ok\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestNoTerminalMeansNoPrompt(t *testing.T) {
+	srv, known := passwordServer(t, sshtest.Options{})
+	configure := func(c *cli) {
+		c.passwordReader = func() (interactive.ReadPassword, bool) { return nil, false }
+	}
+	_, stderr, code := runCLIWith(t, context.Background(), nil, configure, "--known-hosts", known, "tester@"+srv.Addr, "true")
+	if code != exitcode.Connection || !contains(stderr, "no usable SSH keys") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }

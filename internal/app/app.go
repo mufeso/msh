@@ -36,6 +36,10 @@ type cli struct {
 	// lookPath finds executables (exec.LookPath); tests replace it.
 	lookPath func(file string) (string, error)
 
+	// passwordReader finds the terminal for password prompts. It is nil in
+	// tests unless a test sets it.
+	passwordReader func() (interactive.ReadPassword, bool)
+
 	// args is the command line of this run, for the history.
 	args []string
 
@@ -51,6 +55,7 @@ func Run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	c := &cli{
 		stdout: stdout, stderr: stderr, lookupEnv: os.LookupEnv, root: ctx,
 		term: interactive.StdTerminal(), lookPath: exec.LookPath,
+		passwordReader: interactive.PasswordReader,
 	}
 	return int(c.finish(c.run(args)))
 }

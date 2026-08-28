@@ -25,9 +25,9 @@ type Connector interface {
 func (d *Dialer) Connect(ctx context.Context, server inventory.Server) (Client, error) {
 	// One timeout for the whole setup, however many hops it has.
 	if d.target.cfg.ConnectTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, d.target.cfg.ConnectTimeout)
-		defer cancel()
+		var stop func()
+		ctx, stop = withConnectClock(ctx, d.target.cfg.ConnectTimeout)
+		defer stop()
 	}
 	ep := EndpointFor(server)
 	if server.Bastion == "" {
