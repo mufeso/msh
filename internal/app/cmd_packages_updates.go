@@ -6,7 +6,7 @@ import (
 	"example.com/msh/internal/pkgs"
 )
 
-const packagesUpdatesUsage = `Usage: msh packages updates (--host NAME | --group NAME | --tag K=V | --all) [flags]
+const packagesUpdatesUsage = `Usage: msh packages updates ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Lists pending updates (dnf, yum or apt). Nothing is installed. apt shows
 what its last "apt update" found.
@@ -22,7 +22,7 @@ func runPackagesUpdates(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages updates", packagesUpdatesUsage)
 	f.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &f.sel, args, 0); !ok {
 		return code
 	}
 	p, code := c.prepareRun("packages updates", &f.opts, &f.sel, &f.ro)

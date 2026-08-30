@@ -11,7 +11,7 @@ import (
 	"example.com/msh/internal/output"
 )
 
-const packagesFindUsage = `Usage: msh packages find PATTERN (--host NAME | --group NAME | --tag K=V | --all) [flags]
+const packagesFindUsage = `Usage: msh packages find PATTERN ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Finds packages by name across servers and groups them by version.
 PATTERN is a shell-style pattern: 'openssl*'.
@@ -29,7 +29,7 @@ func runPackagesFind(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages find", packagesFindUsage)
 	f.register(fs)
-	patterns, code, ok := parseInterspersed(fs, args)
+	patterns, code, ok := parseRemote(fs, &f.sel, args, 1)
 	if !ok {
 		return code
 	}

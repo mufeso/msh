@@ -101,7 +101,7 @@ Examples:
 ## msh exec
 
 ```text
-Usage: msh exec (--host NAME | --group NAME | --tag K=V | --all) --command CMD [flags]
+Usage: msh exec ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --command CMD [flags]
        msh exec --local --command CMD [flags]
 
 Runs a command line on a server over SSH, like "ssh user@server CMD".
@@ -114,7 +114,7 @@ With --local the command runs on this machine with /bin/sh -c instead.
 ## msh facts
 
 ```text
-Usage: msh facts (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh facts ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Collects read-only facts from servers: operating system, kernel,
 architecture, CPUs, memory, root disk usage, package manager.
@@ -206,7 +206,7 @@ selection, all servers are checked.
 ## msh logs
 
 ```text
-Usage: msh logs (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--lines N] [--follow] [flags]
+Usage: msh logs ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --file PATH [--lines N] [--follow] [flags]
 
 Shows the last lines of a log file on each selected server (tail -n N).
 With --follow, new lines are streamed live, prefixed with the server
@@ -232,15 +232,21 @@ Works on servers with rpm or dpkg. msh only reads package data here.
 ## msh packages list
 
 ```text
-Usage: msh packages list (--host NAME | --group NAME | --tag K=V | --all) [--filter PATTERN] [flags]
+Usage: msh packages list [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
-Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'.
+Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'. It can
+also be given with --filter. The first plain word is the pattern, so write
+user@host, or use --host, for the server.
+
+Examples:
+  msh packages list tmux root@db01
+  msh packages list 'kernel*' --group web
 ```
 
 ## msh packages check
 
 ```text
-Usage: msh packages check (--host NAME | --group NAME | --tag K=V | --all) (--package REQ[,REQ...] | --file FILE) [flags]
+Usage: msh packages check [REQ...] (user@host | --host LIST | --group NAME | --tag K=V | --all) [--package REQ[,REQ...] | --file FILE] [flags]
 
 Checks requirements on each server and exits 1 if one is not met.
 A requirement is NAME, NAME>=VERSION (also =, !=, <, <=, >) or !NAME, which
@@ -250,7 +256,7 @@ means the package must not be installed. Quote requirements in the shell.
 ## msh packages find
 
 ```text
-Usage: msh packages find PATTERN (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh packages find PATTERN ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Finds packages by name across servers and groups them by version.
 PATTERN is a shell-style pattern: 'openssl*'.
@@ -268,7 +274,7 @@ Compares the installed packages of each server with a baseline server
 ## msh packages updates
 
 ```text
-Usage: msh packages updates (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh packages updates ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Lists pending updates (dnf, yum or apt). Nothing is installed. apt shows
 what its last "apt update" found.
@@ -306,7 +312,7 @@ Shows the steps of one runbook.
 ## msh runbook run
 
 ```text
-Usage: msh runbook run NAME (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh runbook run NAME ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Runs the steps of a runbook, in order, on each selected server. With
 --dry-run, msh prints what would run without connecting to any server.
@@ -315,7 +321,7 @@ Runs the steps of a runbook, in order, on each selected server. With
 ## msh script
 
 ```text
-Usage: msh script run (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [--arg VALUE]... [flags]
+Usage: msh script run ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [--arg VALUE]... [flags]
 
 Streams a local script to an interpreter on each selected server through
 SSH standard input ("bash -s --", "sh -s --", "python3 -", "perl -").
@@ -370,7 +376,7 @@ Shows one task: how it executes, its arguments and its template or script.
 ## msh task run
 
 ```text
-Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [--arg VALUE]... [--param NAME=VALUE]... [flags]
+Usage: msh task run NAME ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [--arg VALUE]... [--param NAME=VALUE]... [flags]
 
 Runs a configured task on the selected servers. Tasks classified as
 "changes" or "dangerous" also require --yes.
@@ -387,7 +393,7 @@ Prints the msh version, source commit, build date, Go version and platform.
 ## msh ping
 
 ```text
-Usage: msh ping (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh ping ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Check SSH connectivity and authentication.
 Remote command: true
@@ -396,7 +402,7 @@ Remote command: true
 ## msh uname
 
 ```text
-Usage: msh uname (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh uname ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show system information (uname -a).
 Remote command: uname -a
@@ -405,7 +411,7 @@ Remote command: uname -a
 ## msh kernel
 
 ```text
-Usage: msh kernel (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh kernel ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show the kernel release (uname -r).
 Remote command: uname -r
@@ -414,7 +420,7 @@ Remote command: uname -r
 ## msh uptime
 
 ```text
-Usage: msh uptime (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh uptime ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show uptime and load averages.
 Remote command: uptime
@@ -423,7 +429,7 @@ Remote command: uptime
 ## msh disk
 
 ```text
-Usage: msh disk (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh disk ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show filesystem usage (df -hP).
 Remote command: df -hP
@@ -432,7 +438,7 @@ Remote command: df -hP
 ## msh memory
 
 ```text
-Usage: msh memory (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh memory ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show memory usage in MiB (free -m).
 Remote command: free -m
@@ -441,7 +447,7 @@ Remote command: free -m
 ## msh services
 
 ```text
-Usage: msh services (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh services ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 List running systemd services.
 Remote command: systemctl list-units --type=service --state=running --no-pager --no-legend
@@ -450,7 +456,7 @@ Remote command: systemctl list-units --type=service --state=running --no-pager -
 ## msh failed-units
 
 ```text
-Usage: msh failed-units (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh failed-units ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 List failed systemd units.
 Remote command: systemctl --failed --no-pager --no-legend
@@ -459,7 +465,7 @@ Remote command: systemctl --failed --no-pager --no-legend
 ## msh selinux
 
 ```text
-Usage: msh selinux (--host NAME | --group NAME | --tag K=V | --all) [flags]
+Usage: msh selinux ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Show the SELinux mode (getenforce).
 Remote command: if command -v getenforce >/dev/null 2>&1; then getenforce; else echo 'SELinux tools are not installed'; fi

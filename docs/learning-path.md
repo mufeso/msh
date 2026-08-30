@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 234 layered steps. Each `stepNNN` directory is the
+msh was built in 235 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -240,3 +240,4 @@ This table lists the first line of every `.step` file.
 | 232 | Added the password prompt: "user@host's password:" on the terminal, without echo, like ssh. It reads /dev/tty, so it works while stdin is a pipe. Several servers in parallel ask once per login user, under a mutex. The connect timeout pauses while a person types, and CTRL+C restores the terminal's echo. |
 | 233 | Added the safety rules for passwords, with tests that prove them. A password is only sent to a server whose host key was verified, so --insecure-ignore-host-key turns passwords off: a fake server could read them. Keys from ssh-add are used first and the password isn't touched when they work. tmux panes get neither the password nor the variable on their command line. |
 | 234 | Final step: msh 2.2.0, password login. Rewrote the authentication documentation, since "msh never asks for passwords" stopped being true, and updated the help, README, CHANGELOG, version and learning path. The quality gate passes, and a pseudo-terminal test ran the real prompt. |
+| 235 | Every remote command now takes destinations as plain words, like the ssh-style form: msh packages list tmux user@server, msh facts user@server, msh uptime web01 web02. A word with user@ is always a destination; other words first fill what the command needs (a task name, a package pattern) and the rest are destinations. This also fixes a real bug: flags after a word were silently ignored, because Go's flag package stops at the first non-flag, so "msh packages list tmux --host x" lost its --host. |

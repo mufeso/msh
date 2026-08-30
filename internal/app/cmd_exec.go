@@ -7,7 +7,7 @@ import (
 	"example.com/msh/internal/runner"
 )
 
-const execUsage = `Usage: msh exec (--host NAME | --group NAME | --tag K=V | --all) --command CMD [flags]
+const execUsage = `Usage: msh exec ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --command CMD [flags]
        msh exec --local --command CMD [flags]
 
 Runs a command line on a server over SSH, like "ssh user@server CMD".
@@ -37,7 +37,7 @@ func runExec(c *cli, args []string) exitcode.Code {
 	ro.register(fs)
 	command := fs.String("command", "", "command line to run")
 	local := fs.Bool("local", false, "run on this machine instead of remote servers")
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &sel, args, 0); !ok {
 		return code
 	}
 	if *command == "" {

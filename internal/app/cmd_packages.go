@@ -24,9 +24,15 @@ Subcommands:
 Works on servers with rpm or dpkg. msh only reads package data here.
 `
 
-const packagesListUsage = `Usage: msh packages list (--host NAME | --group NAME | --tag K=V | --all) [--filter PATTERN] [flags]
+const packagesListUsage = `Usage: msh packages list [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
-Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'.
+Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'. It can
+also be given with --filter. The first plain word is the pattern, so write
+user@host, or use --host, for the server.
+
+Examples:
+  msh packages list tmux root@db01
+  msh packages list 'kernel*' --group web
 `
 
 func packagesCommand() *command {
@@ -116,8 +122,12 @@ func runPackagesList(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("packages list", packagesListUsage)
 	f.register(fs)
 	filter := fs.String("filter", "*", "show only names matching this shell-style `pattern`")
-	if code, ok := parseFlags(fs, args); !ok {
+	words, code, ok := parseRemote(fs, &f.sel, args, 1)
+	if !ok {
 		return code
+	}
+	if len(words) == 1 {
+		*filter = words[0]
 	}
 	if _, err := path.Match(*filter, ""); err != nil {
 		c.errorf("--filter: %v", err)

@@ -25,7 +25,7 @@ func runPackagesCompare(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("packages compare", packagesCompareUsage)
 	f.register(fs)
 	baseline := fs.String("baseline", "", "compare with this `server` (default: the first selected)")
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &f.sel, args, 0); !ok {
 		return code
 	}
 	data, code := c.collectPackages("packages compare", &f)

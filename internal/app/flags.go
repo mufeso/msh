@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/inventory"
 )
 
 // newFlagSet creates a flag set for one command.
@@ -68,4 +69,27 @@ func parseInterspersed(fs *flag.FlagSet, args []string) (positional []string, co
 		positional = append(positional, rest[0])
 		args = rest[1:]
 	}
+}
+
+// parseRemote parses the arguments of a command that connects to servers.
+// A user@host word is always a destination. Other words first fill the
+// keep words the command uses itself, which it gets back, and the rest are
+// destinations too. A negative keep gives every plain word to the command.
+func parseRemote(fs *flag.FlagSet, sel *selectionOptions, args []string, keep int) (words []string, code exitcode.Code, ok bool) {
+	positional, code, ok := parseInterspersed(fs, args)
+	if !ok {
+		return nil, code, false
+	}
+	for _, word := range positional {
+		t, err := inventory.ParseTarget(word)
+		if (err != nil || t.User == "") && (keep < 0 || len(words) < keep) {
+			words = append(words, word)
+			continue
+		}
+		if err := sel.hosts.Set(word); err != nil {
+			fmt.Fprintf(fs.Output(), "msh: %v\n", err)
+			return nil, exitcode.Usage, false
+		}
+	}
+	return words, exitcode.OK, true
 }

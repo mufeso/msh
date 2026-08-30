@@ -9,7 +9,7 @@ import (
 	"example.com/msh/internal/pkgs"
 )
 
-const packagesCheckUsage = `Usage: msh packages check (--host NAME | --group NAME | --tag K=V | --all) (--package REQ[,REQ...] | --file FILE) [flags]
+const packagesCheckUsage = `Usage: msh packages check [REQ...] (user@host | --host LIST | --group NAME | --tag K=V | --all) [--package REQ[,REQ...] | --file FILE] [flags]
 
 Checks requirements on each server and exits 1 if one is not met.
 A requirement is NAME, NAME>=VERSION (also =, !=, <, <=, >) or !NAME, which
@@ -31,11 +31,13 @@ func runPackagesCheck(c *cli, args []string) exitcode.Code {
 	fs.Var(&names, "package", "package `requirement` (repeatable, comma-separated)")
 	file := fs.String("file", "", "read requirements from this `file`, one per line")
 	onlyProblems := fs.Bool("only-problems", false, "show only requirements that are not met")
-	if code, ok := parseFlags(fs, args); !ok {
+	words, code, ok := parseRemote(fs, &f.sel, args, -1)
+	if !ok {
 		return code
 	}
+	names = append(names, words...)
 	if len(names) == 0 && *file == "" {
-		c.errorf("packages check: use --package or --file")
+		c.errorf("packages check: name a package, or use --package or --file")
 		return exitcode.Usage
 	}
 	specs := make([]pkgs.Spec, 0, len(names))

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.1
+
+- Every remote command takes destinations as words:
+  `msh packages list tmux root@db01`, `msh uptime web01 web02`.
+- `msh packages list PATTERN` and `msh packages check REQ...` take their
+  values as words too.
+- Fixed: flags after a word were silently ignored, so
+  `msh packages list tmux --host x` lost its `--host`.
+
 ## 2.2.0
 
 - Password login, after keys: a prompt on the terminal, or `MSH_PASSWORD` for

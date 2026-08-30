@@ -16,7 +16,7 @@ import (
 	"example.com/msh/internal/output"
 )
 
-const factsUsage = `Usage: msh facts (--host NAME | --group NAME | --tag K=V | --all) [flags]
+const factsUsage = `Usage: msh facts ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Collects read-only facts from servers: operating system, kernel,
 architecture, CPUs, memory, root disk usage, package manager.
@@ -57,7 +57,7 @@ func runFacts(c *cli, args []string) exitcode.Code {
 		expects = append(expects, e)
 		return nil
 	})
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &sel, args, 0); !ok {
 		return code
 	}
 	p, code := c.prepareRun("facts", &opts, &sel, &ro)

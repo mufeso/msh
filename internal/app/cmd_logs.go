@@ -17,7 +17,7 @@ import (
 	"example.com/msh/internal/shellquote"
 )
 
-const logsUsage = `Usage: msh logs (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--lines N] [--follow] [flags]
+const logsUsage = `Usage: msh logs ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --file PATH [--lines N] [--follow] [flags]
 
 Shows the last lines of a log file on each selected server (tail -n N).
 With --follow, new lines are streamed live, prefixed with the server
@@ -49,7 +49,7 @@ func runLogs(c *cli, args []string) exitcode.Code {
 	file := fs.String("file", "", "absolute `path` of the log file")
 	lines := fs.Int("lines", 50, "number of `lines` to show (1-100000)")
 	follow := fs.Bool("follow", false, "stream new lines until CTRL+C")
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &sel, args, 0); !ok {
 		return code
 	}
 	if *lines < 1 || *lines > maxLogLines {

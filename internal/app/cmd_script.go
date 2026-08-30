@@ -14,7 +14,7 @@ import (
 	"example.com/msh/internal/task"
 )
 
-const scriptUsage = `Usage: msh script run (--host NAME | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [--arg VALUE]... [flags]
+const scriptUsage = `Usage: msh script run ([user@]host | --host LIST | --group NAME | --tag K=V | --all) --file PATH [--interpreter NAME] [--arg VALUE]... [flags]
 
 Streams a local script to an interpreter on each selected server through
 SSH standard input ("bash -s --", "sh -s --", "python3 -", "perl -").
@@ -59,7 +59,7 @@ func runScript(c *cli, args []string) exitcode.Code {
 		scriptArgs = append(scriptArgs, v)
 		return nil
 	})
-	if code, ok := parseFlags(fs, args[1:]); !ok {
+	if _, code, ok := parseRemote(fs, &sel, args[1:], 0); !ok {
 		return code
 	}
 	if *file == "" {

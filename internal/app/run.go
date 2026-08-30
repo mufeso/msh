@@ -81,7 +81,7 @@ func (c *cli) selectServers(name string, opts *commonOptions, sel *selectionOpti
 		return nil, nil, exitcode.Usage
 	}
 	if sel.isEmpty() {
-		c.errorf("%s: select servers with --host, --group, --tag or --all", name)
+		c.errorf("%s: select servers with user@host, --host, --group, --tag or --all", name)
 		return nil, nil, exitcode.Usage
 	}
 	opts.inventoryOptional = sel.onlyHosts()

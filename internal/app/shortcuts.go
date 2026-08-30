@@ -34,7 +34,7 @@ var shortcuts = []shortcut{
 func shortcutCommands() []*command {
 	cmds := make([]*command, 0, len(shortcuts))
 	for _, sc := range shortcuts {
-		usage := fmt.Sprintf(`Usage: msh %s (--host NAME | --group NAME | --tag K=V | --all) [flags]
+		usage := fmt.Sprintf(`Usage: msh %s ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 %s.
 Remote command: %s
@@ -65,12 +65,8 @@ func (c *cli) runShortcut(sc shortcut, usage string, args []string, defaultAll b
 	sel.register(fs)
 	sel.registerWhere(fs)
 	ro.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
+	if _, code, ok := parseRemote(fs, &sel, args, 0); !ok {
 		return code
-	}
-	if fs.NArg() > 0 {
-		c.errorf("%s: unexpected argument %q", sc.name, fs.Arg(0))
-		return exitcode.Usage
 	}
 	if defaultAll && sel.isEmpty() {
 		sel.all = true

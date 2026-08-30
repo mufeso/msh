@@ -12,7 +12,7 @@ import (
 	"example.com/msh/internal/task"
 )
 
-const taskRunUsage = `Usage: msh task run NAME (--host NAME | --group NAME | --tag K=V | --all) [--arg VALUE]... [--param NAME=VALUE]... [flags]
+const taskRunUsage = `Usage: msh task run NAME ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [--arg VALUE]... [--param NAME=VALUE]... [flags]
 
 Runs a configured task on the selected servers. Tasks classified as
 "changes" or "dangerous" also require --yes.
@@ -66,7 +66,7 @@ func (c *cli) newTaskRunFlags(name, usage string) (*taskRunFlags, *flag.FlagSet)
 
 func runTaskRun(c *cli, args []string) exitcode.Code {
 	f, fs := c.newTaskRunFlags("task run", taskRunUsage)
-	positional, code, ok := parseInterspersed(fs, args)
+	positional, code, ok := parseRemote(fs, &f.sel, args, 1)
 	if !ok {
 		return code
 	}

@@ -67,6 +67,24 @@ report. Without a command, each server opens in its own tmux pane. To run on
 exactly the listed servers, use the explicit form, which takes the same
 `--host` values: `msh exec --host @a --command uptime`.
 
+## Other commands
+
+Every remote command takes destinations the same way. A `user@host` word is
+always a destination. Other words first fill what the command needs, and the
+rest are destinations too.
+
+```bash
+msh packages list tmux root@db01         # tmux is the pattern
+msh packages check tmux 'nginx>=1.20' root@db01
+msh task run restart-nginx root@db01     # the first word is the task
+msh facts root@db01 web01
+msh uptime web01 web02
+msh exec root@db01 --command uptime
+```
+
+Where a word has a meaning of its own, write `user@host` or use `--host`:
+`msh packages list web01` looks for a package called web01.
+
 ## Logging in
 
 msh tries, in this order:

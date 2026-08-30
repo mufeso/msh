@@ -2,13 +2,16 @@ package app
 
 import (
 	"context"
+	"flag"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/sshtest"
 	"example.com/msh/internal/tmux"
 	"example.com/msh/internal/tmux/tmuxtest"
 )
@@ -248,5 +251,59 @@ func TestWordsAfterAllAreTheCommand(t *testing.T) {
 	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
 	if code != exitcode.OK || strings.Count(stdout, "all\n") != 2 {
 		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}
+
+func TestParseRemote(t *testing.T) {
+	tests := []struct {
+		args      []string
+		keep      int
+		wantWords []string
+		wantHosts []string
+	}{
+		{[]string{"tmux", "ops@web01"}, 1, []string{"tmux"}, []string{"ops@web01"}},
+		{[]string{"ops@web01", "tmux"}, 1, []string{"tmux"}, []string{"ops@web01"}},
+		{[]string{"web01", "web02"}, 0, nil, []string{"web01", "web02"}},
+		{[]string{"tmux", "web01"}, 1, []string{"tmux"}, []string{"web01"}},
+		{[]string{"tmux", "nginx>=1.20", "ops@web01"}, -1, []string{"tmux", "nginx>=1.20"}, []string{"ops@web01"}},
+		{[]string{"key=a@b"}, 1, []string{"key=a@b"}, nil},
+	}
+	for _, tt := range tests {
+		var sel selectionOptions
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		words, _, ok := parseRemote(fs, &sel, tt.args, tt.keep)
+		if !ok || !slices.Equal(words, tt.wantWords) || !slices.Equal([]string(sel.hosts), tt.wantHosts) {
+			t.Errorf("%v: words = %q, hosts = %q", tt.args, words, sel.hosts)
+		}
+	}
+}
+
+func TestDestinationOnPackagesList(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, handlers: map[int]sshtest.Handler{1: packageHandler(rpmPackages)}})
+	dest := "tester@" + fleet.servers[0].Addr
+	for _, args := range [][]string{
+		{"packages", "list", "openssl", dest},
+		{"packages", "list", dest, "openssl"},
+		{"packages", "list", "openssl", "--host", dest}, // flags after a word
+	} {
+		stdout, stderr, code := runCLI(t, append(args, fleet.credentials()...)...)
+		if code != exitcode.OK || !contains(stdout, "openssl") || contains(stdout, "nginx") {
+			t.Errorf("%v: code = %v, stdout = %q, stderr = %s", args, code, stdout, stderr)
+		}
+	}
+}
+
+func TestDestinationOnOtherCommands(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, handlers: map[int]sshtest.Handler{1: packageHandler(rpmPackages)}})
+	dest := "tester@" + fleet.servers[0].Addr
+	for _, args := range [][]string{
+		{"exec", dest, "--command", "echo ok"},
+		{"uptime", dest},
+		{"packages", "check", "openssl", dest},
+	} {
+		stdout, stderr, code := runCLI(t, append(args, fleet.credentials()...)...)
+		if code != exitcode.OK {
+			t.Errorf("%v: code = %v, stdout = %q, stderr = %s", args, code, stdout, stderr)
+		}
 	}
 }

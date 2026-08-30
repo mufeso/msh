@@ -18,7 +18,7 @@ import (
 	"example.com/msh/internal/task"
 )
 
-const runbookRunUsage = `Usage: msh runbook run NAME (--host NAME | --group NAME | --tag K=V | --all) [flags]
+const runbookRunUsage = `Usage: msh runbook run NAME ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Runs the steps of a runbook, in order, on each selected server. With
 --dry-run, msh prints what would run without connecting to any server.
@@ -71,7 +71,7 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 		f.params[name] = value
 		return nil
 	})
-	names, code, ok := parseInterspersed(fs, args)
+	names, code, ok := parseRemote(fs, &f.sel, args, 1)
 	if !ok {
 		return code
 	}
