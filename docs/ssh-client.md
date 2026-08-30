@@ -67,6 +67,25 @@ report. Without a command, each server opens in its own tmux pane. To run on
 exactly the listed servers, use the explicit form, which takes the same
 `--host` values: `msh exec --host @a --command uptime`.
 
+## Logging in
+
+msh tries, in this order:
+
+1. keys in ssh-agent: `ssh-add ~/.ssh/key`, then just `msh user@server`
+2. key files: `-i FILE`, or `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`
+3. a password: `MSH_PASSWORD` if it is set, otherwise a prompt on the terminal
+
+```bash
+read -rs MSH_PASSWORD && export MSH_PASSWORD   # not visible, not in history
+msh --host @a root@db01 uptime
+unset MSH_PASSWORD
+```
+
+Don't write `MSH_PASSWORD=... msh` on the command line: it ends up in your
+shell history. Without a terminal and without the variable nothing is asked,
+so cron jobs fail with a clear error instead of hanging. A password is only
+sent after the host key was verified. See [security](security.md).
+
 ## What decides the settings
 
 For a server that is not in the inventory, highest first:
@@ -83,7 +102,8 @@ Servers in the inventory keep their settings and do not read
 - Host keys are always verified, and an unknown server is refused instead of
   asking yes or no. Add it first: `ssh-keyscan host >> ~/.ssh/known_hosts`
   after checking the key, or connect once with ssh.
-- Authentication uses keys and ssh-agent. There is no password prompt.
+- A wrong password is not asked again: run the command again. With several
+  servers, one prompt per login user serves them all.
 - A ProxyJump with several hops is an error; msh never connects directly
   instead.
 - In `~/.ssh/config`, Match blocks and options other than the five above are

@@ -20,6 +20,8 @@ msh -p 2222 -J jump@bastion server    # ssh flags and ~/.ssh/config work
 msh --host "web01 web02" db01 uptime  # add servers: a,b or "a b" or @FILE
 ```
 
+Keys from `ssh-add` work as they do with ssh. Otherwise msh asks for the
+password, or reads `MSH_PASSWORD` in scripts.
 See [using msh like ssh](docs/ssh-client.md).
 
 ## Quick start

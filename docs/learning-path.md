@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 229 layered steps. Each `stepNNN` directory is the
+msh was built in 234 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -235,3 +235,8 @@ This table lists the first line of every `.step` file.
 | 227 | msh now uses ~/.ssh/config for servers that are not in the inventory, so "msh myalias" finds the same address, user, port, key and jump host as ssh. Precedence: user@host, -l and -p first, then ~/.ssh/config, then msh's defaults. Inventory servers are not affected. A ProxyJump with several hops is an error, never a direct connection. -J also accepts an alias from the file. |
 | 228 | Final step: msh 2.1.0, the ssh client release. Added docs/ssh-client.md, a README section and CHANGELOG entry, and updated the default version, the generated documentation and the learning path. The quality gate passes: gofmt, go vet, go test, repeated race tests and cross-compiled release builds. |
 | 229 | Changed what --host means in the ssh-style form: it adds servers to the destination instead of replacing it. The first word after the flags is always a destination, as in ssh, so "msh --host web01,web02 root@db01 uptime" runs uptime on three servers. Only --group, --tag and --all have no destination; there every word is the command. |
+| 230 | Added password authentication and the MSH_PASSWORD environment variable, for scripts. Keys and ssh-agent are still tried first, so the password is only used when they don't work. The password never goes through flags or configuration files, because the command line is visible to every local user. |
+| 231 | Added keyboard-interactive authentication. Many servers (PAM, and every Debian or Ubuntu default) ask for the password this way instead of with the plain password method. msh only answers a hidden question that asks for a password, so a one-time code prompt fails cleanly instead of receiving the password. |
+| 232 | Added the password prompt: "user@host's password:" on the terminal, without echo, like ssh. It reads /dev/tty, so it works while stdin is a pipe. Several servers in parallel ask once per login user, under a mutex. The connect timeout pauses while a person types, and CTRL+C restores the terminal's echo. |
+| 233 | Added the safety rules for passwords, with tests that prove them. A password is only sent to a server whose host key was verified, so --insecure-ignore-host-key turns passwords off: a fake server could read them. Keys from ssh-add are used first and the password isn't touched when they work. tmux panes get neither the password nor the variable on their command line. |
+| 234 | Final step: msh 2.2.0, password login. Rewrote the authentication documentation, since "msh never asks for passwords" stopped being true, and updated the help, README, CHANGELOG, version and learning path. The quality gate passes, and a pseudo-terminal test ran the real prompt. |

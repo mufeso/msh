@@ -90,6 +90,6 @@ The `defaults:` block accepts every key from the table above except
 ## Security
 
 - Passwords are never read from configuration files. Authentication uses
-  SSH keys and the SSH agent.
+  SSH keys and the SSH agent, then `MSH_PASSWORD` or a prompt.
 - Host keys are always verified against `known_hosts_file`.
 - Exit code 3 means invalid configuration; 8 means a file could not be read.

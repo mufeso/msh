@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.0
+
+- Password login, after keys: a prompt on the terminal, or `MSH_PASSWORD` for
+  scripts. Works with the password and keyboard-interactive methods.
+- Several servers ask once per login user.
+- Passwords are only sent to servers with a verified host key, and never
+  with `--insecure-ignore-host-key`.
+- The connect timeout pauses while you type.
+
 ## 2.1.1
 
 - Changed: in the ssh-style form `--host` adds servers to the destination.

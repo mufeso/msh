@@ -15,8 +15,19 @@ designed to be safe by default.
 
 ## Authentication
 
-- Public keys only: key files and ssh-agent. msh never asks for, stores or
-  accepts passwords or passphrases. Encrypted keys must be in the agent.
+- Keys come first: ssh-agent (`ssh-add`), then key files. Encrypted keys must
+  be in the agent; msh does not ask for passphrases.
+- If keys don't work, a password is used: `MSH_PASSWORD`, or a prompt on the
+  terminal without echo. Without either, msh fails instead of hanging.
+- Passwords are never stored, are not accepted as flags or in configuration
+  files or the inventory, and are not passed to tmux panes on a command line.
+- A password is sent only after the host key was verified, and never with
+  `--insecure-ignore-host-key`.
+- `MSH_PASSWORD` goes to every server of the run, including bastions, whose
+  keys were refused. Any process of the same user may be able to read an
+  environment variable. Prefer keys.
+- One password is tried once per server, so a wrong one for a large fleet
+  counts one failed login on each server. Mind account lockout rules.
 - Key files readable by other users are refused (like OpenSSH).
 - Private keys stay in memory only for the run; agent keys never leave
   the agent.

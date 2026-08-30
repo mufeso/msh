@@ -82,6 +82,9 @@ take no destination: every word is the command. With several servers a
 command runs on all of them in parallel, and without a command each server
 opens in its own tmux pane.
 
+Login uses keys from ssh-add first, then key files, then a password: the
+MSH_PASSWORD environment variable, or a prompt on the terminal.
+
 Examples:
   msh ops@server1
   msh root@server1:2222
