@@ -3,7 +3,6 @@ package app
 import (
 	"flag"
 	"fmt"
-	"path"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
@@ -26,13 +25,15 @@ Works on servers with rpm or dpkg. msh only reads package data here.
 
 const packagesListUsage = `Usage: msh packages list [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
-Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'. It can
-also be given with --filter. The first plain word is the pattern, so write
-user@host, or use --host, for the server.
+Lists installed packages. PATTERN works like grep: a name only has to contain
+it, and it is a regular expression. It can also be given with --filter. The
+first plain word is the pattern, so write user@host, or use --host, for the
+server.
 
 Examples:
   msh packages list tmux root@db01
-  msh packages list 'kernel*' --group web
+  msh packages list '^kernel' --group web
+  msh packages list ssl --ignore-case --all
 `
 
 func packagesCommand() *command {
@@ -75,6 +76,7 @@ type packagesFlags struct {
 	opts commonOptions
 	sel  selectionOptions
 	ro   remoteOptions
+	grep grepFlags
 }
 
 func (f *packagesFlags) register(fs *flag.FlagSet) {
@@ -121,7 +123,8 @@ func runPackagesList(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages list", packagesListUsage)
 	f.register(fs)
-	filter := fs.String("filter", "*", "show only names matching this shell-style `pattern`")
+	f.grep.register(fs)
+	filter := fs.String("filter", "", "show only names containing this `pattern`")
 	words, code, ok := parseRemote(fs, &f.sel, args, 1)
 	if !ok {
 		return code
@@ -129,8 +132,8 @@ func runPackagesList(c *cli, args []string) exitcode.Code {
 	if len(words) == 1 {
 		*filter = words[0]
 	}
-	if _, err := path.Match(*filter, ""); err != nil {
-		c.errorf("--filter: %v", err)
+	match, ok := f.grep.compile(c, *filter)
+	if !ok {
 		return exitcode.Usage
 	}
 	data, code := c.collectPackages("packages list", &f)
@@ -145,7 +148,7 @@ func runPackagesList(c *cli, args []string) exitcode.Code {
 			continue
 		}
 		for _, p := range l.Packages {
-			if ok, _ := path.Match(*filter, p.Name); ok {
+			if match.Match(p.Name) {
 				items = append(items, packageRow{Server: s.Name, Manager: l.Manager, Package: p})
 				rows = append(rows, []string{s.Name, p.Name, p.Version, p.Arch})
 			}

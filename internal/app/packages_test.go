@@ -196,3 +196,37 @@ func TestRealPackageScript(t *testing.T) {
 		t.Errorf("code = %d, stderr = %s", code, stderr)
 	}
 }
+
+func TestPackagePatternsWorkLikeGrep(t *testing.T) {
+	fleet := packageFleet(t)
+	tests := []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"ssl"}, true},
+		{[]string{"open"}, true},
+		{[]string{"^open"}, true},
+		{[]string{"^ssl"}, false},
+		{[]string{"*ssl*"}, true},
+		{[]string{"SSL"}, false},
+		{[]string{"SSL", "--ignore-case"}, true},
+		{[]string{"--filter", "ssl"}, true},
+	}
+	for _, tt := range tests {
+		for _, cmd := range [][]string{{"packages", "list"}, {"packages", "find"}} {
+			if cmd[1] == "find" && tt.args[0] == "--filter" {
+				continue
+			}
+			stdout, stderr, code := fleet.run(t, cmd, append([]string{"--all"}, tt.args...)...)
+			if exitcode.Code(code) != exitcode.OK {
+				t.Fatalf("%v %v: code = %d, stderr = %s", cmd, tt.args, code, stderr)
+			}
+			if contains(stdout, "openssl") != tt.want || contains(stdout, "nginx") {
+				t.Errorf("%v %v: stdout = %q", cmd, tt.args, stdout)
+			}
+		}
+	}
+	if _, stderr, code := fleet.run(t, []string{"packages", "find"}, "--all", "("); exitcode.Code(code) != exitcode.Usage || !contains(stderr, "invalid pattern") {
+		t.Errorf("code = %d, stderr = %q", code, stderr)
+	}
+}

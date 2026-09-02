@@ -234,13 +234,15 @@ Works on servers with rpm or dpkg. msh only reads package data here.
 ```text
 Usage: msh packages list [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
-Lists installed packages. PATTERN is a shell-style pattern: 'kernel*'. It can
-also be given with --filter. The first plain word is the pattern, so write
-user@host, or use --host, for the server.
+Lists installed packages. PATTERN works like grep: a name only has to contain
+it, and it is a regular expression. It can also be given with --filter. The
+first plain word is the pattern, so write user@host, or use --host, for the
+server.
 
 Examples:
   msh packages list tmux root@db01
-  msh packages list 'kernel*' --group web
+  msh packages list '^kernel' --group web
+  msh packages list ssl --ignore-case --all
 ```
 
 ## msh packages check
@@ -259,7 +261,8 @@ means the package must not be installed. Quote requirements in the shell.
 Usage: msh packages find PATTERN ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Finds packages by name across servers and groups them by version.
-PATTERN is a shell-style pattern: 'openssl*'.
+PATTERN works like grep: a name only has to contain it, and it is a regular
+expression: ssl, '^open', 'ssl$'.
 ```
 
 ## msh packages compare

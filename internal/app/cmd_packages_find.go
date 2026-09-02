@@ -2,7 +2,6 @@ package app
 
 import (
 	"cmp"
-	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,7 +13,8 @@ import (
 const packagesFindUsage = `Usage: msh packages find PATTERN ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Finds packages by name across servers and groups them by version.
-PATTERN is a shell-style pattern: 'openssl*'.
+PATTERN works like grep: a name only has to contain it, and it is a regular
+expression: ssl, '^open', 'ssl$'.
 `
 
 // foundPackage is one package version and the servers that have it.
@@ -29,6 +29,7 @@ func runPackagesFind(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages find", packagesFindUsage)
 	f.register(fs)
+	f.grep.register(fs)
 	patterns, code, ok := parseRemote(fs, &f.sel, args, 1)
 	if !ok {
 		return code
@@ -37,9 +38,8 @@ func runPackagesFind(c *cli, args []string) exitcode.Code {
 		c.errorf("packages find: exactly one pattern is required")
 		return exitcode.Usage
 	}
-	pattern := patterns[0]
-	if _, err := path.Match(pattern, ""); err != nil {
-		c.errorf("packages find: %v", err)
+	match, ok := f.grep.compile(c, patterns[0])
+	if !ok {
 		return exitcode.Usage
 	}
 	data, code := c.collectPackages("packages find", &f)
@@ -56,7 +56,7 @@ func runPackagesFind(c *cli, args []string) exitcode.Code {
 			continue
 		}
 		for _, p := range l.Packages {
-			if matched, _ := path.Match(pattern, p.Name); matched {
+			if match.Match(p.Name) {
 				k := key{p.Name, p.Version}
 				if !slices.Contains(servers[k], s.Name) {
 					servers[k] = append(servers[k], s.Name)
