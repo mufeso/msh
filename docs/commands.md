@@ -268,16 +268,17 @@ expression: ssl, '^open', 'ssl$'.
 ## msh packages compare
 
 ```text
-Usage: msh packages compare (--group NAME | --all | ...) [--baseline SERVER] [flags]
+Usage: msh packages compare [PATTERN] (--group NAME | --all | ...) [--baseline SERVER] [flags]
 
 Compares the installed packages of each server with a baseline server
-(default: the first selected). Exits 1 when servers differ.
+(default: the first selected). Exits 1 when servers differ. PATTERN limits it
+to matching package names and works like grep.
 ```
 
 ## msh packages updates
 
 ```text
-Usage: msh packages updates ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
+Usage: msh packages updates [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Lists pending updates (dnf, yum or apt). Nothing is installed. apt shows
 what its last "apt update" found.

@@ -1,12 +1,14 @@
 package app
 
 import (
+	"strings"
+
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/pkgs"
 )
 
-const packagesUpdatesUsage = `Usage: msh packages updates ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
+const packagesUpdatesUsage = `Usage: msh packages updates [PATTERN] ([user@]host | --host LIST | --group NAME | --tag K=V | --all) [flags]
 
 Lists pending updates (dnf, yum or apt). Nothing is installed. apt shows
 what its last "apt update" found.
@@ -22,8 +24,14 @@ func runPackagesUpdates(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages updates", packagesUpdatesUsage)
 	f.register(fs)
-	if _, code, ok := parseRemote(fs, &f.sel, args, 0); !ok {
+	f.grep.register(fs)
+	words, code, ok := parseRemote(fs, &f.sel, args, 1)
+	if !ok {
 		return code
+	}
+	match, ok := f.grep.compile(c, strings.Join(words, ""))
+	if !ok {
+		return exitcode.Usage
 	}
 	p, code := c.prepareRun("packages updates", &f.opts, &f.sel, &f.ro)
 	if p == nil {
@@ -38,6 +46,9 @@ func runPackagesUpdates(c *cli, args []string) exitcode.Code {
 	rows := [][]string{}
 	for _, s := range p.servers {
 		for _, u := range found[s.Name] {
+			if !match.Match(u.Name) {
+				continue
+			}
 			items = append(items, updateRow{Server: s.Name, Update: u})
 			rows = append(rows, []string{s.Name, u.Name, u.Version, u.Source})
 		}

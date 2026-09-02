@@ -230,3 +230,19 @@ func TestPackagePatternsWorkLikeGrep(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
 	}
 }
+
+func TestPackagesComparePattern(t *testing.T) {
+	other := "#manager=rpm\nnginx\t1:1.26.0-1.el9\tx86_64\nopenssl\t1:3.0.7-16.el9\tx86_64\nbash\t0:5.1.8-6.el9\tx86_64\n"
+	fleet := newFleet(t, fleetOptions{servers: 2, handlers: map[int]sshtest.Handler{
+		1: packageHandler(rpmPackages), 2: packageHandler(other),
+	}})
+	stdout, _, code := fleet.run(t, []string{"packages", "compare"}, "--all", "ngin")
+	if exitcode.Code(code) != exitcode.Failure || !contains(stdout, "nginx") {
+		t.Errorf("code = %d, stdout = %q", code, stdout)
+	}
+	// Only nginx differs, so a search for ssl finds nothing wrong.
+	stdout, _, code = fleet.run(t, []string{"packages", "compare"}, "--all", "ssl")
+	if exitcode.Code(code) != exitcode.OK || contains(stdout, "nginx") {
+		t.Errorf("code = %d, stdout = %q", code, stdout)
+	}
+}

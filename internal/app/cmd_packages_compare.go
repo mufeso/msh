@@ -2,16 +2,18 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
 	"example.com/msh/internal/pkgs"
 )
 
-const packagesCompareUsage = `Usage: msh packages compare (--group NAME | --all | ...) [--baseline SERVER] [flags]
+const packagesCompareUsage = `Usage: msh packages compare [PATTERN] (--group NAME | --all | ...) [--baseline SERVER] [flags]
 
 Compares the installed packages of each server with a baseline server
-(default: the first selected). Exits 1 when servers differ.
+(default: the first selected). Exits 1 when servers differ. PATTERN limits it
+to matching package names and works like grep.
 `
 
 // compareRow is one difference on one server.
@@ -24,9 +26,15 @@ func runPackagesCompare(c *cli, args []string) exitcode.Code {
 	var f packagesFlags
 	fs := c.newFlagSet("packages compare", packagesCompareUsage)
 	f.register(fs)
+	f.grep.register(fs)
 	baseline := fs.String("baseline", "", "compare with this `server` (default: the first selected)")
-	if _, code, ok := parseRemote(fs, &f.sel, args, 0); !ok {
+	words, code, ok := parseRemote(fs, &f.sel, args, 1)
+	if !ok {
 		return code
+	}
+	match, ok := f.grep.compile(c, strings.Join(words, ""))
+	if !ok {
+		return exitcode.Usage
 	}
 	data, code := c.collectPackages("packages compare", &f)
 	if data == nil {
@@ -54,6 +62,9 @@ func runPackagesCompare(c *cli, args []string) exitcode.Code {
 			fmt.Fprintf(c.stderr, "msh: warning: %s uses %s, %s uses %s; versions will not match\n", s.Name, l.Manager, name, base.Manager)
 		}
 		for _, d := range pkgs.Diff(base, l) {
+			if !match.Match(d.Package) {
+				continue
+			}
 			items = append(items, compareRow{Server: s.Name, Difference: d})
 			rows = append(rows, []string{s.Name, d.Package, orDash(d.Baseline), orDash(d.Version)})
 		}
