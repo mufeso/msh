@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2
+
+- The summary fills the name column with `#` instead of a word, and short
+  names are no longer padded to three characters.
+
 ## 2.4.1
 
 - The summary lines up with the server names: `summary`, `total` or `sum`,

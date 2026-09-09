@@ -41,24 +41,14 @@ func TestPrefixSinkPadsNames(t *testing.T) {
 	}
 }
 
-func TestSummaryLabel(t *testing.T) {
-	for width, want := range map[int]string{
-		3: "sum", 4: "sum_", 5: "total", 6: "total_", 7: "summary", 12: "summary_____",
-	} {
-		if got := summaryLabel(width); got != want {
-			t.Errorf("summaryLabel(%d) = %q, want %q", width, got, want)
-		}
-	}
-}
-
 func TestSummaryIsAligned(t *testing.T) {
 	var buf bytes.Buffer
 	s := NewSink(&buf, Text, SinkOptions{Prefix: true, NameWidth: NameWidth([]string{"web01", "192.0.2.20"})})
 	s.Write(executor.Result{Server: "web01", Status: executor.StatusOK, Stdout: "x\n"})
 	s.Close(runner.Summary{Total: 2, OK: 1, Failed: 1, Problems: []string{"192.0.2.20"}})
 	want := "web01_____: x\n" +
-		"summary___: 2 servers: 1 ok, 1 failed in 0s\n" +
-		"summary___: problems: 192.0.2.20\n"
+		"##########: 2 servers: 1 ok, 1 failed in 0s\n" +
+		"##########: problems: 192.0.2.20\n"
 	if buf.String() != want {
 		t.Errorf("got:\n%s\nwant:\n%s", buf.String(), want)
 	}

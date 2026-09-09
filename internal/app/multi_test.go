@@ -23,7 +23,7 @@ func TestExecOnGroup(t *testing.T) {
 func TestSummaryLine(t *testing.T) {
 	fleet := newTestFleet(t, 2, nil)
 	stdout, _, _ := fleet.run(t, []string{"exec"}, "--all", "--command", "true")
-	if !contains(stdout, "sum: 2 servers: 2 ok in ") {
+	if !contains(stdout, "##: 2 servers: 2 ok in ") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -51,7 +51,7 @@ func TestProblemsLineAndExitCode(t *testing.T) {
 	if exitcode.Code(code) != exitcode.Failure {
 		t.Errorf("code = %d, want failure", code)
 	}
-	if !contains(stdout, "sum: problems: s1, s2, s3") {
+	if !contains(stdout, "##: problems: s1, s2, s3") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -75,7 +75,7 @@ func TestPrefixOutput(t *testing.T) {
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d", code)
 	}
-	for _, want := range []string{"s1_: one\n", "s1_: two\n", "s2_: one\n", "s2_: two\n"} {
+	for _, want := range []string{"s1: one\n", "s1: two\n", "s2: one\n", "s2: two\n"} {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in %q", want, stdout)
 		}
@@ -107,7 +107,7 @@ func TestOrderedFlag(t *testing.T) {
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d", code)
 	}
-	if !strings.HasPrefix(stdout, "s1_: x\ns2_: x\ns3_: x\ns4_: x\n") {
+	if !strings.HasPrefix(stdout, "s1: x\ns2: x\ns3: x\ns4: x\n") {
 		t.Errorf("not in selection order:\n%s", stdout)
 	}
 }
