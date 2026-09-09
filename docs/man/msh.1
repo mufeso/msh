@@ -70,8 +70,9 @@ server does not need to be in the inventory; if it is, its settings apply.
 If it is not, ~/.ssh/config is used as ssh would. Host keys are always
 verified.
 
-\-\-host adds more servers to the destination: a,b or "a b" or @FILE. The
-first word after the flags is always a destination. \-\-group, \-\-tag and \-\-all
+\-\-host adds more servers: a,b or "a b" or @FILE. After it, the first word is
+one more server if it looks like one (user@host, a name with a dot or port,
+or a known name); otherwise it starts the command. \-\-group, \-\-tag and \-\-all
 take no destination: every word is the command. With several servers a
 command runs on all of them in parallel, and without a command each server
 opens in its own tmux pane.
@@ -87,6 +88,7 @@ Examples:
   msh \-p 2222 \-l root \-i ~/.ssh/key \-J jump@bastion.example.com server1
   msh \-\-host "web01 web02" root@db01 uptime
   msh \-\-host web01,web02 root@db01 uptime
+  msh \-\-host web01,web02 ls \-l /tmp
   msh \-\-host @servers.txt root@db01 df \-h
   msh \-\-host web01,web02
   msh \-\-group web uptime

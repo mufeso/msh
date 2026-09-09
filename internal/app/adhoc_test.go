@@ -339,3 +339,27 @@ func TestOneServerKeepsItsBlock(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
+
+func TestCommandAfterHost(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	hosts := "tester@" + fleet.servers[0].Addr + ",tester@" + fleet.servers[1].Addr
+	args := append(fleet.credentials(), "--host", hosts, "ls", "-l", "/tmp")
+	_, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code == exitcode.Usage {
+		t.Fatalf("code = %v, stderr = %s", code, stderr)
+	}
+	for _, s := range fleet.servers {
+		if cmds := s.Commands(); len(cmds) != 1 || cmds[0] != "ls -l /tmp" {
+			t.Errorf("remote command = %q", cmds)
+		}
+	}
+}
+
+func TestKnownNameAfterHostIsAServer(t *testing.T) {
+	fleet := newTestFleet(t, 2, nil)
+	args := append(fleet.args(), "--host", "s1", "s2", "echo", "ok")
+	stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.OK || strings.Count(stdout, ": ok\n") != 2 {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}

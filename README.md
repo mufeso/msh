@@ -17,7 +17,7 @@ library plus
 msh user@server                       # open a shell, no setup needed
 msh user@server df -h                 # run a command
 msh -p 2222 -J jump@bastion server    # ssh flags and ~/.ssh/config work
-msh --host "web01 web02" db01 uptime  # add servers: a,b or "a b" or @FILE
+msh --host "web01 web02" uptime       # several: a,b or "a b" or @FILE
 ```
 
 Keys from `ssh-add` work as they do with ssh. Otherwise msh asks for the

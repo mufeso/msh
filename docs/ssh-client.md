@@ -37,8 +37,9 @@ word of the remote command belongs to the command.
 
 ## Several servers
 
-`--host` adds more servers to the destination. The first word after the flags
-is always a destination, as in ssh, and the words after it are the command.
+`--host` adds more servers. After it, the first word is one more server if it
+looks like one: `user@host`, a name with a dot or a port, `@FILE`, or a name
+from the inventory or `~/.ssh/config`. Otherwise it starts the command.
 
 ```bash
 msh --host "web01 web02" root@db01 uptime   # space-separated
@@ -48,8 +49,9 @@ msh --host @a root@db01 uptime              # @ reads the file a
 msh --host web01,web02                      # no destination, no command: panes
 ```
 
-Each of the first four runs `uptime` on three servers. Be careful with
-`msh --host a,b uptime`: here `uptime` is a destination, not the command.
+Each of the first four runs `uptime` on three servers, and
+`msh --host web01,web02 ls -l /tmp` runs `ls -l /tmp` on two. A plain name
+that msh doesn't know is treated as a command, so write `user@db01` for it.
 
 `--host a` is the server `a`; `--host @a` is the file `a`. A file has server
 names separated by lines, spaces or commas, and `#` starts a comment.

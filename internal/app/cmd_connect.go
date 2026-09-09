@@ -8,6 +8,7 @@ import (
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
+	"example.com/msh/internal/inventory"
 )
 
 const connectUsage = `Usage: msh [flags] [user@]host[:port] [command...]
@@ -21,8 +22,9 @@ server does not need to be in the inventory; if it is, its settings apply.
 If it is not, ~/.ssh/config is used as ssh would. Host keys are always
 verified.
 
---host adds more servers to the destination: a,b or "a b" or @FILE. The
-first word after the flags is always a destination. --group, --tag and --all
+--host adds more servers: a,b or "a b" or @FILE. After it, the first word is
+one more server if it looks like one (user@host, a name with a dot or port,
+or a known name); otherwise it starts the command. --group, --tag and --all
 take no destination: every word is the command. With several servers a
 command runs on all of them in parallel, and without a command each server
 opens in its own tmux pane.
@@ -38,6 +40,7 @@ Examples:
   msh -p 2222 -l root -i ~/.ssh/key -J jump@bastion.example.com server1
   msh --host "web01 web02" root@db01 uptime
   msh --host web01,web02 root@db01 uptime
+  msh --host web01,web02 ls -l /tmp
   msh --host @servers.txt root@db01 df -h
   msh --host web01,web02
   msh --group web uptime
@@ -73,8 +76,9 @@ func runConnect(c *cli, args []string) exitcode.Code {
 		c.errorf("usage: msh [user@]host [command...]")
 		return exitcode.Usage
 	}
-	// --host only adds servers, so the first word is still a destination.
-	if (f.sel.isEmpty() || f.sel.onlyHosts()) && fs.NArg() > 0 {
+	// Without a selection the first word is the destination, as in ssh.
+	// After --host it may be one more server or the start of the command.
+	if f.sel.isEmpty() || (f.sel.onlyHosts() && fs.NArg() > 0 && c.namesServer(&f, fs.Arg(0))) {
 		if err := f.sel.hosts.Set(fs.Arg(0)); err != nil {
 			c.errorf("%v", err)
 			return exitcode.Usage
@@ -109,6 +113,29 @@ func runConnect(c *cli, args []string) exitcode.Code {
 		Command: command,
 		NoTTY:   *noTTY || (command != "" && !*tty),
 	})
+}
+
+// namesServer reports whether a word after --host is a server. A plain
+// word like "ls" must be known by name: taking a command for a server would
+// turn its options into msh's.
+func (c *cli) namesServer(f *shellFlags, word string) bool {
+	if strings.HasPrefix(word, "@") {
+		return true
+	}
+	t, err := inventory.ParseTarget(word)
+	if err != nil {
+		return false
+	}
+	if t.User != "" || t.Port != 0 || strings.ContainsAny(t.Host, ".:") || c.userSSHConfig().Known(word) {
+		return true
+	}
+	f.opts.inventoryOptional = true
+	st, _ := c.load(&f.opts, true)
+	if st == nil {
+		return false
+	}
+	_, known := st.inv.Find(word)
+	return known
 }
 
 // isDestination decides what an unknown first word means: flags and
