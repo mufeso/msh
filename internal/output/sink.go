@@ -58,14 +58,29 @@ func (s *textSink) Close(sum runner.Summary) error {
 	if sum.Total <= 1 {
 		return nil
 	}
-	if _, err := fmt.Fprintf(s.w, "--- %s\n", sum); err != nil {
+	label := "---"
+	if s.prefix && s.width > 0 {
+		label = summaryLabel(s.width) + ":"
+	}
+	if _, err := fmt.Fprintf(s.w, "%s %s\n", label, sum); err != nil {
 		return err
 	}
 	if len(sum.Problems) > 0 {
-		_, err := fmt.Fprintf(s.w, "--- problems: %s\n", strings.Join(sum.Problems, ", "))
+		_, err := fmt.Fprintf(s.w, "%s problems: %s\n", label, strings.Join(sum.Problems, ", "))
 		return err
 	}
 	return nil
+}
+
+// summaryLabel returns the longest label that fits the name column, padded
+// like a server name. NameWidth guarantees that "sum" fits.
+func summaryLabel(width int) string {
+	for _, label := range []string{"summary", "total"} {
+		if len(label) <= width {
+			return PadName(label, width)
+		}
+	}
+	return PadName("sum", width)
 }
 
 // writePrefixed writes every output line prefixed with the server name,
@@ -91,9 +106,10 @@ func writePrefixed(w io.Writer, r executor.Result, width int) error {
 	return err
 }
 
-// NameWidth returns the width of the longest name.
+// NameWidth returns the width of the name column: the longest name, and at
+// least room for the shortest summary label.
 func NameWidth(names []string) int {
-	width := 0
+	width := len("sum")
 	for _, name := range names {
 		width = max(width, utf8.RuneCountInString(name))
 	}

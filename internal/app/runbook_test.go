@@ -361,7 +361,7 @@ func TestRollingRunbook(t *testing.T) {
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d, stderr = %s", code, stderr)
 	}
-	if !contains(stdout, "--- 5 servers: 5 ok") {
+	if !contains(stdout, "sum: 5 servers: 5 ok") {
 		t.Errorf("one merged summary expected:\n%s", stdout)
 	}
 }

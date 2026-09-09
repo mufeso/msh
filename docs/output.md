@@ -26,6 +26,15 @@ web01___: /dev/sda2   2.0G  201M  1.6G  11% /boot
 server01: /dev/sda2   2.0G  201M  1.6G  11% /boot
 ```
 
+The last line is the summary, in the same column: `summary`, or `total` or
+`sum` when the names are shorter than that.
+
+```
+web01___: ...
+server01: ...
+summary_: 2 servers: 2 ok in 160ms
+```
+
 The padding is `_` and not spaces so the name stays one column for `awk` and
 `cut`. Remote stderr lines say `name [stderr]:`. A server with no output shows
 `name: [ok]`, and one that did not succeed shows why: `name: [failed: exit 1]`.

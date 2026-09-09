@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.1
+
+- The summary lines up with the server names: `summary`, `total` or `sum`,
+  whichever fits, padded with `_`. Very short names are padded to three.
+
 ## 2.4.0
 
 - Changed: with several servers, text output starts every line with the

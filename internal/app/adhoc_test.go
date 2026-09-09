@@ -235,7 +235,7 @@ func TestHostFlagAddsToTheDestination(t *testing.T) {
 		if code != exitcode.OK {
 			t.Fatalf("--host %q: code = %v, stderr = %s", list, code, stderr)
 		}
-		if strings.Count(stdout, "everywhere") != 3 || !contains(stdout, "--- 3 servers: 3 ok") {
+		if strings.Count(stdout, "everywhere") != 3 || !contains(stdout, ": 3 servers: 3 ok") {
 			t.Errorf("--host %q: stdout = %q", list, stdout)
 		}
 	}

@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 239 layered steps. Each `stepNNN` directory is the
+msh was built in 240 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -245,3 +245,4 @@ This table lists the first line of every `.step` file.
 | 237 | Added the same search to "packages updates" and "packages compare": a word limits them to matching package names. In compare, the exit code follows what is shown, so a script can check only the packages it cares about. |
 | 238 | Final step: msh 2.3.0, one search rule everywhere. "hosts list", "task list", "runbook list" and "history list" take a pattern as a word and search their whole row, like grep on the printed table. "history list --grep" follows the same rule. Updated the docs, the CHANGELOG and the version. |
 | 239 | With several servers, every output line now starts with the server name, padded with _ to the width of the longest name, so output can be piped to grep and still says where each line came from: "web01_______: /dev/sda2 ...". A server with no output shows [ok], so "msh ping" still reports each server. --blocks gives the old layout with one block per server. One server and runbooks keep their blocks. |
+| 240 | The summary line now lines up with the server names. It uses the longest label that fits the name column: summary, total or sum, padded with _ like the names: "summary_____: 2 servers: 2 ok in 160ms". The column is at least three wide, so sum always fits. |

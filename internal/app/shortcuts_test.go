@@ -25,12 +25,12 @@ func TestShortcutsSendTheirCommand(t *testing.T) {
 func TestPingAndHostsCheck(t *testing.T) {
 	fleet := newTestFleet(t, 2, nil)
 	stdout, _, code := fleet.run(t, []string{"ping"}, "--all")
-	if exitcode.Code(code) != exitcode.OK || !contains(stdout, "s1: [ok]") {
+	if exitcode.Code(code) != exitcode.OK || !contains(stdout, "s1_: [ok]") {
 		t.Errorf("ping: code = %d\n%s", code, stdout)
 	}
 	fleet.servers[1].Close()
 	stdout, _, code = fleet.run(t, []string{"hosts", "check"})
-	if exitcode.Code(code) != exitcode.Connection || !contains(stdout, "s2: [error:") {
+	if exitcode.Code(code) != exitcode.Connection || !contains(stdout, "s2_: [error:") {
 		t.Errorf("hosts check: code = %d\n%s", code, stdout)
 	}
 }

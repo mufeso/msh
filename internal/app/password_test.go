@@ -174,7 +174,7 @@ func TestOnePromptForAFleet(t *testing.T) {
 	f.Close()
 	r := &fakeReader{}
 	stdout, stderr, code := runCLIWith(t, context.Background(), nil, r.configure, "--known-hosts", knownA, "--host", "tester@"+a.Addr, "tester@"+b.Addr, "echo", "ok")
-	if code != exitcode.OK || !contains(stdout, "--- 2 servers: 2 ok") {
+	if code != exitcode.OK || !contains(stdout, ": 2 servers: 2 ok") {
 		t.Fatalf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
 	}
 	if len(r.prompts) != 1 {
