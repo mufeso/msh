@@ -96,7 +96,7 @@ func TestPaneCommandOpensItsOwnSession(t *testing.T) {
 	// letting a shell split it, then run it in-process (without argv[0]).
 	split := fake.CallsTo("split-window")[0]
 	line := split[len(split)-1]
-	line = line[:strings.Index(line, "; status=$?")]
+	line = line[:strings.Index(line, "; msh_exit=$?")]
 	out, err := exec.Command("/bin/sh", "-c", `for a in `+line+`; do printf '%s\0' "$a"; done`).Output()
 	if err != nil {
 		t.Fatal(err)
@@ -169,5 +169,21 @@ func TestTmuxFailureLeavesNothingBehind(t *testing.T) {
 	}
 	if got := fake.Sessions(); len(got) != 1 || got[0] != "users-own-session" {
 		t.Errorf("sessions after failure = %v", got)
+	}
+}
+
+func TestFailedPaneWaitsInEveryShell(t *testing.T) {
+	for _, shell := range []string{"sh", "bash", "zsh"} {
+		path, err := exec.LookPath(shell)
+		if err != nil {
+			t.Logf("%s is not installed", shell)
+			continue
+		}
+		cmd := exec.Command(path, "-c", paneCommand([]string{"false"}))
+		cmd.Stdin = strings.NewReader("\n")
+		out, err := cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "press Enter") {
+			t.Errorf("%s: err = %v, output = %q", shell, err, out)
+		}
 	}
 }

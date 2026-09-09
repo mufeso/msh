@@ -62,10 +62,12 @@ func (c *cli) paneArgv(f *shellFlags, st *setup, server inventory.Server, iopts 
 
 // paneCommand is the shell command line tmux runs in a pane. tmux passes
 // it to the user's shell, so the argv is quoted word by word. When msh
-// fails, the pane stays open until Enter is pressed.
+// fails, the pane stays open until Enter is pressed. The line runs in the
+// user's shell, so its variables must not be special anywhere: "status" is
+// read-only in zsh, and "_" is special in most shells.
 func paneCommand(argv []string) string {
 	return shellquote.Join(argv) +
-		`; status=$?; if [ "$status" -ne 0 ]; then printf '\nmsh exited with status %s; press Enter to close this pane. ' "$status"; read _; fi`
+		`; msh_exit=$?; if [ "$msh_exit" -ne 0 ]; then printf '\nmsh exited with status %s; press Enter to close this pane. ' "$msh_exit"; read msh_reply; fi`
 }
 
 // absPath makes a path absolute so it works from any directory.
