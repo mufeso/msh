@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -17,9 +18,10 @@ Subcommands:
   check   Check SSH connectivity to servers
 `
 
-const hostsListUsage = `Usage: msh hosts list [flags]
+const hostsListUsage = `Usage: msh hosts list [PATTERN] [flags]
 
-Lists servers from the inventory.
+Lists servers from the inventory. PATTERN works like grep on the name,
+address, user and groups.
 `
 
 const hostsCheckUsage = `Usage: msh hosts check [--host NAME | --group NAME | --tag K=V | --all] [flags]
@@ -64,7 +66,10 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 	fs := c.newFlagSet("hosts list", hostsListUsage)
 	opts.register(fs)
 	sel.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
+	var grep grepFlags
+	grep.register(fs)
+	match, code, ok := grep.parseList(c, "hosts list", fs, args, nil)
+	if !ok {
 		return code
 	}
 	if err := sel.validate(); err != nil {
@@ -85,6 +90,9 @@ func runHostsList(c *cli, args []string) exitcode.Code {
 			return exitcode.Usage
 		}
 	}
+	servers = slices.DeleteFunc(slices.Clone(servers), func(s inventory.Server) bool {
+		return !match.Match(strings.Join([]string{s.Name, s.Address, s.User, strings.Join(s.Groups, ",")}, " "))
+	})
 	if err := c.writeServers(opts.format, servers); err != nil {
 		c.errorf("writing output: %v", err)
 		return exitcode.IO

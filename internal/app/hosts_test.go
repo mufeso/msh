@@ -124,3 +124,18 @@ func TestHostFlagForms(t *testing.T) {
 		t.Errorf("missing file: code = %v", code)
 	}
 }
+
+func TestHostsListPattern(t *testing.T) {
+	if got := serverNames(listJSON(t, "web")); !slices.Equal(got, []string{"web01", "web02"}) {
+		t.Errorf("web: %v", got)
+	}
+	if got := serverNames(listJSON(t, "^db")); !slices.Equal(got, []string{"db01"}) {
+		t.Errorf("^db: %v", got)
+	}
+	if got := serverNames(listJSON(t, "WEB", "--ignore-case", "--group", "web")); len(got) != 2 {
+		t.Errorf("WEB: %v", got)
+	}
+	if _, stderr, code := runCLI(t, "hosts", "list", "a", "b"); code != exitcode.Usage || !contains(stderr, "only one pattern") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}

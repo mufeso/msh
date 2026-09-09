@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.0
+
+- Searching works like grep everywhere: a name only has to contain the
+  pattern, and patterns are regular expressions. `--ignore-case` is grep -i.
+- `msh packages list|find|updates|compare PATTERN`.
+- `msh hosts list|task list|runbook list|history list PATTERN`.
+- Changed: patterns used to be shell-style and had to match the whole name.
+  `xerox*` still works, but `lib*ssl` must now be written `lib.*ssl`.
+
 ## 2.2.1
 
 - Every remote command takes destinations as words:

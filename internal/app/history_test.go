@@ -173,6 +173,9 @@ func TestHistoryFilters(t *testing.T) {
 	if out := rows("--grep", "fine"); !contains(out, "echo fine") || contains(out, "exit 3") {
 		t.Errorf("--grep:\n%s", out)
 	}
+	if out := rows("ec.*FINE", "--ignore-case"); !contains(out, "echo fine") || contains(out, "exit 3") {
+		t.Errorf("pattern word:\n%s", out)
+	}
 	if out := rows("--server", "ghost"); contains(out, "echo") {
 		t.Errorf("--server:\n%s", out)
 	}

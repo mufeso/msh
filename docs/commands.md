@@ -146,9 +146,10 @@ msh records runs in ~/.local/state/msh/history. See docs/history.md.
 ## msh history list
 
 ```text
-Usage: msh history list [--limit N] [flags]
+Usage: msh history list [PATTERN] [--limit N] [flags]
 
-Lists recorded runs, newest first.
+Lists recorded runs, newest first. PATTERN works like grep on the command
+line, and can also be given with --grep.
 ```
 
 ## msh history show
@@ -189,9 +190,10 @@ Subcommands:
 ## msh hosts list
 
 ```text
-Usage: msh hosts list [flags]
+Usage: msh hosts list [PATTERN] [flags]
 
-Lists servers from the inventory.
+Lists servers from the inventory. PATTERN works like grep on the name,
+address, user and groups.
 ```
 
 ## msh hosts check
@@ -300,9 +302,10 @@ Runbooks are defined under "runbooks:" in the configuration file.
 ## msh runbook list
 
 ```text
-Usage: msh runbook list [flags]
+Usage: msh runbook list [PATTERN] [flags]
 
-Lists the runbooks from the configuration file.
+Lists the runbooks from the configuration file. PATTERN works like grep on
+each row.
 ```
 
 ## msh runbook show
@@ -364,9 +367,10 @@ Tasks are defined under "tasks:" in the configuration file.
 ## msh task list
 
 ```text
-Usage: msh task list [flags]
+Usage: msh task list [PATTERN] [flags]
 
-Lists the tasks from the configuration file.
+Lists the tasks from the configuration file. PATTERN works like grep on each
+row.
 ```
 
 ## msh task show

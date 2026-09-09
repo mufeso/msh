@@ -6,16 +6,32 @@ which one a server has, and the commands work the same on both, also in a
 mixed fleet. They only read: nothing is installed or removed.
 
 ```bash
-msh packages list --host web01 --filter 'kernel*'
+msh packages list kernel root@web01
 msh packages list --all --output csv > inventory.csv
 msh packages check --group web --package 'nginx,openssl>=3.0,!telnet'
 msh packages check --all --file baseline.txt --only-problems
-msh packages find 'openssl*' --all
+msh packages find openssl --all
 msh packages compare --group web --baseline web01
 msh packages updates --all
 ```
 
 They accept the usual selection, `--where` and output flags.
+
+## Patterns
+
+`list`, `find`, `updates` and `compare` take a pattern that works like grep:
+a name only has to contain it, and it is a regular expression.
+
+| Pattern | Finds |
+|---------|-------|
+| `xerox` | every name containing xerox |
+| `^open` | names that start with open |
+| `ssl$` | names that end with ssl |
+| `lib.*ssl` | lib, later followed by ssl |
+
+`--ignore-case` is `grep -i`. The same rule applies to `msh hosts list`,
+`msh task list`, `msh runbook list` and `msh history list`, which search their
+whole row.
 
 ## check
 

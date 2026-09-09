@@ -448,3 +448,15 @@ func TestGlobalTimeoutDuringPauseExitsTimeout(t *testing.T) {
 		t.Errorf("code = %d, stderr = %q", code, stderr)
 	}
 }
+
+func TestRunbookListPattern(t *testing.T) {
+	cfg := writeConfig(t, basicRunbooks)
+	stdout, _, _ := runCLI(t, "runbook", "list", "HELLO", "--ignore-case", "--config", cfg)
+	if !contains(stdout, "greet") {
+		t.Errorf("stdout = %q", stdout)
+	}
+	stdout, _, _ = runCLI(t, "runbook", "list", "nothing-like-this", "--config", cfg)
+	if contains(stdout, "greet") {
+		t.Errorf("stdout = %q", stdout)
+	}
+}

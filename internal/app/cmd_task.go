@@ -19,9 +19,10 @@ Subcommands:
 Tasks are defined under "tasks:" in the configuration file.
 `
 
-const taskListUsage = `Usage: msh task list [flags]
+const taskListUsage = `Usage: msh task list [PATTERN] [flags]
 
-Lists the tasks from the configuration file.
+Lists the tasks from the configuration file. PATTERN works like grep on each
+row.
 `
 
 func taskCommand() *command {
@@ -80,7 +81,10 @@ func runTaskList(c *cli, args []string) exitcode.Code {
 	var opts commonOptions
 	fs := c.newFlagSet("task list", taskListUsage)
 	opts.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
+	var grep grepFlags
+	grep.register(fs)
+	match, code, ok := grep.parseList(c, "task list", fs, args, nil)
+	if !ok {
 		return code
 	}
 	st, code := c.load(&opts, false)
@@ -93,8 +97,12 @@ func runTaskList(c *cli, args []string) exitcode.Code {
 	rows := make([][]string, 0, len(tasks))
 	for _, t := range tasks {
 		s := summarize(t)
+		row := []string{s.Name, strings.Join(s.Aliases, ","), s.Mode, s.Safety, s.Description}
+		if !match.Match(strings.Join(row, " ")) {
+			continue
+		}
 		summaries = append(summaries, s)
-		rows = append(rows, []string{s.Name, strings.Join(s.Aliases, ","), s.Mode, s.Safety, s.Description})
+		rows = append(rows, row)
 	}
 	headers := []string{"NAME", "ALIASES", "MODE", "SAFETY", "DESCRIPTION"}
 	if err := output.WriteRows(c.stdout, opts.format, headers, rows, summaries); err != nil {

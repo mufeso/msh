@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/output"
@@ -18,9 +19,10 @@ Subcommands:
 Runbooks are defined under "runbooks:" in the configuration file.
 `
 
-const runbookListUsage = `Usage: msh runbook list [flags]
+const runbookListUsage = `Usage: msh runbook list [PATTERN] [flags]
 
-Lists the runbooks from the configuration file.
+Lists the runbooks from the configuration file. PATTERN works like grep on
+each row.
 `
 
 func runbookCommand() *command {
@@ -65,7 +67,10 @@ func runRunbookList(c *cli, args []string) exitcode.Code {
 	var opts commonOptions
 	fs := c.newFlagSet("runbook list", runbookListUsage)
 	opts.register(fs)
-	if code, ok := parseFlags(fs, args); !ok {
+	var grep grepFlags
+	grep.register(fs)
+	match, code, ok := grep.parseList(c, "runbook list", fs, args, nil)
+	if !ok {
 		return code
 	}
 	st, code := c.load(&opts, false)
@@ -77,8 +82,12 @@ func runRunbookList(c *cli, args []string) exitcode.Code {
 	rows := make([][]string, 0, len(books))
 	for _, rb := range books {
 		s := runbookSummary{Name: rb.Name, Steps: len(rb.Steps), Description: rb.Description}
+		row := []string{s.Name, strconv.Itoa(s.Steps), s.Description}
+		if !match.Match(strings.Join(row, " ")) {
+			continue
+		}
 		summaries = append(summaries, s)
-		rows = append(rows, []string{s.Name, strconv.Itoa(s.Steps), s.Description})
+		rows = append(rows, row)
 	}
 	if err := output.WriteRows(c.stdout, opts.format, []string{"NAME", "STEPS", "DESCRIPTION"}, rows, summaries); err != nil {
 		c.errorf("writing output: %v", err)

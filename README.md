@@ -84,10 +84,10 @@ msh facts --all --group-by os_version
 msh facts --all --expect 'disk_root_pct < 90'
 
 # Installed packages, rpm and dpkg (see docs/packages.md)
-msh packages list --host web01 --filter 'kernel*'
+msh packages list kernel root@web01
 msh packages check --all --package 'openssl>=3.0,!telnet'
 msh packages check --all --file baseline.txt --only-problems
-msh packages find 'openssl*' --all
+msh packages find openssl --all
 msh packages compare --group web --baseline web01
 msh packages updates --all
 

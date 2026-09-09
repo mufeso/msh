@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"example.com/msh/internal/exitcode"
@@ -22,9 +21,10 @@ Subcommands:
 msh records runs in ~/.local/state/msh/history. See docs/history.md.
 `
 
-const historyListUsage = `Usage: msh history list [--limit N] [flags]
+const historyListUsage = `Usage: msh history list [PATTERN] [--limit N] [flags]
 
-Lists recorded runs, newest first.
+Lists recorded runs, newest first. PATTERN works like grep on the command
+line, and can also be given with --grep.
 `
 
 func historyCommand() *command {
@@ -78,8 +78,11 @@ func runHistoryList(c *cli, args []string) exitcode.Code {
 	failed := fs.Bool("failed", false, "only runs with problems")
 	server := fs.String("server", "", "only runs that included this `server`")
 	since := fs.Duration("since", 0, "only runs from this recent `time`, e.g. 24h")
-	grep := fs.String("grep", "", "only runs whose command line contains this `text`")
-	if code, ok := parseFlags(fs, args); !ok {
+	pattern := fs.String("grep", "", "only runs whose command line contains this `pattern`")
+	var grep grepFlags
+	grep.register(fs)
+	match, code, ok := grep.parseList(c, "history list", fs, args, pattern)
+	if !ok {
 		return code
 	}
 	if st, code := c.load(&opts, false); st == nil {
@@ -97,7 +100,7 @@ func runHistoryList(c *cli, args []string) exitcode.Code {
 		return (!*failed || r.Summary.Total != r.Summary.OK) &&
 			(*server == "" || r.HasServer(*server)) &&
 			(*since == 0 || r.Started.After(oldest)) &&
-			(*grep == "" || strings.Contains(r.Command, *grep))
+			match.Match(r.Command)
 	})
 	for r, err := range matching {
 		if err != nil {

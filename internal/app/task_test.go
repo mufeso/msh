@@ -49,3 +49,10 @@ func TestTaskShowUnknownSuggests(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestTaskListPattern(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "task", "list", "restart", "--config", "testdata/tasks.yaml")
+	if code != exitcode.OK || !contains(stdout, "restart-service") || contains(stdout, "security-summary") {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+}

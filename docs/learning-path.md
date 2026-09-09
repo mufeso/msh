@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 235 layered steps. Each `stepNNN` directory is the
+msh was built in 238 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -241,3 +241,6 @@ This table lists the first line of every `.step` file.
 | 233 | Added the safety rules for passwords, with tests that prove them. A password is only sent to a server whose host key was verified, so --insecure-ignore-host-key turns passwords off: a fake server could read them. Keys from ssh-add are used first and the password isn't touched when they work. tmux panes get neither the password nor the variable on their command line. |
 | 234 | Final step: msh 2.2.0, password login. Rewrote the authentication documentation, since "msh never asks for passwords" stopped being true, and updated the help, README, CHANGELOG, version and learning path. The quality gate passes, and a pseudo-terminal test ran the real prompt. |
 | 235 | Every remote command now takes destinations as plain words, like the ssh-style form: msh packages list tmux user@server, msh facts user@server, msh uptime web01 web02. A word with user@ is always a destination; other words first fill what the command needs (a task name, a package pattern) and the rest are destinations. This also fixes a real bug: flags after a word were silently ignored, because Go's flag package stops at the first non-flag, so "msh packages list tmux --host x" lost its --host. |
+| 236 | Package patterns now work like grep: "msh packages list xerox" finds every package whose name contains xerox, and patterns are regular expressions, so ^open, ssl$ and lib.*ssl work. --ignore-case is grep -i. The new internal/textmatch package holds the rule, so every command matches the same way. A leading * is ignored, so old habits like '*ssl*' still work. |
+| 237 | Added the same search to "packages updates" and "packages compare": a word limits them to matching package names. In compare, the exit code follows what is shown, so a script can check only the packages it cares about. |
+| 238 | Final step: msh 2.3.0, one search rule everywhere. "hosts list", "task list", "runbook list" and "history list" take a pattern as a word and search their whole row, like grep on the printed table. "history list --grep" follows the same rule. Updated the docs, the CHANGELOG and the version. |
