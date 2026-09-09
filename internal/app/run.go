@@ -147,6 +147,7 @@ func (c *cli) prepareRun(name string, opts *commonOptions, sel *selectionOptions
 		stack.Close()
 		return nil, code
 	}
+	ro.chooseLayout(servers)
 	return &prepared{st: st, servers: servers, stack: stack}, exitcode.OK
 }
 
@@ -193,7 +194,7 @@ func (c *cli) runContext(st *setup) (context.Context, context.CancelFunc) {
 // runAndReport runs work, streaming each result to an output sink as it
 // arrives, and returns the exit code the results imply.
 func (c *cli) runAndReport(opts *commonOptions, ro *remoteOptions, work func(emit func(executor.Result)) runner.Report) exitcode.Code {
-	sink := output.NewSink(c.stdout, opts.format, output.SinkOptions{Prefix: ro.prefix})
+	sink := output.NewSink(c.stdout, opts.format, output.SinkOptions{Prefix: ro.prefix, NameWidth: ro.nameWidth})
 	log := c.log(opts)
 	var writeErr error
 	report := work(func(r executor.Result) {

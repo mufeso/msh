@@ -132,7 +132,7 @@ msh --version
 
 ## Output
 
-`--output text|json|csv|jsonl`, `--prefix` for greppable text lines,
+`--output text|json|csv|jsonl`, server names on every line with several servers (`--blocks` for one block each),
 `--report FILE` for a JSON record of the run. Diagnostics go to stderr
 (`--verbose`, `--log-format json`). See docs/output.md.
 

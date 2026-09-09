@@ -28,6 +28,38 @@ func TestPrefixSink(t *testing.T) {
 	}
 }
 
+func TestPrefixSinkPadsNames(t *testing.T) {
+	var buf bytes.Buffer
+	s := NewSink(&buf, Text, SinkOptions{Prefix: true, NameWidth: NameWidth([]string{"web01", "server01"})})
+	s.Write(executor.Result{Server: "web01", Status: executor.StatusOK, Stdout: "/boot\n"})
+	s.Write(executor.Result{Server: "server01", Status: executor.StatusOK, Stdout: "/boot\n"})
+	s.Write(executor.Result{Server: "web01", Status: executor.StatusOK})
+	s.Write(executor.Result{Server: "web01", Status: executor.StatusFailed, ExitCode: 3, Stderr: "no\n"})
+	want := "web01___: /boot\nserver01: /boot\nweb01___: [ok]\nweb01___ [stderr]: no\nweb01___: [failed: exit 3]\n"
+	if buf.String() != want {
+		t.Errorf("got:\n%s\nwant:\n%s", buf.String(), want)
+	}
+}
+
+func TestPadName(t *testing.T) {
+	tests := []struct {
+		name  string
+		width int
+		want  string
+	}{
+		{"a", 3, "a__"},
+		{"abc", 3, "abc"},
+		{"abcd", 3, "abcd"},
+		{"é", 2, "é_"},
+		{"a", 0, "a"},
+	}
+	for _, tt := range tests {
+		if got := PadName(tt.name, tt.width); got != tt.want {
+			t.Errorf("PadName(%q, %d) = %q", tt.name, tt.width, got)
+		}
+	}
+}
+
 func TestTextSinkSingleResultHasNoSummary(t *testing.T) {
 	var buf bytes.Buffer
 	s := NewSink(&buf, Text, SinkOptions{})

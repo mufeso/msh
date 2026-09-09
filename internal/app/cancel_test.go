@@ -25,7 +25,7 @@ func TestCtrlCStopsEverything(t *testing.T) {
 	}()
 
 	start := time.Now()
-	args := append([]string{"exec", "--all", "--workers", "2", "--command-timeout", "0s", "--command", "wait"}, fleet.args()...)
+	args := append([]string{"exec", "--all", "--blocks", "--workers", "2", "--command-timeout", "0s", "--command", "wait"}, fleet.args()...)
 	stdout, _, code := runCLICtx(t, ctx, nil, args...)
 	if code != exitcode.Canceled {
 		t.Errorf("code = %v, want canceled (130)", code)

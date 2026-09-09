@@ -83,6 +83,9 @@ func runRunbookRun(c *cli, args []string) exitcode.Code {
 	if st == nil {
 		return code
 	}
+	// A runbook's blocks show its steps, so it keeps them unless --prefix.
+	f.ro.blocks = f.ro.blocks || !f.ro.prefix
+	f.ro.chooseLayout(servers)
 	rb, code := c.findRunbook(st, names[0])
 	if rb == nil {
 		return code

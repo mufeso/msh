@@ -11,7 +11,7 @@ import (
 
 func TestExecOnGroup(t *testing.T) {
 	fleet := newTestFleet(t, 3, nil)
-	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--group", "all", "--command", "echo hi")
+	stdout, stderr, code := fleet.run(t, []string{"exec"}, "--group", "all", "--blocks", "--command", "echo hi")
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d, stderr = %s", code, stderr)
 	}
@@ -31,7 +31,7 @@ func TestSummaryLine(t *testing.T) {
 func TestOneUnreachableServerDoesNotStopOthers(t *testing.T) {
 	fleet := newTestFleet(t, 3, nil)
 	fleet.servers[1].Close() // s2 is down
-	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--command", "echo up")
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--blocks", "--command", "echo up")
 	if exitcode.Code(code) != exitcode.Connection {
 		t.Errorf("code = %d, want connection", code)
 	}
@@ -39,7 +39,7 @@ func TestOneUnreachableServerDoesNotStopOthers(t *testing.T) {
 		t.Errorf("stdout = %q", stdout)
 	}
 
-	stdout, _, _ = fleet.run(t, []string{"exec"}, "--all", "--command", "echo up", "--fail-fast", "--mode", "sequential")
+	stdout, _, _ = fleet.run(t, []string{"exec"}, "--all", "--blocks", "--command", "echo up", "--fail-fast", "--mode", "sequential")
 	if !contains(stdout, "=== s3: canceled") || !contains(stdout, "not started") {
 		t.Errorf("fail-fast stdout = %q", stdout)
 	}
@@ -58,7 +58,7 @@ func TestProblemsLineAndExitCode(t *testing.T) {
 
 func TestSlowServerTimesOutAlone(t *testing.T) {
 	fleet := newFleet(t, fleetOptions{servers: 3, handlers: map[int]sshtest.Handler{2: sshtest.Blocking("")}})
-	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--command-timeout", "300ms", "--command", "echo fast")
+	stdout, _, code := fleet.run(t, []string{"exec"}, "--all", "--blocks", "--command-timeout", "300ms", "--command", "echo fast")
 	if exitcode.Code(code) != exitcode.Timeout {
 		t.Errorf("code = %d, want timeout", code)
 	}

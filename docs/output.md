@@ -7,13 +7,32 @@ output is never mixed with logs.
 
 | Format | Best for | Streaming |
 |--------|----------|-----------|
-| `text` | people | yes, one block per server (`--prefix`: one line per output line) |
+| `text` | people and grep | yes; see below |
 | `json` | scripts that read everything at the end | no, one document |
 | `jsonl` | pipelines (`jq`), long runs | yes, one line per server, then a summary line |
 | `csv` | spreadsheets and reports | yes, one row per server |
 
 Results appear in completion order; `--ordered` switches to selection
 order.
+
+## Text layout
+
+With several servers every line starts with the server name, padded with `_`
+to the longest name, so grep still shows where a line came from:
+
+```
+$ msh disk --host web01,server01 | grep /boot
+web01___: /dev/sda2   2.0G  201M  1.6G  11% /boot
+server01: /dev/sda2   2.0G  201M  1.6G  11% /boot
+```
+
+The padding is `_` and not spaces so the name stays one column for `awk` and
+`cut`. Remote stderr lines say `name [stderr]:`. A server with no output shows
+`name: [ok]`, and one that did not succeed shows why: `name: [failed: exit 1]`.
+
+`--blocks` prints one block per server with its status and time instead.
+That is also the layout for one server and for runbooks, because it shows
+their steps. `--prefix` forces the line layout for them.
 
 ## Result fields
 

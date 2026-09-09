@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.0
+
+- Changed: with several servers, text output starts every line with the
+  server name, padded with `_`, so it can be searched with grep. `--blocks`
+  gives the old layout. One server and runbooks keep their blocks.
+- A server with no output shows `[ok]` in this layout.
+
 ## 2.3.0
 
 - Searching works like grep everywhere: a name only has to contain the

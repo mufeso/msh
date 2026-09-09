@@ -150,7 +150,7 @@ func withPrefix(candidates []string, prefix string) []string {
 // commonFlags are offered for words starting with "-".
 var commonFlags = []string{
 	"--all", "--bastion", "--command", "--config", "--group", "--help", "--host",
-	"--inventory", "--mode", "--ordered", "--output", "--prefix", "--tag",
+	"--inventory", "--mode", "--blocks", "--ordered", "--output", "--prefix", "--tag",
 	"--timeout", "--verbose", "--where", "--workers",
 }
 

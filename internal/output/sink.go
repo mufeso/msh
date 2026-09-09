@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"example.com/msh/internal/executor"
 	"example.com/msh/internal/runner"
@@ -21,7 +22,8 @@ type Sink interface {
 
 // SinkOptions tune text output.
 type SinkOptions struct {
-	Prefix bool // one "server: line" per output line instead of blocks
+	Prefix    bool // one "server: line" per output line instead of blocks
+	NameWidth int  // pad server names to this width; see PadName
 }
 
 // NewSink returns the sink for a format.
@@ -34,7 +36,7 @@ func NewSink(w io.Writer, format Format, opts SinkOptions) Sink {
 	case JSONL:
 		return &jsonlSink{w: w}
 	default:
-		return &textSink{w: w, prefix: opts.Prefix}
+		return &textSink{w: w, prefix: opts.Prefix, width: opts.NameWidth}
 	}
 }
 
@@ -42,11 +44,12 @@ func NewSink(w io.Writer, format Format, opts SinkOptions) Sink {
 type textSink struct {
 	w      io.Writer
 	prefix bool
+	width  int
 }
 
 func (s *textSink) Write(r executor.Result) error {
 	if s.prefix {
-		return writePrefixed(s.w, r)
+		return writePrefixed(s.w, r, s.width)
 	}
 	return WriteResultText(s.w, r)
 }
@@ -67,22 +70,40 @@ func (s *textSink) Close(sum runner.Summary) error {
 
 // writePrefixed writes every output line prefixed with the server name,
 // and a status line for servers that did not succeed.
-func writePrefixed(w io.Writer, r executor.Result) error {
+func writePrefixed(w io.Writer, r executor.Result, width int) error {
 	var b strings.Builder
+	name := PadName(r.Server, width)
 	for _, line := range lines(r.Stdout) {
-		fmt.Fprintf(&b, "%s: %s\n", r.Server, line)
+		fmt.Fprintf(&b, "%s: %s\n", name, line)
 	}
 	for _, line := range lines(r.Stderr) {
-		fmt.Fprintf(&b, "%s [stderr]: %s\n", r.Server, line)
+		fmt.Fprintf(&b, "%s [stderr]: %s\n", name, line)
 	}
 	switch {
+	case r.Status == executor.StatusOK && b.Len() == 0:
+		fmt.Fprintf(&b, "%s: [ok]\n", name) // silence must not look like a skipped server
 	case r.Status == executor.StatusFailed:
-		fmt.Fprintf(&b, "%s: [failed: exit %d]\n", r.Server, r.ExitCode)
+		fmt.Fprintf(&b, "%s: [failed: exit %d]\n", name, r.ExitCode)
 	case r.Status != executor.StatusOK:
-		fmt.Fprintf(&b, "%s: [%s: %v]\n", r.Server, r.Status, r.Err)
+		fmt.Fprintf(&b, "%s: [%s: %v]\n", name, r.Status, r.Err)
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// NameWidth returns the width of the longest name.
+func NameWidth(names []string) int {
+	width := 0
+	for _, name := range names {
+		width = max(width, utf8.RuneCountInString(name))
+	}
+	return width
+}
+
+// PadName fills name with "_" up to width. Underscores instead of spaces
+// keep the name one word, so awk and cut still see it as a single column.
+func PadName(name string, width int) string {
+	return name + strings.Repeat("_", max(0, width-utf8.RuneCountInString(name)))
 }
 
 // lines splits output into lines; a final newline does not produce an

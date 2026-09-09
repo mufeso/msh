@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,7 +30,7 @@ func TestExecWithoutInventory(t *testing.T) {
 	if code != exitcode.OK {
 		t.Fatalf("code = %v, stderr = %s", code, stderr)
 	}
-	if strings.Count(stdout, ": ok") != 2 || !contains(stdout, "adhoc") {
+	if strings.Count(stdout, ": adhoc\n") != 2 || !contains(stdout, "2 ok") {
 		t.Errorf("stdout = %q", stdout)
 	}
 }
@@ -305,5 +306,36 @@ func TestDestinationOnOtherCommands(t *testing.T) {
 		if code != exitcode.OK {
 			t.Errorf("%v: code = %v, stdout = %q, stderr = %s", args, code, stdout, stderr)
 		}
+	}
+}
+
+func TestSeveralServersPutTheNameFirst(t *testing.T) {
+	inv := filepath.Join(t.TempDir(), "inv.yaml")
+	fleet := newTestFleet(t, 2, nil)
+	var b strings.Builder
+	b.WriteString("servers:\n")
+	for i, name := range []string{"web01", "server01"} {
+		host, port, _ := net.SplitHostPort(fleet.servers[i].Addr)
+		fmt.Fprintf(&b, "  - name: %s\n    address: %s\n    port: %s\n    user: tester\n", name, host, port)
+	}
+	if err := os.WriteFile(inv, []byte(b.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := append([]string{"exec", "--all", "--ordered", "--inventory", inv, "--command", "echo /boot"}, fleet.credentials()...)
+	stdout, stderr, code := runCLI(t, args...)
+	if code != exitcode.OK || !strings.HasPrefix(stdout, "web01___: /boot\nserver01: /boot\n") {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	stdout, _, _ = runCLI(t, append(args, "--blocks")...)
+	if !contains(stdout, "=== web01: ok") {
+		t.Errorf("--blocks: stdout = %q", stdout)
+	}
+}
+
+func TestOneServerKeepsItsBlock(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append([]string{"exec", "--host", "tester@" + fleet.servers[0].Addr, "--command", "echo x"}, fleet.credentials()...)
+	if stdout, _, _ := runCLI(t, args...); !contains(stdout, ": ok (exit 0") {
+		t.Errorf("stdout = %q", stdout)
 	}
 }

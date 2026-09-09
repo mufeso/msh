@@ -10,6 +10,7 @@ import (
 	"example.com/msh/internal/errs"
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
+	"example.com/msh/internal/output"
 	"example.com/msh/internal/sshx"
 )
 
@@ -23,6 +24,8 @@ type remoteOptions struct {
 	insecureIgnoreHostKey bool
 	failFast              bool
 	prefix                bool
+	blocks                bool
+	nameWidth             int    // longest selected server name; see chooseLayout
 	report                string // write a JSON report of the run to this file
 	noHistory             bool
 }
@@ -31,9 +34,24 @@ func (o *remoteOptions) register(fs *flag.FlagSet) {
 	fs.BoolVar(&o.insecureIgnoreHostKey, "insecure-ignore-host-key", false,
 		"UNSAFE: do not verify server host keys")
 	fs.BoolVar(&o.failFast, "fail-fast", false, "stop starting new servers after the first one that does not succeed")
-	fs.BoolVar(&o.prefix, "prefix", false, "text output: prefix every line with the server name")
+	fs.BoolVar(&o.prefix, "prefix", false, "text output: start every line with the server name (the default for several servers)")
+	fs.BoolVar(&o.blocks, "blocks", false, "text output: one block per server with its status, even for several servers")
 	fs.StringVar(&o.report, "report", "", "also write the complete run as JSON to this `file` (mode 0600)")
 	fs.BoolVar(&o.noHistory, "no-history", false, "do not record this run in the history")
+}
+
+// chooseLayout decides how text output looks for the selected servers.
+// With several servers each line must say where it came from, or grep
+// output can't be told apart.
+func (o *remoteOptions) chooseLayout(servers []inventory.Server) {
+	names := make([]string, len(servers))
+	for i, s := range servers {
+		names[i] = s.Name
+	}
+	o.nameWidth = output.NameWidth(names)
+	if len(servers) > 1 && !o.blocks {
+		o.prefix = true
+	}
 }
 
 // sshStack is the SSH machinery for one run.
