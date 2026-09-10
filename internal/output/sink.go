@@ -86,13 +86,27 @@ func writePrefixed(w io.Writer, r executor.Result, width int) error {
 	switch {
 	case r.Status == executor.StatusOK && b.Len() == 0:
 		fmt.Fprintf(&b, "%s: [ok]\n", name) // silence must not look like a skipped server
-	case r.Status == executor.StatusFailed:
-		fmt.Fprintf(&b, "%s: [failed: exit %d]\n", name, r.ExitCode)
+	case r.Status == executor.StatusSkipped:
+		fmt.Fprintf(&b, "%s: [skipped: %v]\n", name, r.Err)
 	case r.Status != executor.StatusOK:
-		fmt.Fprintf(&b, "%s: [%s: %v]\n", name, r.Status, r.Err)
+		fmt.Fprintln(&b, errorLine(r))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// errorLine describes a server that did not succeed. The marker is what
+// people grep for; the server name is in the line because there is no name
+// column here.
+func errorLine(r executor.Result) string {
+	if r.Status == executor.StatusFailed {
+		return fmt.Sprintf("ERROR: [failed: %s: exit %d]", r.Server, r.ExitCode)
+	}
+	text := fmt.Sprint(r.Err)
+	if !strings.HasPrefix(text, r.Server+":") {
+		text = r.Server + ": " + text
+	}
+	return fmt.Sprintf("ERROR: [%s: %s]", r.Status, text)
 }
 
 // NameWidth returns the width of the longest name.

@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 241 layered steps. Each `stepNNN` directory is the
+msh was built in 244 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -247,3 +247,6 @@ This table lists the first line of every `.step` file.
 | 239 | With several servers, every output line now starts with the server name, padded with _ to the width of the longest name, so output can be piped to grep and still says where each line came from: "web01_______: /dev/sda2 ...". A server with no output shows [ok], so "msh ping" still reports each server. --blocks gives the old layout with one block per server. One server and runbooks keep their blocks. |
 | 240 | The summary line now lines up with the server names. It uses the longest label that fits the name column: summary, total or sum, padded with _ like the names: "summary_____: 2 servers: 2 ok in 160ms". The column is at least three wide, so sum always fits. |
 | 241 | Replaced the summary label with a column of #, as wide as the server names: "############: 2 servers: 2 ok in 160ms". The line stays aligned, needs no word that can be confused with a server, and the minimum column width of step 240 is gone, so short names need no padding. |
+| 242 | Fixed a bug from step 229: with --host, the first word was always a server, so "msh --host a,b ls -l /tmp" took ls as a server and -l /tmp as the login user. Now, after --host, a word is a server only if it looks like one: user@host, a name with a dot or port, @FILE, or a name from the inventory or ~/.ssh/config. Everything else starts the command. |
+| 243 | Fixed tmux panes under zsh, the default shell on macOS. The line that keeps a failed pane open used a variable called status, which is read-only in zsh, so the pane closed at once and the error was lost; if every pane closed, msh said "no such session". It now uses a name no shell reserves, and a test runs the line in sh, bash and zsh. |
+| 244 | Every server that did not succeed now has a line starting with ERROR:, in both layouts, so "grep ERROR:" finds all of them: "ERROR: [timeout: 192.0.2.7: connection timed out ...]". The line always holds the server name, because it replaces the name column. Skipped servers are not errors and keep their normal line. |

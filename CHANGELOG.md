@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.5.0
+
+- Every server that did not succeed has a line starting with `ERROR:`, in
+  both text layouts: `grep ERROR:` finds them all.
+- Fixed: `msh --host a,b ls -l /tmp` took `ls` as a server and `-l` as the
+  login user. A plain word after `--host` is now a server only if msh knows
+  it, and otherwise starts the command.
+- Fixed: tmux panes closed at once under zsh after a failure, which could end
+  in "no such session".
+
 ## 2.4.2
 
 - The summary fills the name column with `#` instead of a word, and short

@@ -80,8 +80,11 @@ func WriteResultText(w io.Writer, r executor.Result) error {
 	} else {
 		fmt.Fprintf(&b, " (%s)\n", r.Duration.Round(time.Millisecond))
 	}
-	if r.Err != nil {
-		fmt.Fprintf(&b, "error: %v\n", r.Err)
+	switch {
+	case r.Status == executor.StatusSkipped:
+		fmt.Fprintf(&b, "skipped: %v\n", r.Err)
+	case r.Status != executor.StatusOK:
+		fmt.Fprintln(&b, errorLine(r))
 	}
 	writeStream(&b, r.Stdout, r.StdoutTruncated)
 	if r.Stderr != "" {

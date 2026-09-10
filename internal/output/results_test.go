@@ -23,7 +23,7 @@ func TestWriteResultsText(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "=== web01: ok (exit 0, 120ms)\nLinux web01\n" +
-		"=== db01: error (5ms)\nerror: connection refused\n"
+		"=== db01: error (5ms)\nERROR: [error: db01: connection refused]\n"
 	if buf.String() != want {
 		t.Errorf("got:\n%s\nwant:\n%s", buf.String(), want)
 	}

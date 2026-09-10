@@ -30,7 +30,7 @@ func TestPingAndHostsCheck(t *testing.T) {
 	}
 	fleet.servers[1].Close()
 	stdout, _, code = fleet.run(t, []string{"hosts", "check"})
-	if exitcode.Code(code) != exitcode.Connection || !contains(stdout, "s2: [error:") {
+	if exitcode.Code(code) != exitcode.Connection || !contains(stdout, "ERROR: [error: s2:") {
 		t.Errorf("hosts check: code = %d\n%s", code, stdout)
 	}
 }

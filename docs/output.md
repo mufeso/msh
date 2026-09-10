@@ -18,7 +18,9 @@ order.
 ## Text layout
 
 With several servers every line starts with the server name, padded with `_`
-to the longest name, so grep still shows where a line came from:
+to the longest name, so grep still shows where a line came from. A server
+that did not succeed has a line starting with `ERROR:` instead, with its name
+inside, in every text layout, so `grep ERROR:` finds them all:
 
 ```
 $ msh disk --host web01,server01 | grep /boot
@@ -36,7 +38,13 @@ server01: ...
 
 The padding is `_` and not spaces so the name stays one column for `awk` and
 `cut`. Remote stderr lines say `name [stderr]:`. A server with no output shows
-`name: [ok]`, and one that did not succeed shows why: `name: [failed: exit 1]`.
+`name: [ok]`. For example:
+
+```
+ERROR: [failed: web01: exit 2]
+ERROR: [timeout: 192.0.2.7: connection timed out: context deadline exceeded]
+ERROR: [error: db09: DNS lookup failed: no such host]
+```
 
 `--blocks` prints one block per server with its status and time instead.
 That is also the layout for one server and for runbooks, because it shows

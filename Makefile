@@ -1,7 +1,7 @@
 # Makefile for msh — My Parallel SSH.
 BINARY  := msh
 PKG     := example.com/msh/internal/buildinfo
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 2.4.2)
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo 2.5.0)
 COMMIT  ?= $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X $(PKG).Version=$(VERSION) -X $(PKG).Commit=$(COMMIT) -X $(PKG).Date=$(DATE)
