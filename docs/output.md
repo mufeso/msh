@@ -19,8 +19,8 @@ order.
 
 With several servers every line starts with the server name, padded with `_`
 to the longest name, so grep still shows where a line came from. A server
-that did not succeed has a line starting with `ERROR:` instead, with its name
-inside, in every text layout, so `grep ERROR:` finds them all:
+that did not succeed has a line whose content starts with `ERROR:`, in every
+text layout, so `grep ERROR:` finds them all:
 
 ```
 $ msh disk --host web01,server01 | grep /boot
@@ -41,9 +41,9 @@ The padding is `_` and not spaces so the name stays one column for `awk` and
 `name: [ok]`. For example:
 
 ```
-ERROR: [failed: web01: exit 2]
-ERROR: [timeout: 192.0.2.7: connection timed out: context deadline exceeded]
-ERROR: [error: db09: DNS lookup failed: no such host]
+web01____: ERROR: [failed: web01: exit 2]
+192.0.2.7: ERROR: [timeout: 192.0.2.7: connection timed out: context deadline exceeded]
+db09_____: ERROR: [error: db09: DNS lookup failed: no such host]
 ```
 
 `--blocks` prints one block per server with its status and time instead.

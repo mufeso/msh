@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.1
+
+- `ERROR:` now follows the server name in the line layout:
+  `web01: ERROR: [failed: web01: exit 2]`.
+
 ## 2.5.0
 
 - Every server that did not succeed has a line starting with `ERROR:`, in
