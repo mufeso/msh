@@ -323,7 +323,7 @@ func TestSeveralServersPutTheNameFirst(t *testing.T) {
 	}
 	args := append([]string{"exec", "--all", "--ordered", "--inventory", inv, "--command", "echo /boot"}, fleet.credentials()...)
 	stdout, stderr, code := runCLI(t, args...)
-	if code != exitcode.OK || !strings.HasPrefix(stdout, "web01____: /boot\nserver01_: /boot\n") {
+	if code != exitcode.OK || !strings.HasPrefix(stdout, "web01___>: /boot\nserver01>: /boot\n") {
 		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
 	}
 	stdout, _, _ = runCLI(t, append(args, "--blocks")...)

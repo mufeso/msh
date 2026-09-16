@@ -24,25 +24,32 @@ text layout, so `grep ERROR:` finds them all:
 
 ```
 $ msh disk --host web01,server01 | grep /boot
-web01____: /dev/sda2   2.0G  201M  1.6G  11% /boot
-server01_: /dev/sda2   2.0G  201M  1.6G  11% /boot
+web01___>: /dev/sda2   2.0G  201M  1.6G  11% /boot
+server01>: /dev/sda2   2.0G  201M  1.6G  11% /boot
 ```
 
 The last line is the summary, with the name column filled with `#`:
 
 ```
-web01____: ...
-server01_: ...
+web01___>: ...
+server01>: ...
 #########: 2 servers: 2 ok in 160ms
 ```
 
 The padding is `_` and not spaces so the name stays one column for `awk` and
-`cut`. The column is one character wider than the longest name, because lines
-of remote stderr end the name with `!`, so `grep '!:'` finds them:
+`cut`. The column is one character wider than the longest name, and that last
+character says where the line came from:
+
+| Mark | Line | Find it with |
+|------|------|--------------|
+| `>` | remote stdout | `grep '>:'` |
+| `!` | remote stderr | `grep '!:'` |
+| `_` | msh itself: `[ok]`, `ERROR:` | `grep ERROR:` |
 
 ```
-web01____: output
+web01___>: output
 web01___!: text from stderr
+web01____: ERROR: [failed: web01: exit 1]
 ```
 
 A server with no output shows `name: [ok]`. Failures look like this:

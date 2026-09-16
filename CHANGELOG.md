@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.3
+
+- The last character of the name column says where a line came from: `>`
+  remote stdout, `!` remote stderr, `_` msh itself.
+
 ## 2.5.2
 
 - Remote stderr lines stay aligned: ` [stderr]` became `!` before the colon,

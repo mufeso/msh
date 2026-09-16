@@ -78,7 +78,7 @@ func writePrefixed(w io.Writer, r executor.Result, width int) error {
 	var b strings.Builder
 	name := PadName(r.Server, width)
 	for _, line := range lines(r.Stdout) {
-		fmt.Fprintf(&b, "%s: %s\n", name, line)
+		fmt.Fprintf(&b, "%s: %s\n", StdoutName(r.Server, width), line)
 	}
 	for _, line := range lines(r.Stderr) {
 		fmt.Fprintf(&b, "%s: %s\n", StderrName(r.Server, width), line)
@@ -109,8 +109,8 @@ func errorLine(r executor.Result) string {
 }
 
 // NameWidth returns the width of the name column: the longest name plus
-// one character for the stderr mark. Output is streamed, so that room must
-// be there before anyone knows whether a stderr line will come.
+// one character for the mark. Output is streamed, so that room must be
+// there before anyone knows which lines will come.
 func NameWidth(names []string) int {
 	width := 0
 	for _, name := range names {
@@ -125,8 +125,13 @@ func PadName(name string, width int) string {
 	return name + strings.Repeat("_", max(0, width-utf8.RuneCountInString(name)))
 }
 
-// StderrName is PadName for a line of remote stderr: the same width, with
-// the last character as the mark.
+// StdoutName is PadName for a line of remote stdout: the same width, with
+// the last character as the mark. Lines from msh itself keep "_" there.
+func StdoutName(name string, width int) string {
+	return PadName(name, width-1) + ">"
+}
+
+// StderrName is StdoutName for a line of remote stderr.
 func StderrName(name string, width int) string {
 	return PadName(name, width-1) + "!"
 }

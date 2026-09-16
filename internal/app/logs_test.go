@@ -71,7 +71,7 @@ func TestLogsFollowStreamsUntilCtrlC(t *testing.T) {
 	if code != exitcode.Canceled {
 		t.Errorf("code = %v, want canceled", code)
 	}
-	for _, want := range []string{"s1_: event\n", "s2_: event\n"} {
+	for _, want := range []string{"s1>: event\n", "s2>: event\n"} {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}

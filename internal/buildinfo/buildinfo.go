@@ -20,7 +20,7 @@ const (
 )
 
 // defaultVersion is the version of builds without -ldflags.
-const defaultVersion = "2.5.2"
+const defaultVersion = "2.5.3"
 
 // Values replaced at build time.
 var (

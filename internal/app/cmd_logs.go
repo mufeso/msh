@@ -100,8 +100,7 @@ func (c *cli) runStreaming(r remoteRun) exitcode.Code {
 	r.req.Stream = func(s inventory.Server) (io.Writer, io.Writer) {
 		mu.Lock()
 		defer mu.Unlock()
-		name := output.PadName(s.Name, r.ro.nameWidth)
-		out := output.NewLineWriter(orig, name+": ", &mu)
+		out := output.NewLineWriter(orig, output.StdoutName(s.Name, r.ro.nameWidth)+": ", &mu)
 		errw := output.NewLineWriter(orig, output.StderrName(s.Name, r.ro.nameWidth)+": ", &mu)
 		writers = append(writers, out, errw)
 		return out, errw
