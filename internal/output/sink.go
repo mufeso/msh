@@ -81,7 +81,7 @@ func writePrefixed(w io.Writer, r executor.Result, width int) error {
 		fmt.Fprintf(&b, "%s: %s\n", name, line)
 	}
 	for _, line := range lines(r.Stderr) {
-		fmt.Fprintf(&b, "%s [stderr]: %s\n", name, line)
+		fmt.Fprintf(&b, "%s: %s\n", StderrName(r.Server, width), line)
 	}
 	switch {
 	case r.Status == executor.StatusOK && b.Len() == 0:
@@ -108,19 +108,27 @@ func errorLine(r executor.Result) string {
 	return fmt.Sprintf("ERROR: [%s: %s]", r.Status, text)
 }
 
-// NameWidth returns the width of the longest name.
+// NameWidth returns the width of the name column: the longest name plus
+// one character for the stderr mark. Output is streamed, so that room must
+// be there before anyone knows whether a stderr line will come.
 func NameWidth(names []string) int {
 	width := 0
 	for _, name := range names {
 		width = max(width, utf8.RuneCountInString(name))
 	}
-	return width
+	return width + 1
 }
 
 // PadName fills name with "_" up to width. Underscores instead of spaces
 // keep the name one word, so awk and cut still see it as a single column.
 func PadName(name string, width int) string {
 	return name + strings.Repeat("_", max(0, width-utf8.RuneCountInString(name)))
+}
+
+// StderrName is PadName for a line of remote stderr: the same width, with
+// the last character as the mark.
+func StderrName(name string, width int) string {
+	return PadName(name, width-1) + "!"
 }
 
 // lines splits output into lines; a final newline does not produce an

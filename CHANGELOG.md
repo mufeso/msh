@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.2
+
+- Remote stderr lines stay aligned: ` [stderr]` became `!` before the colon,
+  and the name column is one character wider for it.
+
 ## 2.5.1
 
 - `ERROR:` now follows the server name in the line layout:

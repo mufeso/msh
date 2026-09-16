@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 245 layered steps. Each `stepNNN` directory is the
+msh was built in 246 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -251,3 +251,4 @@ This table lists the first line of every `.step` file.
 | 243 | Fixed tmux panes under zsh, the default shell on macOS. The line that keeps a failed pane open used a variable called status, which is read-only in zsh, so the pane closed at once and the error was lost; if every pane closed, msh said "no such session". It now uses a name no shell reserves, and a test runs the line in sh, bash and zsh. |
 | 244 | Every server that did not succeed now has a line starting with ERROR:, in both layouts, so "grep ERROR:" finds all of them: "ERROR: [timeout: 192.0.2.7: connection timed out ...]". The line always holds the server name, because it replaces the name column. Skipped servers are not errors and keep their normal line. |
 | 245 | Put the server name back in front of ERROR: in the line layout, so every line has the same shape, "name: content": "web01_______: ERROR: [failed: web01: exit 2]". grep ERROR: still finds them all, and the columns stay aligned. Blocks are unchanged, because their header already names the server. |
+| 246 | Remote stderr lines no longer break the alignment. The " [stderr]" text became one character, !, right before the colon, and the name column is one wider so that every line has room for it: "web01______: output" and "web01_____!: error text". grep '!:' finds stderr lines. |

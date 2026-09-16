@@ -123,7 +123,7 @@ func TestRunbookWhen(t *testing.T) {
 	if exitcode.Code(code) != exitcode.OK {
 		t.Fatalf("code = %d, stderr = %s", code, stderr)
 	}
-	for _, want := range []string{"s1: dnf", "s2: apt", "s1: --- step debian: skipped", "s2: --- step redhat: skipped"} {
+	for _, want := range []string{"s1_: dnf", "s2_: apt", "s1_: --- step debian: skipped", "s2_: --- step redhat: skipped"} {
 		if !contains(stdout, want) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}

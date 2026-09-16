@@ -102,7 +102,7 @@ func (c *cli) runStreaming(r remoteRun) exitcode.Code {
 		defer mu.Unlock()
 		name := output.PadName(s.Name, r.ro.nameWidth)
 		out := output.NewLineWriter(orig, name+": ", &mu)
-		errw := output.NewLineWriter(orig, name+" [stderr]: ", &mu)
+		errw := output.NewLineWriter(orig, output.StderrName(s.Name, r.ro.nameWidth)+": ", &mu)
 		writers = append(writers, out, errw)
 		return out, errw
 	}
