@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 247 layered steps. Each `stepNNN` directory is the
+msh was built in 248 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -253,3 +253,4 @@ This table lists the first line of every `.step` file.
 | 245 | Put the server name back in front of ERROR: in the line layout, so every line has the same shape, "name: content": "web01_______: ERROR: [failed: web01: exit 2]". grep ERROR: still finds them all, and the columns stay aligned. Blocks are unchanged, because their header already names the server. |
 | 246 | Remote stderr lines no longer break the alignment. The " [stderr]" text became one character, !, right before the colon, and the name column is one wider so that every line has room for it: "web01______: output" and "web01_____!: error text". grep '!:' finds stderr lines. |
 | 247 | The mark column now always says where a line came from: > is remote stdout, ! is remote stderr, and _ is a line from msh itself, such as [ok] or ERROR:. Before, _ meant both "padding" and "stdout". grep '>:' now keeps only what the commands printed. |
+| 248 | ERROR: lines got their own mark in the name column: * . The column is now complete: > remote stdout, ! remote stderr, * a server that did not succeed, _ other lines from msh such as [ok]. |

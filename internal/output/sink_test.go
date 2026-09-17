@@ -19,8 +19,8 @@ func TestPrefixSink(t *testing.T) {
 	s.Write(executor.Result{Server: "x", Status: executor.StatusError, Err: errors.New("refused")})
 	s.Close(runner.Summary{Total: 3, OK: 1, Failed: 1, Error: 1, Problems: []string{"db01", "x"}})
 	want := "web01>: a\nweb01>: b\nweb01!: warn\n" +
-		"db01: ERROR: [failed: db01: exit 2]\n" +
-		"x: ERROR: [error: x: refused]\n" +
+		"db01*: ERROR: [failed: db01: exit 2]\n" +
+		"x*: ERROR: [error: x: refused]\n" +
 		"--- 3 servers: 1 ok, 1 failed, 1 error in 0s\n" +
 		"--- problems: db01, x\n"
 	if buf.String() != want {
@@ -35,7 +35,7 @@ func TestPrefixSinkPadsNames(t *testing.T) {
 	s.Write(executor.Result{Server: "server01", Status: executor.StatusOK, Stdout: "/boot\n"})
 	s.Write(executor.Result{Server: "web01", Status: executor.StatusOK})
 	s.Write(executor.Result{Server: "web01", Status: executor.StatusFailed, ExitCode: 3, Stderr: "no\n"})
-	want := "web01___>: /boot\nserver01>: /boot\nweb01____: [ok]\nweb01___!: no\nweb01____: ERROR: [failed: web01: exit 3]\n"
+	want := "web01___>: /boot\nserver01>: /boot\nweb01____: [ok]\nweb01___!: no\nweb01___*: ERROR: [failed: web01: exit 3]\n"
 	if buf.String() != want {
 		t.Errorf("got:\n%s\nwant:\n%s", buf.String(), want)
 	}

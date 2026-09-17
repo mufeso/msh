@@ -89,7 +89,7 @@ func writePrefixed(w io.Writer, r executor.Result, width int) error {
 	case r.Status == executor.StatusSkipped:
 		fmt.Fprintf(&b, "%s: [skipped: %v]\n", name, r.Err)
 	case r.Status != executor.StatusOK:
-		fmt.Fprintf(&b, "%s: %s\n", name, errorLine(r))
+		fmt.Fprintf(&b, "%s: %s\n", ErrorName(r.Server, width), errorLine(r))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -134,6 +134,11 @@ func StdoutName(name string, width int) string {
 // StderrName is StdoutName for a line of remote stderr.
 func StderrName(name string, width int) string {
 	return PadName(name, width-1) + "!"
+}
+
+// ErrorName is StdoutName for the line of a server that did not succeed.
+func ErrorName(name string, width int) string {
+	return PadName(name, width-1) + "*"
 }
 
 // lines splits output into lines; a final newline does not produce an

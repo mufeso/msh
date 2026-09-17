@@ -44,20 +44,25 @@ character says where the line came from:
 |------|------|--------------|
 | `>` | remote stdout | `grep '>:'` |
 | `!` | remote stderr | `grep '!:'` |
-| `_` | msh itself: `[ok]`, `ERROR:` | `grep ERROR:` |
+| `*` | a server that did not succeed | `grep ERROR:` |
+| `_` | other lines from msh, such as `[ok]` | |
 
 ```
 web01___>: output
 web01___!: text from stderr
-web01____: ERROR: [failed: web01: exit 1]
+web01___*: ERROR: [failed: web01: exit 1]
 ```
 
-A server with no output shows `name: [ok]`. Failures look like this:
+A server with no output shows `name: [ok]`. Remote stderr alone is not a
+failure: a server only gets `ERROR:` if its command exits with an error or it
+can't be reached. Stdout and stderr are collected separately, so within one
+server all stdout lines come first, whatever the order they were written in.
+Failures look like this:
 
 ```
-web01_____: ERROR: [failed: web01: exit 2]
-192.0.2.7_: ERROR: [timeout: 192.0.2.7: connection timed out: context deadline exceeded]
-db09______: ERROR: [error: db09: DNS lookup failed: no such host]
+web01____*: ERROR: [failed: web01: exit 2]
+192.0.2.7*: ERROR: [timeout: 192.0.2.7: connection timed out: context deadline exceeded]
+db09_____*: ERROR: [error: db09: DNS lookup failed: no such host]
 ```
 
 `--blocks` prints one block per server with its status and time instead.

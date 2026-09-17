@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.4
+
+- `ERROR:` lines have their own mark in the name column: `*`.
+
 ## 2.5.3
 
 - The last character of the name column says where a line came from: `>`
