@@ -61,6 +61,9 @@ func (s *textSink) Close(sum runner.Summary) error {
 	label := "---"
 	if s.prefix && s.width > 0 {
 		label = strings.Repeat("#", s.width) + ":"
+		if _, err := fmt.Fprintf(s.w, "%s \n", label); err != nil {
+			return err
+		}
 	}
 	if _, err := fmt.Fprintf(s.w, "%s %s\n", label, sum); err != nil {
 		return err

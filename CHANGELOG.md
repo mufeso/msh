@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.5
+
+- An empty `#` line separates the results from the summary.
+
 ## 2.5.4
 
 - `ERROR:` lines have their own mark in the name column: `*`.

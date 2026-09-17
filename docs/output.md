@@ -28,11 +28,13 @@ web01___>: /dev/sda2   2.0G  201M  1.6G  11% /boot
 server01>: /dev/sda2   2.0G  201M  1.6G  11% /boot
 ```
 
-The last line is the summary, with the name column filled with `#`:
+The summary comes last, after an empty line, with the name column filled
+with `#`:
 
 ```
 web01___>: ...
 server01>: ...
+#########: 
 #########: 2 servers: 2 ok in 160ms
 ```
 

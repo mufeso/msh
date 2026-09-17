@@ -47,6 +47,7 @@ func TestSummaryIsAligned(t *testing.T) {
 	s.Write(executor.Result{Server: "web01", Status: executor.StatusOK, Stdout: "x\n"})
 	s.Close(runner.Summary{Total: 2, OK: 1, Failed: 1, Problems: []string{"192.0.2.20"}})
 	want := "web01_____>: x\n" +
+		"###########: \n" +
 		"###########: 2 servers: 1 ok, 1 failed in 0s\n" +
 		"###########: problems: 192.0.2.20\n"
 	if buf.String() != want {
