@@ -63,6 +63,7 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	f.sel.registerWhere(fs)
 	f.ro.register(fs)
 	f.tmux.register(fs)
+	f.tunnels.register(fs)
 	fs.StringVar(&f.sel.forceUser, "l", "", "login `user` (like ssh -l)")
 	fs.IntVar(&f.sel.forcePort, "p", 0, "`port` (like ssh -p)")
 	fs.String("i", "", "private key `file` (like ssh -i)")
@@ -100,6 +101,14 @@ func runConnect(c *cli, args []string) exitcode.Code {
 		return code
 	}
 	f.sel.hosts = hosts
+	if f.tunnels.used() && len(servers) > 1 {
+		c.errorf("forwarding needs exactly one server; this selection has %d", len(servers))
+		return exitcode.Usage
+	}
+	if f.tunnels.noCommand && command != "" {
+		c.errorf("-N runs no command, but %q was given", command)
+		return exitcode.Usage
+	}
 	if len(servers) > 1 && command != "" {
 		return c.runRemote(remoteRun{
 			opts: &f.opts, sel: &f.sel, ro: &f.ro, name: "connect",

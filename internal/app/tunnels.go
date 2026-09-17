@@ -1,0 +1,130 @@
+package app
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"net"
+	"sync"
+
+	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/inventory"
+	"example.com/msh/internal/sshx"
+	"example.com/msh/internal/tunnel"
+)
+
+// tunnelFlags are the ssh flags for forwarding.
+type tunnelFlags struct {
+	local     []tunnel.Spec
+	noCommand bool
+}
+
+func (t *tunnelFlags) register(fs *flag.FlagSet) {
+	fs.Func("L", "forward a local port: `[bind:]port:host:hostport` (like ssh -L, repeatable)", func(v string) error {
+		s, err := tunnel.ParseForward(v)
+		t.local = append(t.local, s)
+		return err
+	})
+	fs.BoolVar(&t.noCommand, "N", false, "run no command, only keep the forwards open (like ssh -N)")
+}
+
+// forwarding reports whether there is anything to listen on.
+func (t *tunnelFlags) forwarding() bool {
+	return len(t.local) > 0
+}
+
+// used reports whether any of these flags was given. They all need exactly
+// one connection.
+func (t *tunnelFlags) used() bool {
+	return t.forwarding() || t.noCommand
+}
+
+// tunnels runs the listeners of one connection.
+type tunnels struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+	mu     sync.Mutex
+	cli    *cli
+}
+
+// serve runs a listener in the background.
+func (r *tunnels) serve(ln net.Listener, handle tunnel.Handler) {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		tunnel.Serve(r.ctx, ln, handle)
+	}()
+}
+
+// report prints a failure of one forwarded connection. The tunnel stays up:
+// the next connection may work.
+func (r *tunnels) report(err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.cli.errorf("%v", err)
+}
+
+// stop closes all listeners and connections and waits for them.
+func (r *tunnels) stop() {
+	r.cancel()
+	r.wg.Wait()
+}
+
+// warnPublic says so when a listener can be reached from other machines:
+// whoever connects to it gets the access of this SSH connection.
+func (c *cli) warnPublic(flagName string, s tunnel.Spec) {
+	if s.Public() {
+		c.errorf("warning: -%s %s: other machines can connect to this forward", flagName, s)
+	}
+}
+
+// startTunnels opens every forward. If one can't be opened, none stays.
+func (c *cli) startTunnels(t *tunnelFlags, opts *commonOptions, client sshx.Client) (stop func(), err error) {
+	fw, ok := sshx.AsForwarder(client)
+	if !ok {
+		return nil, fmt.Errorf("this connection can't forward ports")
+	}
+	ctx, cancel := context.WithCancel(c.ctx())
+	r := &tunnels{ctx: ctx, cancel: cancel, cli: c}
+	defer func() {
+		if err != nil {
+			r.stop()
+		}
+	}()
+	for _, s := range t.local {
+		c.warnPublic("L", s)
+		ln, err := net.Listen("tcp", s.BindAddr())
+		if err != nil {
+			return nil, fmt.Errorf("-L %s: %w", s, err)
+		}
+		c.verbosef(opts, "forwarding %s to %s through the server", ln.Addr(), s.Target())
+		r.serve(ln, tunnel.Forward(func(context.Context) (net.Conn, error) {
+			conn, err := fw.Dial("tcp", s.Target())
+			if err != nil {
+				return nil, fmt.Errorf("-L %s: %w", s, err)
+			}
+			return conn, nil
+		}, r.report))
+	}
+	return r.stop, nil
+}
+
+// waitForConnection is -N: nothing runs, the forwards work until CTRL+C or
+// until the connection ends.
+func (c *cli) waitForConnection(client sshx.Client, server inventory.Server) exitcode.Code {
+	fw, ok := sshx.AsForwarder(client)
+	if !ok {
+		c.errorf("this connection can't forward ports")
+		return exitcode.Connection
+	}
+	done := make(chan error, 1)
+	go func() { done <- fw.Wait() }()
+	select {
+	case <-c.ctx().Done():
+		return exitcode.Canceled
+	case err := <-done:
+		c.errorf("%s: connection closed: %v", server.Name, err)
+		return exitcode.Connection
+	}
+}

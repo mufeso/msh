@@ -32,10 +32,11 @@ func shellCommand() *command {
 
 // shellFlags are the flags of "msh shell".
 type shellFlags struct {
-	opts commonOptions
-	sel  selectionOptions
-	ro   remoteOptions
-	tmux tmuxOptions
+	tunnels tunnelFlags
+	opts    commonOptions
+	sel     selectionOptions
+	ro      remoteOptions
+	tmux    tmuxOptions
 }
 
 func runShell(c *cli, args []string) exitcode.Code {
@@ -74,11 +75,11 @@ func (c *cli) interactiveSession(f *shellFlags, iopts interactive.Options) exitc
 		return code
 	}
 	defer stack.Close()
-	return c.runInteractive(stack, servers[0], iopts)
+	return c.runInteractive(stack, servers[0], f, iopts)
 }
 
 // runInteractive connects to server and runs the session.
-func (c *cli) runInteractive(stack *sshStack, server inventory.Server, iopts interactive.Options) exitcode.Code {
+func (c *cli) runInteractive(stack *sshStack, server inventory.Server, f *shellFlags, iopts interactive.Options) exitcode.Code {
 	if iopts.Term == "" {
 		iopts.Term = "xterm-256color"
 		if v, ok := c.lookupEnv("TERM"); ok && v != "" {
@@ -91,6 +92,18 @@ func (c *cli) runInteractive(stack *sshStack, server inventory.Server, iopts int
 		return errs.ExitCode(errs.KindOf(err))
 	}
 	defer client.Close()
+
+	if f.tunnels.forwarding() {
+		stop, err := c.startTunnels(&f.tunnels, &f.opts, client)
+		if err != nil {
+			c.errorf("%v", err)
+			return exitcode.Connection
+		}
+		defer stop()
+	}
+	if f.tunnels.noCommand {
+		return c.waitForConnection(client, server)
+	}
 
 	status, err := interactive.Run(c.ctx(), client, c.terminal(), iopts)
 	if errors.Is(err, context.Canceled) {
