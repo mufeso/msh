@@ -66,7 +66,6 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	f.tunnels.register(fs)
 	fs.StringVar(&f.sel.forceUser, "l", "", "login `user` (like ssh -l)")
 	fs.IntVar(&f.sel.forcePort, "p", 0, "`port` (like ssh -p)")
-	fs.String("i", "", "private key `file` (like ssh -i)")
 	fs.String("J", "", "connect through this `bastion`: a name or [user@]host[:port] (like ssh -J)")
 	tty := fs.Bool("t", false, "use a terminal for a remote command (like ssh -t)")
 	noTTY := fs.Bool("T", false, "never use a terminal (like ssh -T)")

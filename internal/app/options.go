@@ -40,7 +40,7 @@ type commonOptions struct {
 // settingsFlags maps settings flags to configuration keys.
 var settingsFlags = map[string]string{
 	"inventory":       config.KeyInventory,
-	"l":               config.KeyUser, // ssh-style aliases, on "msh connect"
+	"l":               config.KeyUser, // ssh-style aliases, on "msh connect"; -i everywhere
 	"p":               config.KeyPort,
 	"i":               config.KeyIdentityFile,
 	"J":               config.KeyBastion,
@@ -77,6 +77,7 @@ func (o *commonOptions) register(fs *flag.FlagSet) {
 	fs.String("user", "", "default SSH `user` for servers without one")
 	fs.Int("port", d.Port, "default SSH `port` for servers without one")
 	fs.String("identity", "", "private key `file`")
+	fs.String("i", "", "private key `file`, the same as --identity (like ssh -i)")
 	fs.String("known-hosts", "", "known_hosts `file`")
 	fs.String("output", d.Output, "output `format`: text, json, csv or jsonl")
 	fs.Duration("connect-timeout", d.ConnectTimeout, "TCP connect and SSH handshake `timeout` per server")

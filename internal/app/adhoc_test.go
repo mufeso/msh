@@ -363,3 +363,22 @@ func TestKnownNameAfterHostIsAServer(t *testing.T) {
 		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
 	}
 }
+
+func TestShortIdentityFlagOnCommands(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	dest := "tester@" + fleet.servers[0].Addr
+	for _, args := range [][]string{
+		{"exec", dest, "--command", "echo ok"},
+		{"uptime", dest},
+		{dest, "echo", "ok"},
+	} {
+		args = append(args, "-i", fleet.identity, "--known-hosts", fleet.known)
+		if dest == args[0] { // flags go first in the ssh-style form
+			args = []string{"-i", fleet.identity, "--known-hosts", fleet.known, dest, "echo", "ok"}
+		}
+		stdout, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+		if code != exitcode.OK {
+			t.Errorf("%v: code = %v, stdout = %q, stderr = %s", args, code, stdout, stderr)
+		}
+	}
+}
