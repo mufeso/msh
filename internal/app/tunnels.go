@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/inventory"
@@ -13,9 +14,13 @@ import (
 	"example.com/msh/internal/tunnel"
 )
 
+// dialTimeout limits local connections made for a forward.
+const dialTimeout = 10 * time.Second
+
 // tunnelFlags are the ssh flags for forwarding.
 type tunnelFlags struct {
 	local     []tunnel.Spec
+	remote    []tunnel.Spec
 	noCommand bool
 }
 
@@ -25,12 +30,17 @@ func (t *tunnelFlags) register(fs *flag.FlagSet) {
 		t.local = append(t.local, s)
 		return err
 	})
+	fs.Func("R", "forward a server port back to here: `[bind:]port:host:hostport` (like ssh -R, repeatable)", func(v string) error {
+		s, err := tunnel.ParseForward(v)
+		t.remote = append(t.remote, s)
+		return err
+	})
 	fs.BoolVar(&t.noCommand, "N", false, "run no command, only keep the forwards open (like ssh -N)")
 }
 
 // forwarding reports whether there is anything to listen on.
 func (t *tunnelFlags) forwarding() bool {
-	return len(t.local) > 0
+	return len(t.local)+len(t.remote) > 0
 }
 
 // used reports whether any of these flags was given. They all need exactly
@@ -103,6 +113,22 @@ func (c *cli) startTunnels(t *tunnelFlags, opts *commonOptions, client sshx.Clie
 			conn, err := fw.Dial("tcp", s.Target())
 			if err != nil {
 				return nil, fmt.Errorf("-L %s: %w", s, err)
+			}
+			return conn, nil
+		}, r.report))
+	}
+	for _, s := range t.remote {
+		c.warnPublic("R", s)
+		ln, err := fw.Listen("tcp", s.BindAddr())
+		if err != nil {
+			return nil, fmt.Errorf("-R %s: %w", s, err)
+		}
+		c.verbosef(opts, "the server forwards %s to %s here", ln.Addr(), s.Target())
+		r.serve(ln, tunnel.Forward(func(ctx context.Context) (net.Conn, error) {
+			d := net.Dialer{Timeout: dialTimeout}
+			conn, err := d.DialContext(ctx, "tcp", s.Target())
+			if err != nil {
+				return nil, fmt.Errorf("-R %s: %w", s, err)
 			}
 			return conn, nil
 		}, r.report))

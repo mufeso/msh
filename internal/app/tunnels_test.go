@@ -191,3 +191,28 @@ func TestPublicForwardWarns(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestRemoteForward(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, bastion: true})
+	_, echoPort := echoAddr(t)
+	port := freePort(t)
+	args := append(fleet.credentials(), "-N", "-R", port+":127.0.0.1:"+echoPort, "tester@"+fleet.bastion.Addr)
+	b := runBackground(t, nil, args...)
+
+	// The server listens here too, because it is a test server.
+	conn := dialWhenUp(t, b, "127.0.0.1:"+port)
+	defer conn.Close()
+	roundTrip(t, conn, "back through the tunnel")
+	if got := fleet.bastion.RemoteForwards(); len(got) != 1 || got[0] != "127.0.0.1:"+port {
+		t.Errorf("remote forwards = %v", got)
+	}
+}
+
+func TestRemoteForwardRefused(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append(fleet.credentials(), "-R", "0:127.0.0.1:80", "tester@"+fleet.servers[0].Addr, "true")
+	_, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.Connection || !contains(stderr, "-R ") || len(fleet.servers[0].Commands()) != 0 {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -62,6 +63,7 @@ type Server struct {
 	commands []string
 	signals  []string
 	forwards []string
+	remotes  []string
 	ptys     []PTY
 	resizes  [][2]int // width, height
 
@@ -157,6 +159,87 @@ func (s *Server) Resizes() [][2]int {
 	return append([][2]int(nil), s.resizes...)
 }
 
+// RemoteForwards returns the addresses clients asked the server to listen on.
+func (s *Server) RemoteForwards() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.remotes)
+}
+
+// handleGlobal answers requests that are not about one channel. The only
+// ones the server knows are for remote forwarding ("ssh -R").
+func (s *Server) handleGlobal(conn *ssh.ServerConn, reqs <-chan *ssh.Request) {
+	listeners := map[string]net.Listener{}
+	defer func() {
+		for _, ln := range listeners {
+			ln.Close()
+		}
+	}()
+	for req := range reqs {
+		var p struct {
+			Addr string
+			Port uint32
+		}
+		switch {
+		case req.Type == "tcpip-forward" && s.opts.AllowForwarding && ssh.Unmarshal(req.Payload, &p) == nil:
+			ln, err := net.Listen("tcp", net.JoinHostPort(p.Addr, strconv.Itoa(int(p.Port))))
+			if err != nil {
+				req.Reply(false, nil)
+				continue
+			}
+			port := uint32(ln.Addr().(*net.TCPAddr).Port)
+			addr := net.JoinHostPort(p.Addr, strconv.Itoa(int(port)))
+			listeners[addr] = ln
+			s.record(&s.remotes, addr)
+			req.Reply(true, ssh.Marshal(struct{ Port uint32 }{port}))
+			go s.serveRemoteForward(conn, ln, p.Addr, port)
+		case req.Type == "cancel-tcpip-forward" && ssh.Unmarshal(req.Payload, &p) == nil:
+			addr := net.JoinHostPort(p.Addr, strconv.Itoa(int(p.Port)))
+			if ln, ok := listeners[addr]; ok {
+				ln.Close()
+				delete(listeners, addr)
+			}
+			req.Reply(true, nil)
+		default:
+			req.Reply(false, nil)
+		}
+	}
+}
+
+// serveRemoteForward opens a channel to the client for every connection.
+func (s *Server) serveRemoteForward(conn *ssh.ServerConn, ln net.Listener, addr string, port uint32) {
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			defer c.Close()
+			from := c.RemoteAddr().(*net.TCPAddr)
+			ch, reqs, err := conn.OpenChannel("forwarded-tcpip", ssh.Marshal(struct {
+				Addr     string
+				Port     uint32
+				OrigAddr string
+				OrigPort uint32
+			}{addr, port, from.IP.String(), uint32(from.Port)}))
+			if err != nil {
+				return
+			}
+			defer ch.Close()
+			go ssh.DiscardRequests(reqs)
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				io.Copy(ch, c)
+				ch.CloseWrite()
+			}()
+			io.Copy(c, ch)
+			c.(*net.TCPConn).CloseWrite()
+			<-done
+		}()
+	}
+}
+
 // Forwards returns the host:port targets of direct-tcpip channels.
 func (s *Server) Forwards() []string {
 	s.mu.Lock()
@@ -222,7 +305,7 @@ func (s *Server) handleConn(nc net.Conn) {
 		return // handshake or authentication failed
 	}
 	defer sconn.Close()
-	go ssh.DiscardRequests(reqs)
+	go s.handleGlobal(sconn, reqs)
 
 	var wg sync.WaitGroup
 	for newCh := range chans {
