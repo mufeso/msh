@@ -101,6 +101,9 @@ func (c *cli) runInteractive(stack *sshStack, server inventory.Server, f *shellF
 		}
 		defer stop()
 	}
+	if f.tunnels.stdio != "" {
+		return c.stdioForward(client, f.tunnels.stdio)
+	}
 	if f.tunnels.noCommand {
 		return c.waitForConnection(client, server)
 	}

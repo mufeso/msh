@@ -104,8 +104,8 @@ func runConnect(c *cli, args []string) exitcode.Code {
 		c.errorf("forwarding needs exactly one server; this selection has %d", len(servers))
 		return exitcode.Usage
 	}
-	if f.tunnels.noCommand && command != "" {
-		c.errorf("-N runs no command, but %q was given", command)
+	if (f.tunnels.noCommand || f.tunnels.stdio != "") && command != "" {
+		c.errorf("-N and -W run no command, but %q was given", command)
 		return exitcode.Usage
 	}
 	if len(servers) > 1 && command != "" {

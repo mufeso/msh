@@ -241,3 +241,18 @@ func TestDynamicForward(t *testing.T) {
 		t.Errorf("forwards = %v", got)
 	}
 }
+
+func TestStdioForward(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, bastion: true})
+	_, echoPort := echoAddr(t)
+	ctx := withInput(context.Background(), "ping\n")
+	args := append(fleet.credentials(), "-W", "127.0.0.1:"+echoPort, "tester@"+fleet.bastion.Addr)
+	stdout, stderr, code := runCLICtx(t, ctx, nil, args...)
+	if code != exitcode.OK || stdout != "ping\n" {
+		t.Errorf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	args = append(fleet.credentials(), "-W", "127.0.0.1:1", "tester@"+fleet.bastion.Addr, "uptime")
+	if _, _, code := runCLICtx(t, ctx, nil, args...); code != exitcode.Usage {
+		t.Errorf("-W with a command: code = %v", code)
+	}
+}

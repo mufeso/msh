@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ type tunnelFlags struct {
 	local     []tunnel.Spec
 	remote    []tunnel.Spec
 	dynamic   []tunnel.Spec
+	stdio     string // -W: host:port
 	noCommand bool
 }
 
@@ -41,6 +43,10 @@ func (t *tunnelFlags) register(fs *flag.FlagSet) {
 		t.dynamic = append(t.dynamic, s)
 		return err
 	})
+	fs.Func("W", "connect stdin and stdout to `host:port` through the server (like ssh -W)", func(v string) (err error) {
+		t.stdio, err = tunnel.ParseTarget(v)
+		return err
+	})
 	fs.BoolVar(&t.noCommand, "N", false, "run no command, only keep the forwards open (like ssh -N)")
 }
 
@@ -52,7 +58,7 @@ func (t *tunnelFlags) forwarding() bool {
 // used reports whether any of these flags was given. They all need exactly
 // one connection.
 func (t *tunnelFlags) used() bool {
-	return t.forwarding() || t.noCommand
+	return t.forwarding() || t.noCommand || t.stdio != ""
 }
 
 // tunnels runs the listeners of one connection.
@@ -155,6 +161,38 @@ func (c *cli) startTunnels(t *tunnelFlags, opts *commonOptions, client sshx.Clie
 		}, r.report))
 	}
 	return r.stop, nil
+}
+
+// stdioForward is -W. The copy from stdin is not waited for: a terminal
+// read may never return, and the end of the remote side ends the run.
+func (c *cli) stdioForward(client sshx.Client, target string) exitcode.Code {
+	fw, ok := sshx.AsForwarder(client)
+	if !ok {
+		c.errorf("this connection can't forward ports")
+		return exitcode.Connection
+	}
+	conn, err := fw.Dial("tcp", target)
+	if err != nil {
+		c.errorf("-W %s: %v", target, err)
+		return exitcode.Connection
+	}
+	defer conn.Close()
+	t := c.terminal()
+	go func() {
+		_, _ = io.Copy(conn, t.Stdin())
+		tunnel.CloseWrite(conn)
+	}()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = io.Copy(t.Stdout(), conn)
+	}()
+	select {
+	case <-done:
+		return exitcode.OK
+	case <-c.ctx().Done():
+		return exitcode.Canceled
+	}
 }
 
 // waitForConnection is -N: nothing runs, the forwards work until CTRL+C or
