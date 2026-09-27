@@ -21,6 +21,7 @@ const dialTimeout = 10 * time.Second
 type tunnelFlags struct {
 	local     []tunnel.Spec
 	remote    []tunnel.Spec
+	dynamic   []tunnel.Spec
 	noCommand bool
 }
 
@@ -35,12 +36,17 @@ func (t *tunnelFlags) register(fs *flag.FlagSet) {
 		t.remote = append(t.remote, s)
 		return err
 	})
+	fs.Func("D", "run a SOCKS5 proxy here: `[bind:]port` (like ssh -D, repeatable)", func(v string) error {
+		s, err := tunnel.ParseDynamic(v)
+		t.dynamic = append(t.dynamic, s)
+		return err
+	})
 	fs.BoolVar(&t.noCommand, "N", false, "run no command, only keep the forwards open (like ssh -N)")
 }
 
 // forwarding reports whether there is anything to listen on.
 func (t *tunnelFlags) forwarding() bool {
-	return len(t.local)+len(t.remote) > 0
+	return len(t.local)+len(t.remote)+len(t.dynamic) > 0
 }
 
 // used reports whether any of these flags was given. They all need exactly
@@ -129,6 +135,21 @@ func (c *cli) startTunnels(t *tunnelFlags, opts *commonOptions, client sshx.Clie
 			conn, err := d.DialContext(ctx, "tcp", s.Target())
 			if err != nil {
 				return nil, fmt.Errorf("-R %s: %w", s, err)
+			}
+			return conn, nil
+		}, r.report))
+	}
+	for _, s := range t.dynamic {
+		c.warnPublic("D", s)
+		ln, err := net.Listen("tcp", s.BindAddr())
+		if err != nil {
+			return nil, fmt.Errorf("-D %s: %w", s, err)
+		}
+		c.verbosef(opts, "SOCKS5 proxy on %s", ln.Addr())
+		r.serve(ln, tunnel.Socks(func(_ context.Context, addr string) (net.Conn, error) {
+			conn, err := fw.Dial("tcp", addr)
+			if err != nil {
+				return nil, fmt.Errorf("-D %s: %s: %w", s, addr, err)
 			}
 			return conn, nil
 		}, r.report))

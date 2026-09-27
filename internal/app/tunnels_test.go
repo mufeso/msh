@@ -216,3 +216,28 @@ func TestRemoteForwardRefused(t *testing.T) {
 		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }
+
+func TestDynamicForward(t *testing.T) {
+	fleet := newFleet(t, fleetOptions{servers: 1, bastion: true})
+	echo, echoPort := echoAddr(t)
+	port := freePort(t)
+	args := append(fleet.credentials(), "-N", "-D", port, "tester@"+fleet.bastion.Addr)
+	b := runBackground(t, nil, args...)
+
+	conn := dialWhenUp(t, b, "127.0.0.1:"+port)
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(5 * time.Second))
+	p, _ := strconv.Atoi(echoPort)
+	hello := []byte{5, 1, 0, 5, 1, 0, 1, 127, 0, 0, 1, byte(p >> 8), byte(p)}
+	if _, err := conn.Write(hello); err != nil {
+		t.Fatal(err)
+	}
+	reply := make([]byte, 12)
+	if _, err := io.ReadFull(conn, reply); err != nil || reply[3] != 0 {
+		t.Fatalf("reply = %v, %v", reply, err)
+	}
+	roundTrip(t, conn, "by proxy")
+	if got := fleet.bastion.Forwards(); len(got) != 1 || got[0] != echo {
+		t.Errorf("forwards = %v", got)
+	}
+}
