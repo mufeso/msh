@@ -8,6 +8,7 @@ import (
 	"example.com/msh/internal/exitcode"
 	"example.com/msh/internal/interactive"
 	"example.com/msh/internal/inventory"
+	"example.com/msh/internal/sshx"
 )
 
 const shellUsage = `Usage: msh shell --host NAME [--command CMD] [flags]
@@ -100,6 +101,13 @@ func (c *cli) runInteractive(stack *sshStack, server inventory.Server, f *shellF
 			return exitcode.Connection
 		}
 		defer stop()
+	}
+	if f.tunnels.agent {
+		if err := sshx.ForwardAgent(client, stack.auth); err != nil {
+			c.errorf("%v", err)
+			return exitcode.Connection
+		}
+		iopts.ForwardAgent = true
 	}
 	if f.tunnels.stdio != "" {
 		return c.stdioForward(client, f.tunnels.stdio)

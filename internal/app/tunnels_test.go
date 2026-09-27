@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"example.com/msh/internal/exitcode"
+	"example.com/msh/internal/sshtest"
+	"golang.org/x/crypto/ssh"
 )
 
 // echoAddr starts a TCP server that returns what it receives.
@@ -254,5 +256,35 @@ func TestStdioForward(t *testing.T) {
 	args = append(fleet.credentials(), "-W", "127.0.0.1:1", "tester@"+fleet.bastion.Addr, "uptime")
 	if _, _, code := runCLICtx(t, ctx, nil, args...); code != exitcode.Usage {
 		t.Errorf("-W with a command: code = %v", code)
+	}
+}
+
+func TestAgentForwarding(t *testing.T) {
+	key := sshtest.NewKey(t)
+	srv, known := passwordServer(t, sshtest.Options{AuthorizedKeys: []ssh.PublicKey{key.Public()}})
+	env := map[string]string{"SSH_AUTH_SOCK": sshtest.StartAgent(t, key)}
+	dest := "tester@" + srv.Addr
+
+	// Without -A the server must not see the agent.
+	if stdout, stderr, code := runCLICtx(t, context.Background(), env, "--known-hosts", known, dest, "echo", "ok"); code != exitcode.OK {
+		t.Fatalf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if srv.AgentKeys() != 0 {
+		t.Fatal("the agent was forwarded without -A")
+	}
+	if stdout, stderr, code := runCLICtx(t, context.Background(), env, "-A", "--known-hosts", known, dest, "echo", "ok"); code != exitcode.OK {
+		t.Fatalf("code = %v, stdout = %q, stderr = %s", code, stdout, stderr)
+	}
+	if srv.AgentKeys() != 1 {
+		t.Errorf("agent keys = %d", srv.AgentKeys())
+	}
+}
+
+func TestAgentForwardingNeedsAnAgent(t *testing.T) {
+	fleet := newTestFleet(t, 1, nil)
+	args := append(fleet.credentials(), "-A", "tester@"+fleet.servers[0].Addr, "true")
+	_, stderr, code := runCLICtx(t, context.Background(), nil, args...)
+	if code != exitcode.Connection || !contains(stderr, "no ssh-agent") {
+		t.Errorf("code = %v, stderr = %q", code, stderr)
 	}
 }

@@ -44,6 +44,8 @@ type Options struct {
 	Term    string // value for $TERM on the server
 	Command string // remote command; "" starts the login shell
 	NoTTY   bool   // never request a pseudo-terminal (keeps stderr separate)
+
+	ForwardAgent bool // offer the local ssh-agent to this session
 }
 
 // Run opens a session on client, requests a pseudo-terminal, connects the
@@ -56,6 +58,11 @@ func Run(ctx context.Context, client sshx.Client, t Terminal, opts Options) (int
 	}
 	defer sess.Close()
 
+	if opts.ForwardAgent {
+		if err := sshx.RequestAgent(sess); err != nil {
+			return -1, err
+		}
+	}
 	// With a PTY, the remote side writes stdout and stderr to the same
 	// terminal. Without one, stderr arrives on its own stream.
 	tty := t.IsTerminal() && !opts.NoTTY

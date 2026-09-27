@@ -24,6 +24,7 @@ type tunnelFlags struct {
 	remote    []tunnel.Spec
 	dynamic   []tunnel.Spec
 	stdio     string // -W: host:port
+	agent     bool
 	noCommand bool
 }
 
@@ -47,6 +48,7 @@ func (t *tunnelFlags) register(fs *flag.FlagSet) {
 		t.stdio, err = tunnel.ParseTarget(v)
 		return err
 	})
+	fs.BoolVar(&t.agent, "A", false, "let this session use your ssh-agent; root on the server can too (like ssh -A)")
 	fs.BoolVar(&t.noCommand, "N", false, "run no command, only keep the forwards open (like ssh -N)")
 }
 
@@ -58,7 +60,7 @@ func (t *tunnelFlags) forwarding() bool {
 // used reports whether any of these flags was given. They all need exactly
 // one connection.
 func (t *tunnelFlags) used() bool {
-	return t.forwarding() || t.noCommand || t.stdio != ""
+	return t.forwarding() || t.noCommand || t.agent || t.stdio != ""
 }
 
 // tunnels runs the listeners of one connection.

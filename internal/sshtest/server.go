@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 // Exec describes one command the test server was asked to run.
@@ -52,6 +53,7 @@ type Server struct {
 	HostKey Key    // the server's host key
 
 	passwordTries atomic.Int32
+	agentKeys     atomic.Int32
 
 	opts Options
 	cfg  *ssh.ServerConfig
@@ -122,6 +124,23 @@ func (s *Server) checkPassword(meta ssh.ConnMetadata, password string) (*ssh.Per
 	}
 	return nil, fmt.Errorf("wrong password for %q", meta.User())
 }
+
+// countAgentKeys does what a program on the server would do with a
+// forwarded agent: it opens a channel back to the client and lists the keys.
+func (s *Server) countAgentKeys(conn *ssh.ServerConn) {
+	ch, reqs, err := conn.OpenChannel("auth-agent@openssh.com", nil)
+	if err != nil {
+		return
+	}
+	defer ch.Close()
+	go ssh.DiscardRequests(reqs)
+	if keys, err := agent.NewClient(ch).List(); err == nil {
+		s.agentKeys.Store(int32(len(keys)))
+	}
+}
+
+// AgentKeys returns how many keys the server saw through a forwarded agent.
+func (s *Server) AgentKeys() int { return int(s.agentKeys.Load()) }
 
 // PasswordTries returns how many passwords the server has received.
 func (s *Server) PasswordTries() int { return int(s.passwordTries.Load()) }
@@ -312,16 +331,16 @@ func (s *Server) handleConn(nc net.Conn) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s.handleChannel(newCh)
+			s.handleChannel(sconn, newCh)
 		}()
 	}
 	wg.Wait()
 }
 
-func (s *Server) handleChannel(newCh ssh.NewChannel) {
+func (s *Server) handleChannel(conn *ssh.ServerConn, newCh ssh.NewChannel) {
 	switch newCh.ChannelType() {
 	case "session":
-		s.handleSession(newCh)
+		s.handleSession(conn, newCh)
 	case "direct-tcpip":
 		s.handleDirectTCPIP(newCh)
 	default:
@@ -329,7 +348,7 @@ func (s *Server) handleChannel(newCh ssh.NewChannel) {
 	}
 }
 
-func (s *Server) handleSession(newCh ssh.NewChannel) {
+func (s *Server) handleSession(conn *ssh.ServerConn, newCh ssh.NewChannel) {
 	ch, reqs, err := newCh.Accept()
 	if err != nil {
 		return
@@ -396,6 +415,9 @@ func (s *Server) handleSession(newCh ssh.NewChannel) {
 			_ = ssh.Unmarshal(req.Payload, &p)
 			s.record(&s.signals, p.Signal)
 			cancel()
+		case "auth-agent-req@openssh.com":
+			req.Reply(true, nil)
+			s.countAgentKeys(conn)
 		case "env":
 			req.Reply(true, nil)
 		default:
