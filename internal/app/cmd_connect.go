@@ -32,11 +32,23 @@ opens in its own tmux pane.
 Login uses keys from ssh-add first, then key files, then a password: the
 MSH_PASSWORD environment variable, or a prompt on the terminal.
 
+Forwarding works like ssh and needs exactly one server. Forwards listen on
+loopback unless you name another address:
+  -L [bind:]port:host:hostport   a port here reaches host:hostport from the server
+  -R [bind:]port:host:hostport   a port on the server reaches host:hostport from here
+  -D [bind:]port                 a SOCKS5 proxy here, leaving from the server
+  -W host:port                   stdin and stdout connect to host:port
+  -N                             run nothing, keep the forwards open until CTRL+C
+  -A                             the session can use your ssh-agent
+
 Examples:
   msh ops@server1
   msh root@server1:2222
   msh web01 df -h
   msh -t web01 top
+  msh -N -L 8080:localhost:80 web01
+  msh -N -R 9000:localhost:3000 web01
+  msh -N -D 1080 web01
   msh -p 2222 -l root -i ~/.ssh/key -J jump@bastion.example.com server1
   msh --host "web01 web02" root@db01 uptime
   msh --host web01,web02 root@db01 uptime
@@ -67,6 +79,7 @@ func runConnect(c *cli, args []string) exitcode.Code {
 	fs.StringVar(&f.sel.forceUser, "l", "", "login `user` (like ssh -l)")
 	fs.IntVar(&f.sel.forcePort, "p", 0, "`port` (like ssh -p)")
 	fs.String("J", "", "connect through this `bastion`: a name or [user@]host[:port] (like ssh -J)")
+	fs.BoolVar(&f.opts.verbose, "v", false, "print diagnostics to stderr (like ssh -v)")
 	tty := fs.Bool("t", false, "use a terminal for a remote command (like ssh -t)")
 	noTTY := fs.Bool("T", false, "never use a terminal (like ssh -T)")
 	if code, ok := parseFlags(fs, args); !ok {

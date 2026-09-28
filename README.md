@@ -18,6 +18,7 @@ msh user@server                       # open a shell, no setup needed
 msh user@server df -h                 # run a command
 msh -p 2222 -J jump@bastion server    # ssh flags and ~/.ssh/config work
 msh --host "web01 web02" uptime       # several: a,b or "a b" or @FILE
+msh -N -L 8080:localhost:80 server    # -L -R -D -W -A work like ssh
 ```
 
 Keys from `ssh-add` work as they do with ssh. Otherwise msh asks for the

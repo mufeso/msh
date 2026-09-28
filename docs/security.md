@@ -32,6 +32,19 @@ designed to be safe by default.
 - Private keys stay in memory only for the run; agent keys never leave
   the agent.
 
+## Forwarding
+
+- `-L`, `-R` and `-D` listen on loopback unless another address is named, and
+  msh warns when it is. Everyone who can reach a forward gets the access of the
+  SSH connection: there is no password on it.
+- On a shared machine, other local users can reach loopback ports too.
+- `-A` is off by default. While the session lasts, root on the server can use
+  your agent to log in elsewhere as you. It can't read the keys. Prefer `-J`
+  to reach a further server.
+- Forwarding keeps host key verification: nothing is forwarded over a
+  connection to an unverified server, unless you chose
+  `--insecure-ignore-host-key`.
+
 ## What msh never prints or logs
 
 Passwords, passphrases, private keys and agent material never appear in

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0
+
+- Port forwarding like ssh: `-L`, `-R`, `-D` (SOCKS5), `-W` and `-N`.
+- `-A` forwards your ssh-agent to the session. It is off by default.
+- `-i FILE` works on every command, and `-v` in the ssh-style form.
+
 ## 2.5.5
 
 - An empty `#` line separates the results from the summary.

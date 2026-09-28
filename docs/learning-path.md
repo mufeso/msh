@@ -1,6 +1,6 @@
 # Learning path
 
-msh was built in 249 layered steps. Each `stepNNN` directory is the
+msh was built in 258 layered steps. Each `stepNNN` directory is the
 complete project at that step; its `.step` file explains the change.
 This table lists the first line of every `.step` file.
 
@@ -255,3 +255,12 @@ This table lists the first line of every `.step` file.
 | 247 | The mark column now always says where a line came from: > is remote stdout, ! is remote stderr, and _ is a line from msh itself, such as [ok] or ERROR:. Before, _ meant both "padding" and "stdout". grep '>:' now keeps only what the commands printed. |
 | 248 | ERROR: lines got their own mark in the name column: * . The column is now complete: > remote stdout, ! remote stderr, * a server that did not succeed, _ other lines from msh such as [ok]. |
 | 249 | Added an empty # line before the summary, so the results and the summary are visibly apart while the column stays unbroken. grep -v '^#' still removes all of it. |
+| 250 | Added the internal/tunnel package with the parser for port forwarding specs, as ssh writes them: [bind:]port:host:hostport for -L and -R, [bind:]port for -D, and [ipv6] in brackets. The default bind address is loopback, so a tunnel is private unless you ask otherwise. |
+| 251 | Added the engine of every tunnel: Serve accepts connections and runs a handler for each, Pipe copies bytes both ways, and Forward connects the two. Each direction ends with a half close, so a client can finish sending and still read the answer. Canceling the context closes everything, and Serve waits for its goroutines. |
+| 252 | Added -L and -N. "msh -L 8080:localhost:80 server" listens on this machine and carries every connection through SSH to localhost:80 as the server sees it. -N keeps the connection open without running anything, until CTRL+C. A port that can't be opened is an error, not a warning, because a tunnel that isn't there is worse than none. Listening on more than loopback prints a warning. |
+| 253 | -i FILE now works on every command, not only in the ssh-style form: msh disk -i ~/.ssh/key --all. It is registered next to --identity, so it reaches the same setting through the same layer. |
+| 254 | Added -R: "msh -R 9000:localhost:3000 server" asks the server to listen on port 9000 and carries each connection back to localhost:3000 on this machine. The same Serve and Forward code as -L runs it, because a remote listener is just a net.Listener. The test server learned tcpip-forward, so the whole path is tested. |
+| 255 | Added -D: a SOCKS5 proxy on this machine. Point a browser at it and every connection leaves from the server. The protocol is small enough to write by hand: a greeting, a request with an address, a reply. Only CONNECT without a password is supported, and it listens on loopback by default. |
+| 256 | Added -W host:port: standard input and output become a connection to that address, through the server. This is what ProxyCommand needs, so other tools can use msh as their jump host. |
+| 257 | Added -A, agent forwarding: commands on the server can use the keys of your local ssh-agent, for example to git pull or to hop to another server, without any key being copied there. It is off unless you ask, because anyone who is root on that server can use your agent while you are connected. A test proves the server really sees the keys, and only with -A. |
+| 258 | Final step: msh 2.6.0, port forwarding. Added -v, the help text, the "Port forwarding" section of docs/ssh-client.md and the security notes for forwarding and agents, and updated the version and the learning path. |
